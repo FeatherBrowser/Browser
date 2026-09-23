@@ -15,10 +15,9 @@ internal static class AddressResolver
             (absolute.Scheme == Uri.UriSchemeHttp || absolute.Scheme == Uri.UriSchemeHttps || absolute.Scheme == Uri.UriSchemeFile))
             return absolute.ToString();
 
-        if (!value.Contains(' ') && value.Contains('.'))
+        if (!value.Contains(' ') && value.Contains('.') && Uri.TryCreate("https://" + value, UriKind.Absolute, out Uri? guessed))
         {
-            if (Uri.TryCreate("https://" + value, UriKind.Absolute, out Uri? guessed))
-                return guessed.ToString();
+            return guessed.ToString();
         }
 
         return GetSearchEngine(searchEngine).Prefix + Uri.EscapeDataString(value);
