@@ -81,7 +81,9 @@ public partial class MainWindow : Window
                 AreBrowserExtensionsEnabled = false
             };
 
-            _environment = await CoreWebView2Environment.CreateAsync(null, dataRoot, options);
+            _environment = await CoreWebView2Environment.CreateAsync(
+    browserExecutableFolder: null,
+    userDataFolder: dataRoot);
 
             if (!string.IsNullOrWhiteSpace(_initialAddress))
             {
@@ -171,6 +173,30 @@ public partial class MainWindow : Window
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
         }
+    }
+
+    private static string PrepareWebAssets()
+    {
+        string assetsRoot = Path.Combine(
+            Environment.GetFolderPath(
+                Environment.SpecialFolder.LocalApplicationData),
+            "FeatherBrowser",
+            "Assets");
+
+        Directory.CreateDirectory(assetsRoot);
+
+        string backgroundPath =
+            Path.Combine(assetsRoot, "background.png");
+
+        if (!File.Exists(backgroundPath))
+        {
+            File.WriteAllBytes(
+                backgroundPath,
+                FeatherBrowser.Infrastructure.Resources.EmbeddedAssets
+                    .LoadBytes("background.png"));
+        }
+
+        return assetsRoot;
     }
 
     private void Window_Closing(object? sender, CancelEventArgs e)

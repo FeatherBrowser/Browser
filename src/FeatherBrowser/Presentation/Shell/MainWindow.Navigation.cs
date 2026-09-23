@@ -63,6 +63,7 @@ public partial class MainWindow : Window
         tab.IsSettingsPage = false;
         tab.IsLibraryPage = false;
         tab.IsWelcomePage = false;
+
         string target = NormalizeAddress(value);
         tab.LastAddress = target;
         tab.NeedsContentRestore = true;
@@ -78,25 +79,46 @@ public partial class MainWindow : Window
         }
     }
 
-    private string NormalizeAddress(string input) => AddressResolver.Normalize(input, _store.Settings.SearchEngine);
+    private void AddressBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        AddressPlaceholder.Visibility =
+            string.IsNullOrWhiteSpace(AddressBox.Text)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+    }
 
-    private (string Name, string Prefix) SearchEngineInfo() => AddressResolver.GetSearchEngine(_store.Settings.SearchEngine);
+    private string NormalizeAddress(string input) =>
+        AddressResolver.Normalize(input, _store.Settings.SearchEngine);
+
+    private (string Name, string Prefix) SearchEngineInfo() =>
+        AddressResolver.GetSearchEngine(_store.Settings.SearchEngine);
 
     private static string SafeHost(string? address)
     {
-        if (Uri.TryCreate(address, UriKind.Absolute, out Uri? uri) && !string.IsNullOrWhiteSpace(uri.Host))
+        if (Uri.TryCreate(address, UriKind.Absolute, out Uri? uri) &&
+            !string.IsNullOrWhiteSpace(uri.Host))
+        {
             return uri.Host;
+        }
+
         return "page";
     }
 
-    private static bool TryGetLibrarySection(string? value, out string section) => AddressResolver.TryGetLibrarySection(value, out section);
+    private static bool TryGetLibrarySection(string? value, out string section) =>
+        AddressResolver.TryGetLibrarySection(value, out section);
 
-    private static string LibraryTitle(string section) => AddressResolver.GetLibraryTitle(section);
+    private static string LibraryTitle(string section) =>
+        AddressResolver.GetLibraryTitle(section);
 
     private static string TrimLabel(string? value, int max)
     {
-        string text = string.IsNullOrWhiteSpace(value) ? "Untitled" : value.Trim();
-        return text.Length <= max ? text : text[..(max - 1)] + "…";
+        string text = string.IsNullOrWhiteSpace(value)
+            ? "Untitled"
+            : value.Trim();
+
+        return text.Length <= max
+            ? text
+            : text[..(max - 1)] + "…";
     }
 
     private void NavigateCurrent(string url)
@@ -110,48 +132,53 @@ public partial class MainWindow : Window
         if (_activeTab is null || _activeTab.IsClosed || !_activeTab.IsLoaded)
         {
             BackButton.IsEnabled = false;
-            ForwardButton.IsEnabled = false;
+            ForwardNavButton.IsEnabled = false;
             ReloadButton.IsEnabled = _activeTab is not null;
             return;
         }
 
         CoreWebView2 core = _activeTab.View.CoreWebView2;
+
         BackButton.IsEnabled = core.CanGoBack;
-        ForwardButton.IsEnabled = core.CanGoForward;
+        ForwardNavButton.IsEnabled = core.CanGoForward;
         ReloadButton.IsEnabled = true;
     }
 
     private void UpdateBookmarkButton()
     {
-        bool saved = _activeTab is not null && !_activeTab.IsInternalPage && _store.IsBookmarked(_activeTab.LastAddress);
-        BookmarkButton.Content = saved ? "★" : "☆";
-        BookmarkButton.Foreground = saved ? _accentBrush : (Brush)FindResource("TextPrimary");
+        bool saved =
+            _activeTab is not null &&
+            !_activeTab.IsInternalPage &&
+            _store.IsBookmarked(_activeTab.LastAddress);
+
+        BookmarkIcon.Fill = saved
+            ? _accentBrush
+            : Brushes.Transparent;
+
+        BookmarkIcon.Stroke = saved
+            ? _accentBrush
+            : new SolidColorBrush(Color.FromRgb(154, 170, 189));
+
+        BookmarkButton.ToolTip = saved
+            ? "Remove from favorites (Ctrl+D)"
+            : "Add to favorites (Ctrl+D)";
     }
 
     private void UpdateFeatureButtons()
     {
         int blocked = _activeTab?.BlockedRequests ?? 0;
-        ShieldButton.Content = _shieldEnabled ? (blocked > 0 ? $"Shield · {blocked}" : "Shield") : "Shield off";
-        ShieldButton.Foreground = _shieldEnabled ? _accentBrush : _secondaryBrush;
-        GameModeButton.Content = _store.Settings.GameMode ? "Game · ON" : "Game";
-        GameModeButton.Foreground = _store.Settings.GameMode ? _gameAccentBrush : _secondaryBrush;
-        EcoButton.Content = (_ecoMode || _store.Settings.GameMode) ? "Eco · ON" : "Eco";
-        EcoButton.Foreground = (_ecoMode || _store.Settings.GameMode) ? _accentBrush : _secondaryBrush;
 
-        if (_activeTab is null || _activeTab.IsInternalPage || string.IsNullOrWhiteSpace(_activeTab.LastAddress))
-        {
-            SiteButton.Content = "◉";
-            SiteButton.ToolTip = "Site controls";
-            SiteButton.Foreground = _secondaryBrush;
-        }
-        else
-        {
-            string host = SafeHost(_activeTab.LastAddress);
-            bool allowlisted = _blocker.IsSiteAllowlisted(host, _store.Settings);
-            SiteButton.Content = allowlisted ? "○" : (_isPrivateMode ? "◐" : "◉");
-            SiteButton.ToolTip = allowlisted ? $"Site controls · Shield allowed on {host}" : $"Site controls · {host}";
-            SiteButton.Foreground = _isPrivateMode ? new SolidColorBrush(Color.FromRgb(210, 168, 255)) : (allowlisted ? _secondaryBrush : _accentBrush);
-        }
+        ShieldButton.Foreground =
+            _shieldEnabled
+                ? _accentBrush
+                : _secondaryBrush;
+
+        ShieldButton.ToolTip =
+            _shieldEnabled
+                ? blocked > 0
+                    ? $"Feather Shield · {blocked} requests blocked"
+                    : "Feather Shield enabled"
+                : "Feather Shield disabled";
     }
 
     private void AddressBox_KeyDown(object sender, KeyEventArgs e)
@@ -169,18 +196,25 @@ public partial class MainWindow : Window
         AddressBox.Dispatcher.BeginInvoke(new Action(AddressBox.SelectAll));
     }
 
-    private async void NewTabButton_Click(object sender, RoutedEventArgs e) => await AddTabAsync();
+    private async void NewTabButton_Click(object sender, RoutedEventArgs e) =>
+        await AddTabAsync();
 
     private void BackButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_activeTab is { IsLoaded: true } && _activeTab.View.CoreWebView2.CanGoBack)
+        if (_activeTab is { IsLoaded: true } &&
+            _activeTab.View.CoreWebView2.CanGoBack)
+        {
             _activeTab.View.CoreWebView2.GoBack();
+        }
     }
 
     private void ForwardButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_activeTab is { IsLoaded: true } && _activeTab.View.CoreWebView2.CanGoForward)
+        if (_activeTab is { IsLoaded: true } &&
+            _activeTab.View.CoreWebView2.CanGoForward)
+        {
             _activeTab.View.CoreWebView2.GoForward();
+        }
     }
 
     private async void ReloadButton_Click(object sender, RoutedEventArgs e)
@@ -215,11 +249,21 @@ public partial class MainWindow : Window
 
     private void ToggleCurrentBookmark()
     {
-        if (_activeTab is null || _activeTab.IsInternalPage || string.IsNullOrWhiteSpace(_activeTab.LastAddress))
+        if (_activeTab is null ||
+            _activeTab.IsInternalPage ||
+            string.IsNullOrWhiteSpace(_activeTab.LastAddress))
+        {
             return;
+        }
 
-        bool added = _store.ToggleBookmark(_activeTab.Title.Text, _activeTab.LastAddress);
-        StatusText.Text = added ? "Added to favorites" : "Removed from favorites";
+        bool added = _store.ToggleBookmark(
+            _activeTab.Title.Text,
+            _activeTab.LastAddress);
+
+        StatusText.Text = added
+            ? "Added to favorites"
+            : "Removed from favorites";
+
         UpdateBookmarkButton();
     }
 
@@ -228,16 +272,21 @@ public partial class MainWindow : Window
         _ecoMode = !_ecoMode;
         _store.Settings.EcoMode = _ecoMode;
         _store.SaveSettings();
+
         ApplyPerformanceToTabs();
         UpdateFeatureButtons();
+
         StatusText.Text = _store.Settings.GameMode
             ? "Gaming Mode controls background tabs while it is enabled"
-            : _ecoMode ? "Eco enabled · background tabs suspend quickly" : "Eco suspension disabled";
+            : _ecoMode
+                ? "Eco enabled · background tabs suspend quickly"
+                : "Eco suspension disabled";
     }
 
     private void GameModeButton_Click(object sender, RoutedEventArgs e)
     {
         ToggleGameMode();
+
         if (_activeTab?.IsStartPage == true)
             ShowStartPage(_activeTab);
     }

@@ -101,6 +101,12 @@ public partial class MainWindow : Window
     private void ConfigureWebView(BrowserTab tab)
     {
         CoreWebView2 core = tab.View.CoreWebView2;
+        string assetsRoot = PrepareWebAssets();
+
+        core.SetVirtualHostNameToFolderMapping(
+            "feather-assets",
+            assetsRoot,
+            CoreWebView2HostResourceAccessKind.Allow);
         core.Settings.IsStatusBarEnabled = false;
         core.Settings.AreDevToolsEnabled = true;
         core.Settings.AreDefaultContextMenusEnabled = true;

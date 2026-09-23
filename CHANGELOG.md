@@ -9,8 +9,24 @@ Feather 2.0 is a big update focused on making the browser feel cleaner, faster a
 - Moved the new tab button next to the last tab.
 - Improved tab overflow so the new tab button stays visible when lots of tabs are open.
 - Cleaned up active and inactive tab styling.
-- Made the tab bar blend into the navigation bar better instead of looking like a separate section.
+- Made the tab bar blend into the navigation bar instead of looking like a separate section.
 - Improved tab spacing, close buttons and overall alignment.
+- Redesigned the main navigation bar with a much cleaner browser-style layout.
+- Reworked the address bar with a rounded design and cleaner spacing.
+- Added a proper "Search or enter address" placeholder to the address bar.
+- Replaced several old text-based toolbar icons with cleaner vector icons.
+- Simplified the main toolbar by moving less important controls out of the way.
+- Added cleaner back, forward and reload controls.
+- Updated the bookmark button to use a proper icon with active and inactive states.
+- Improved the Shield button and moved it into the new toolbar layout.
+- Added quick access to downloads from the main toolbar.
+- Cleaned up the browser menu button and toolbar alignment.
+- Overhauled the New Tab page with a completely new design.
+- Added a full-page background to the New Tab page.
+- Added quick links to the New Tab page.
+- Added a Continue Browsing section using recent history.
+- Added New Tab customization controls.
+- Improved how internal Feather pages fit with the new browser design.
 - Improved tab switching and background tab handling.
 - Improved sleeping and waking tabs to reduce unnecessary memory usage.
 - Fixed several WebView2 tab lifecycle issues.
@@ -20,6 +36,7 @@ Feather 2.0 is a big update focused on making the browser feel cleaner, faster a
 - Cleaned up duplicated tab code and simplified parts of the browser internals.
 - Improved ad and tracker blocking.
 - Improved error handling around navigation and WebView2.
+- Fixed several issues caused by the browser UI overhaul.
 - General performance, UI and stability improvements.
 - Various smaller fixes and code cleanup across the project.
 

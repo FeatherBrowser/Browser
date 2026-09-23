@@ -27,4 +27,7 @@
       <LogicalName>FeatherBrowser.Assets.%(Filename)%(Extension)</LogicalName>
     </EmbeddedResource>
   </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Remove="Assets\Pages\feather.svg" />
+  </ItemGroup>
 </Project>

@@ -19,569 +19,685 @@
         KeyDown="Window_KeyDown"
         StateChanged="Window_StateChanged"
         Closing="Window_Closing">
-    <shell:WindowChrome.WindowChrome>
-        <shell:WindowChrome CaptionHeight="52"
-                            ResizeBorderThickness="6"
-                            GlassFrameThickness="0"
-                            CornerRadius="0"
-                            UseAeroCaptionButtons="False"/>
-    </shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome.WindowChrome>
+                <shell:WindowChrome CaptionHeight="52"
+                                    ResizeBorderThickness="6"
+                                    GlassFrameThickness="0"
+                                    CornerRadius="0"
+                                    UseAeroCaptionButtons="False"/>
+        </shell:WindowChrome.WindowChrome>
 
-    <DockPanel LastChildFill="True"
-            Background="{StaticResource ChromeBackground}">
-        <Border x:Name="TitleBar"
-                DockPanel.Dock="Top"
-                Height="46"
-                Background="#0A1422"
-                BorderThickness="0"
-                MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
+        <DockPanel LastChildFill="True"
+                   Background="{StaticResource ChromeBackground}">
+                <Border x:Name="TitleBar"
+                        DockPanel.Dock="Top"
+                        Height="46"
+                        Background="#0A1422"
+                        BorderThickness="0"
+                        MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+                        <Grid>
+                                <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
 
-                <Border x:Name="TabBar"
-                        Grid.Column="0"
-                        Height="45"
-                        Background="Transparent"
-                        Padding="10,5,8,0"
-                        ClipToBounds="True"
-                        SizeChanged="TabBar_SizeChanged"
-                        shell:WindowChrome.IsHitTestVisibleInChrome="True">
-                    <StackPanel Orientation="Horizontal"
-                                HorizontalAlignment="Left"
-                                VerticalAlignment="Bottom">
-                        <ScrollViewer HorizontalScrollBarVisibility="Hidden"
-                                      VerticalScrollBarVisibility="Disabled"
-                                      VerticalContentAlignment="Bottom"
-                                      HorizontalAlignment="Left">
+                                <Border x:Name="TabBar"
+                                        Grid.Column="0"
+                                        Height="45"
+                                        Background="Transparent"
+                                        Padding="10,5,8,0"
+                                        ClipToBounds="True"
+                                        SizeChanged="TabBar_SizeChanged"
+                                        shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                                        <StackPanel Orientation="Horizontal"
+                                                    HorizontalAlignment="Left"
+                                                    VerticalAlignment="Bottom">
+                                                <ScrollViewer HorizontalScrollBarVisibility="Hidden"
+                                                              VerticalScrollBarVisibility="Disabled"
+                                                              VerticalContentAlignment="Bottom"
+                                                              HorizontalAlignment="Left">
 
-                            <StackPanel x:Name="TabStrip"
-                                        Orientation="Horizontal"
-                                        VerticalAlignment="Bottom"/>
-                        </ScrollViewer>
+                                                        <StackPanel x:Name="TabStrip"
+                                                                    Orientation="Horizontal"
+                                                                    VerticalAlignment="Bottom"/>
+                                                </ScrollViewer>
 
-                        <Button x:Name="NewTabButton"
-                                Style="{StaticResource IconButton}"
-                                Content="+"
-                                Width="34"
-                                Height="36"
-                                MinWidth="34"
-                                MinHeight="36"
-                                Margin="5,4,0,0"
-                                Padding="0,0,0,2"
-                                FontSize="18"
-                                FontWeight="Light"
-                                VerticalAlignment="Bottom"
-                                ToolTip="New tab (Ctrl+T)"
-                                Click="NewTabButton_Click"/>
-                    </StackPanel>
+                                                <Button x:Name="NewTabButton"
+                                                        Style="{StaticResource IconButton}"
+                                                        Content="+"
+                                                        Width="34"
+                                                        Height="36"
+                                                        MinWidth="34"
+                                                        MinHeight="36"
+                                                        Margin="5,4,0,0"
+                                                        Padding="0,0,0,2"
+                                                        FontSize="18"
+                                                        FontWeight="Light"
+                                                        VerticalAlignment="Bottom"
+                                                        ToolTip="New tab (Ctrl+T)"
+                                                        Click="NewTabButton_Click"/>
+                                        </StackPanel>
+                                </Border>
+
+                                <TextBlock Visibility="Collapsed"
+                                           x:Name="TitleText"
+                                           Grid.Column="0"
+                                           Foreground="#667386"
+                                           FontSize="10.5"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis"
+                                           MaxWidth="580"/>
+
+                                <Button Grid.Column="1"
+                                        Style="{StaticResource WindowButton}"
+                                        Content="—"
+                                        shell:WindowChrome.IsHitTestVisibleInChrome="True"
+                                        Click="MinimizeButton_Click"/>
+                                <Button x:Name="MaximizeButton"
+                                        Grid.Column="2"
+                                        Style="{StaticResource WindowButton}"
+                                        Content="□"
+                                        FontSize="12"
+                                        shell:WindowChrome.IsHitTestVisibleInChrome="True"
+                                        Click="MaximizeButton_Click"/>
+                                <Button Grid.Column="3"
+                                        Style="{StaticResource WindowButton}"
+                                        Content="×"
+                                        FontSize="15"
+                                        shell:WindowChrome.IsHitTestVisibleInChrome="True"
+                                        Click="CloseButton_Click"/>
+                        </Grid>
                 </Border>
 
-                <TextBlock Visibility="Collapsed"
-                           x:Name="TitleText"
-                           Grid.Column="0"
-                           Foreground="#667386"
-                           FontSize="10.5"
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Center"
-                           TextTrimming="CharacterEllipsis"
-                           MaxWidth="580"/>
+                <Border x:Name="Toolbar"
+                        DockPanel.Dock="Top"
+                        Height="52"
+                        Background="#101A27"
+                        BorderThickness="0"
+                        Padding="10,5,12,5">
 
-                <Button Grid.Column="1"
-                        Style="{StaticResource WindowButton}"
-                        Content="—"
-                        shell:WindowChrome.IsHitTestVisibleInChrome="True"
-                        Click="MinimizeButton_Click"/>
-                <Button x:Name="MaximizeButton"
-                        Grid.Column="2"
-                        Style="{StaticResource WindowButton}"
-                        Content="□"
-                        FontSize="12"
-                        shell:WindowChrome.IsHitTestVisibleInChrome="True"
-                        Click="MaximizeButton_Click"/>
-                <Button Grid.Column="3"
-                        Style="{StaticResource WindowButton}"
-                        Content="×"
-                        FontSize="15"
-                        shell:WindowChrome.IsHitTestVisibleInChrome="True"
-                        Click="CloseButton_Click"/>
-            </Grid>
-        </Border>
-
-        <Border x:Name="Toolbar"
-                DockPanel.Dock="Top"
-                Height="52"
-                Background="{StaticResource ToolbarBackground}"
-                Padding="9,7"
-                BorderBrush="#314A63"
-                BorderThickness="0,0,0,1">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-
-                <StackPanel Grid.Column="0"
-                        Orientation="Horizontal"
-                        Margin="0,0,5,0">
-                    <Button x:Name="BackButton"
-                            Style="{StaticResource IconButton}"
-                            Content="‹"
-                            FontSize="23"
-                            Width="34"
-                            ToolTip="Back (Alt+Left)"
-                            Click="BackButton_Click"/>
-                    <Button x:Name="ForwardButton"
-                            Style="{StaticResource IconButton}"
-                            Content="›"
-                            FontSize="23"
-                            Width="34"
-                            ToolTip="Forward (Alt+Right)"
-                            Click="ForwardButton_Click"/>
-                    <Button x:Name="ReloadButton"
-                            Style="{StaticResource IconButton}"
-                            Content="↻"
-                            Width="34"
-                            ToolTip="Reload (Ctrl+R)"
-                            Click="ReloadButton_Click"/>
-                </StackPanel>
-
-                <Button x:Name="HomeButton"
-                        Grid.Column="1"
-                        Style="{StaticResource IconButton}"
-                        Content="⌂"
-                        Width="34"
-                        ToolTip="New tab page"
-                        Click="HomeButton_Click"/>
-
-                <Border Grid.Column="2"
-                        Width="1"
-                        Height="22"
-                        Background="#25303C"
-                        Margin="7,0,8,0"
-                        VerticalAlignment="Center"/>
-
-                <Border x:Name="AddressBorder"
-                        Grid.Column="3"
-                        Height="38"
-                        Margin="0,0,8,0"
-                        Background="#14273B"
-                        BorderBrush="#55718D"
-                        BorderThickness="1"
-                        CornerRadius="20">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <Button x:Name="SiteButton"
-                                Grid.Column="0"
-                                Content="◉"
-                                Style="{StaticResource IconButton}"
-                                Width="34"
-                                Height="30"
-                                Padding="0"
-                                Margin="4,0,0,0"
-                                FontSize="11"
-                                Foreground="{StaticResource Accent}"
-                                ToolTip="Site controls"
-                                Click="SiteButton_Click"/>
-                        <TextBox x:Name="AddressBox"
-                                Grid.Column="1"
-                                Background="Transparent"
-                                Foreground="{StaticResource TextPrimary}"
-                                 CaretBrush="{StaticResource Accent}"
-                                SelectionBrush="#355A7B"
-                                BorderThickness="0"
-                                FontSize="13.5"
-                                 VerticalContentAlignment="Center"
-                                Padding="5,0,8,0"
-                                 KeyDown="AddressBox_KeyDown"
-                                GotKeyboardFocus="AddressBox_GotKeyboardFocus"/>
-                        <Button x:Name="BookmarkButton"
-                                Grid.Column="2"
-                                Style="{StaticResource IconButton}"
-                                Content="☆"
-                                Width="32"
-                                Height="30"
-                                FontSize="16"
-                                Margin="0,0,4,0"
-                                ToolTip="Add/remove favorite (Ctrl+D)"
-                                Click="BookmarkButton_Click"/>
-                    </Grid>
-                </Border>
-
-                <Button x:Name="ShieldButton"
-                        Grid.Column="4"
-                        Style="{StaticResource PillButton}"
-                        Content="Shield"
-                        Margin="0,0,5,0"
-                        ToolTip="Feather Shield controls"
-                        Click="ShieldButton_Click"/>
-                <Button x:Name="GameModeButton"
-                        Grid.Column="5"
-                        Style="{StaticResource PillButton}"
-                        Content="Game"
-                        Margin="0,0,5,0"
-                        ToolTip="Gaming Mode (Ctrl+Shift+G)"
-                        Click="GameModeButton_Click"/>
-                <Button x:Name="EcoButton"
-                        Grid.Column="6"
-                        Style="{StaticResource PillButton}"
-                        Content="Eco"
-                        Margin="0,0,5,0"
-                        ToolTip="Memory saver"
-                        Click="EcoButton_Click"/>
-                <Button x:Name="SidebarButton"
-                        Grid.Column="7"
-                        Style="{StaticResource IconButton}"
-                        Content="☷"
-                        Width="36"
-                        ToolTip="Workspaces sidebar (Ctrl+B)"
-                        Click="SidebarButton_Click"/>
-                <Button x:Name="MenuButton"
-                        Grid.Column="8"
-                        Style="{StaticResource IconButton}"
-                        Content="•••"
-                        Width="38"
-                        FontSize="12"
-                        ToolTip="Feather menu"
-                        Click="MenuButton_Click"/>
-            </Grid>
-        </Border>
-
-        <ProgressBar x:Name="NavigationProgress"
-                DockPanel.Dock="Top"
-                Height="2"
-                IsIndeterminate="True"
-                Visibility="Collapsed"
-                     BorderThickness="0"
-                Background="#0B1118"
-                Foreground="{StaticResource Accent}"/>
-
-        <Border x:Name="StatusBar"
-                DockPanel.Dock="Bottom"
-                Height="27"
-                Background="#0B1726"
-                BorderBrush="#2B435C"
-                BorderThickness="0,1,0,0"
-                Padding="12,0">
-            <Grid>
-                <TextBlock x:Name="StatusText"
-                        Foreground="{StaticResource TextMuted}"
-                        VerticalAlignment="Center"
-                        FontSize="10.5"
-                        Text="Starting…"
-                        TextTrimming="CharacterEllipsis"/>
-                <Border HorizontalAlignment="Right"
-                        VerticalAlignment="Center"
-                        Background="#101720"
-                        BorderBrush="#1D2935"
-                        BorderThickness="1"
-                        CornerRadius="7"
-                        Padding="8,3"
-                        Cursor="Hand">
-                    <TextBlock x:Name="ResourceText"
-                            Foreground="{StaticResource TextSecondary}"
-                            FontSize="10"
-                            ToolTip="Performance Center (Shift+Esc)"
-                            MouseLeftButtonDown="ResourceText_MouseLeftButtonDown"/>
-                </Border>
-            </Grid>
-        </Border>
-
-        <Border x:Name="WorkspaceSidebar"
-                DockPanel.Dock="Left"
-                Width="230"
-                Background="#122337"
-                BorderBrush="#364F68"
-                BorderThickness="0,0,1,0"
-                Padding="10,12,10,10">
-            <DockPanel LastChildFill="True">
-                <StackPanel DockPanel.Dock="Top"
-                        Margin="2,0,2,10">
-                    <StackPanel Orientation="Horizontal"
-                            Margin="10,8,0,22">
-                        <Path Width="28"
-                                Height="34"
-                                Stretch="Uniform"
-                                Fill="{StaticResource Accent}"
-                                Data="M 4,35 C 5,13 16,4 32,0 C 28,21 21,29 8,29 L 0,40 L 17,17 Z"
-                                Margin="0,0,13,0"/>
-                        <TextBlock Text="Feather Browser"
-                                FontSize="13"
-                                Foreground="{StaticResource TextPrimary}"
-                                VerticalAlignment="Center"/>
-                    </StackPanel>
-                    <Button Style="{StaticResource ChromeButton}"
-                            HorizontalContentAlignment="Left"
-                            Content="⌂   Home"
-                            Click="HomeButton_Click"
-                            Height="44"
-                            Background="{StaticResource TabActiveBackground}"
-                            Margin="0,0,0,20"/>
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="WORKSPACES"
-                                    Foreground="#A0ADBC"
-                                    FontSize="10"
-                                    FontWeight="Bold"/>
-                            <TextBlock x:Name="WorkspaceHintText"
-                                    Text="Cold when inactive"
-                                    Foreground="#536174"
-                                    FontSize="9.5"
-                                    Margin="0,3,0,0"/>
-                        </StackPanel>
-                        <Button Grid.Column="1"
-                                Style="{StaticResource IconButton}"
-                                Content="+"
-                                Width="30"
-                                Height="29"
-                                Padding="0"
-                                FontSize="15"
-                                ToolTip="New workspace"
-                                Click="AddWorkspaceButton_Click"/>
-                    </Grid>
-                </StackPanel>
-
-                <StackPanel DockPanel.Dock="Bottom"
-                        Margin="0,10,0,0">
-                    <Border Height="1"
-                            Background="#1D2834"
-                            Margin="3,0,3,8"/>
-                    <Button Style="{StaticResource ChromeButton}"
-                            HorizontalContentAlignment="Left"
-                            Content="★   Favorites"
-                            Tag="favorites"
-                            Click="SidebarQuickButton_Click"
-                            FontSize="11.5"/>
-                    <Button Style="{StaticResource ChromeButton}"
-                            HorizontalContentAlignment="Left"
-                            Content="◷   History"
-                            Tag="history"
-                            Click="SidebarQuickButton_Click"
-                            FontSize="11.5"/>
-                    <Button Style="{StaticResource ChromeButton}"
-                            HorizontalContentAlignment="Left"
-                            Content="↓   Downloads"
-                            Tag="downloads"
-                            Click="SidebarQuickButton_Click"
-                            FontSize="11.5"/>
-                    <Border Margin="2,18,2,16"
-                            Padding="14,17"
-                            CornerRadius="15"
-                            Background="{StaticResource TabActiveBackground}"
-                            BorderBrush="#496480"
-                            BorderThickness="1">
-                        <StackPanel>
-                            <TextBlock Text="Browse lighter."
-                                    FontSize="14"
-                                    Foreground="{StaticResource TextPrimary}"/>
-                            <TextBlock Text="Go further."
-                                    FontSize="14"
-                                    Foreground="{StaticResource TextSecondary}"
-                                    Margin="0,4,0,12"/>
-                            <TextBlock Text="━  ━  ━"
-                                    Foreground="{StaticResource Accent}"/>
-                        </StackPanel>
-                    </Border>
-                    <Button Style="{StaticResource ChromeButton}"
-                            HorizontalContentAlignment="Left"
-                            Content="⚙   Settings"
-                            Tag="settings"
-                            Click="SidebarQuickButton_Click"
-                            FontSize="11.5"/>
-                    <Button Style="{StaticResource ChromeButton}"
-                            HorizontalContentAlignment="Left"
-                            Content="↯   Trim memory"
-                            Tag="trim"
-                            Click="SidebarQuickButton_Click"
-                            FontSize="11.5"
-                            Foreground="{StaticResource GameAccent}"/>
-                </StackPanel>
-
-                <ScrollViewer VerticalScrollBarVisibility="Auto"
-                        HorizontalScrollBarVisibility="Disabled">
-                    <StackPanel x:Name="WorkspaceButtonsPanel"/>
-                </ScrollViewer>
-            </DockPanel>
-        </Border>
-
-        <Grid x:Name="BrowserHost"
-                Background="#0A1422">
-            <Border x:Name="LoadingOverlay"
-                    Background="#0A1422"
-                    Visibility="Visible"
-                    Panel.ZIndex="90">
-                <StackPanel HorizontalAlignment="Center"
-                        VerticalAlignment="Center">
-                    <Border Width="54"
-                            Height="54"
-                            CornerRadius="17"
-                            Background="#173B5C"
-                            Margin="0,0,0,14">
-                        <TextBlock Text="◒"
-                                Foreground="#A8D4FF"
-                                FontWeight="Bold"
-                                FontSize="26"
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Center"/>
-                    </Border>
-                    <TextBlock Text="Feather Browser"
-                            Foreground="{StaticResource TextPrimary}"
-                            HorizontalAlignment="Center"
-                            FontSize="24"
-                            FontWeight="SemiBold"/>
-                    <TextBlock Text="Preparing a lightweight session"
-                            Foreground="{StaticResource TextMuted}"
-                            HorizontalAlignment="Center"
-                            FontSize="11.5"
-                            Margin="0,7,0,0"/>
-                </StackPanel>
-            </Border>
-
-            <Grid x:Name="CommandPaletteOverlay"
-                    Visibility="Collapsed"
-                    Background="#B3070A0F"
-                    Panel.ZIndex="100"
-                    MouseDown="CommandPaletteOverlay_MouseDown">
-                <Border Width="720"
-                        MaxHeight="540"
-                        VerticalAlignment="Top"
-                        Margin="0,72,0,0"
-                        Background="#172C42"
-                        BorderBrush="#314052"
-                        BorderThickness="1"
-                        CornerRadius="16"
-                        Padding="10">
-                    <Border.Effect>
-                        <DropShadowEffect BlurRadius="36"
-                                ShadowDepth="12"
-                                Opacity="0.65"/>
-                    </Border.Effect>
-                    <DockPanel LastChildFill="True">
-                        <Grid DockPanel.Dock="Top"
-                                Margin="0,0,0,8">
-                            <Border Background="#151E29"
-                                    BorderBrush="#34465B"
-                                    BorderThickness="1"
-                                    CornerRadius="12"
-                                    Height="46">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
+                        <Grid>
+                                <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="⌕"
-                                            Foreground="{StaticResource Accent}"
-                                            FontSize="20"
-                                            Margin="13,0,7,0"
-                                            VerticalAlignment="Center"/>
-                                    <TextBox x:Name="CommandPaletteBox"
-                                            Grid.Column="1"
-                                            Background="Transparent"
-                                            Foreground="{StaticResource TextPrimary}"
-                                            CaretBrush="{StaticResource Accent}"
-                                             BorderThickness="0"
-                                            Padding="3,0,13,0"
-                                            FontSize="14.5"
-                                            VerticalContentAlignment="Center"
-                                             TextChanged="CommandPaletteBox_TextChanged"
-                                            KeyDown="CommandPaletteBox_KeyDown"/>
-                                </Grid>
-                            </Border>
-                        </Grid>
-                        <Border DockPanel.Dock="Bottom"
-                                Background="#0B1016"
-                                CornerRadius="8"
-                                Padding="10,7"
-                                Margin="0,8,0,0">
-                            <TextBlock Text="Enter run   ·   ↑↓ move   ·   Esc close   ·   Search tabs, history, favorites and commands"
-                                    Foreground="#617084"
-                                    FontSize="9.5"/>
-                        </Border>
-                        <ListBox x:Name="CommandPaletteList"
-                                Background="Transparent"
-                                BorderThickness="0"
-                                Foreground="{StaticResource TextPrimary}"
-                                 MouseDoubleClick="CommandPaletteList_MouseDoubleClick"
-                                MaxHeight="430">
-                            <ListBox.ItemTemplate>
-                                <DataTemplate>
-                                    <Grid Margin="5,3">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="{Binding Label}"
-                                                Foreground="{StaticResource TextPrimary}"
-                                                FontSize="12.5"
-                                                TextTrimming="CharacterEllipsis"/>
-                                        <TextBlock Grid.Column="1"
-                                                Text="{Binding Detail}"
-                                                Foreground="{StaticResource TextMuted}"
-                                                FontSize="10.5"
-                                                Margin="16,0,4,0"
-                                                TextTrimming="CharacterEllipsis"
-                                                MaxWidth="270"/>
-                                    </Grid>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
-                            <ListBox.ItemContainerStyle>
-                                <Style TargetType="ListBoxItem">
-                                    <Setter Property="Padding"
-                                            Value="8,7"/>
-                                    <Setter Property="Margin"
-                                            Value="0,1"/>
-                                    <Setter Property="HorizontalContentAlignment"
-                                            Value="Stretch"/>
-                                    <Setter Property="Template">
-                                        <Setter.Value>
-                                            <ControlTemplate TargetType="ListBoxItem">
-                                                <Border x:Name="Row"
+                                        <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0"
+                                            Orientation="Horizontal"
+                                            VerticalAlignment="Center"
+                                            Margin="0,0,14,0">
+
+                                        <Button x:Name="BackButton"
+                                                Style="{StaticResource IconButton}"
+                                                Width="38"
+                                                Height="38"
+                                                Padding="0"
+                                                Background="Transparent"
+                                                BorderThickness="0"
+                                                ToolTip="Back (Alt+Left)"
+                                                Click="BackButton_Click">
+
+                                                <Viewbox Width="18"
+                                                         Height="18">
+                                                        <Path Stroke="#8292A7"
+                                                              StrokeThickness="1.8"
+                                                              StrokeStartLineCap="Round"
+                                                              StrokeEndLineCap="Round"
+                                                              StrokeLineJoin="Round"
+                                                              Data="M15,4 L7,12 L15,20"/>
+                                                </Viewbox>
+                                        </Button>
+
+                                        <Button x:Name="ForwardNavButton"
+                                                Style="{StaticResource IconButton}"
+                                                Width="38"
+                                                Height="38"
+                                                Padding="0"
+                                                Background="Transparent"
+                                                BorderThickness="0"
+                                                ToolTip="Forward (Alt+Right)"
+                                                Click="ForwardButton_Click">
+
+                                                <Viewbox Width="18"
+                                                         Height="18">
+                                                        <Path Stroke="#8292A7"
+                                                              StrokeThickness="1.8"
+                                                              StrokeStartLineCap="Round"
+                                                              StrokeEndLineCap="Round"
+                                                              StrokeLineJoin="Round"
+                                                              Data="M9,4 L17,12 L9,20"/>
+                                                </Viewbox>
+                                        </Button>
+
+                                        <Button x:Name="ReloadButton"
+                                                Style="{StaticResource IconButton}"
+                                                Width="38"
+                                                Height="38"
+                                                Padding="0"
+                                                Background="Transparent"
+                                                BorderThickness="0"
+                                                ToolTip="Reload (Ctrl+R)"
+                                                Click="ReloadButton_Click">
+
+                                                <Viewbox Width="19"
+                                                         Height="19">
+                                                        <Path Stroke="#B7C5D6"
+                                                              StrokeThickness="1.8"
+                                                              StrokeStartLineCap="Round"
+                                                              StrokeEndLineCap="Round"
+                                                              StrokeLineJoin="Round"
+                                                              Data="M19,7 C17.5,3.5 14.5,2 11,2 C5.9,2 2,5.9 2,11 C2,16.1 5.9,20 11,20 C15,20 18.3,17.5 19.5,14 M19,3 L19,8 L14,8"/>
+                                                </Viewbox>
+                                        </Button>
+
+                                </StackPanel>
+
+                                <Border x:Name="AddressBorder"
+                                        Grid.Column="1"
+                                        Height="40"
+                                        VerticalAlignment="Center"
+                                        Background="#111C2A"
+                                        BorderBrush="#34465D"
+                                        BorderThickness="1"
+                                        CornerRadius="20">
+
+                                        <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="42"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="40"/>
+                                                </Grid.ColumnDefinitions>
+
+                                                <Viewbox Grid.Column="0"
+                                                         Width="18"
+                                                         Height="18"
+                                                         HorizontalAlignment="Center"
+                                                         VerticalAlignment="Center">
+
+                                                        <Canvas Width="24"
+                                                                Height="24">
+
+                                                                <Ellipse Width="13"
+                                                                         Height="13"
+                                                                         Canvas.Left="3"
+                                                                         Canvas.Top="3"
+                                                                         Stroke="#8395AC"
+                                                                         StrokeThickness="1.8"/>
+
+                                                                <Path Stroke="#8395AC"
+                                                                      StrokeThickness="1.8"
+                                                                      StrokeStartLineCap="Round"
+                                                                      Data="M14,14 L20,20"/>
+                                                        </Canvas>
+                                                </Viewbox>
+
+                                                <Grid Grid.Column="1">
+
+                                                        <TextBlock x:Name="AddressPlaceholder"
+                                                                   Text="Search or enter address"
+                                                                   Foreground="#8392A6"
+                                                                   FontSize="13.5"
+                                                                   VerticalAlignment="Center"
+                                                                   IsHitTestVisible="False"/>
+
+                                                        <TextBox x:Name="AddressBox"
+                                                                 Background="Transparent"
+                                                                 BorderThickness="0"
+                                                                 Foreground="#D8E0EB"
+                                                                 CaretBrush="#D8E0EB"
+                                                                 SelectionBrush="#34577C"
+                                                                 FontSize="13.5"
+                                                                 VerticalContentAlignment="Center"
+                                                                 Padding="0,0,10,1"
+                                                                 TextChanged="AddressBox_TextChanged"
+                                                                 KeyDown="AddressBox_KeyDown"
+                                                                 GotKeyboardFocus="AddressBox_GotKeyboardFocus"/>
+
+                                                </Grid>
+
+                                                <Button x:Name="BookmarkButton"
+                                                        Grid.Column="2"
+                                                        Style="{StaticResource IconButton}"
+                                                        Width="36"
+                                                        Height="34"
+                                                        HorizontalAlignment="Center"
+                                                        VerticalAlignment="Center"
+                                                        Padding="0"
                                                         Background="Transparent"
-                                                        CornerRadius="9">
-                                                    <ContentPresenter/>
-                                                </Border>
-                                                <ControlTemplate.Triggers>
-                                                    <Trigger Property="IsMouseOver"
-                                                            Value="True">
-                                                        <Setter TargetName="Row"
-                                                                Property="Background"
-                                                                Value="#18222E"/>
-                                                    </Trigger>
-                                                    <Trigger Property="IsSelected"
-                                                            Value="True">
-                                                        <Setter TargetName="Row"
-                                                                Property="Background"
-                                                                Value="#1C3044"/>
-                                                    </Trigger>
-                                                </ControlTemplate.Triggers>
-                                            </ControlTemplate>
-                                        </Setter.Value>
-                                    </Setter>
-                                </Style>
-                            </ListBox.ItemContainerStyle>
-                        </ListBox>
-                    </DockPanel>
+                                                        BorderThickness="0"
+                                                        ToolTip="Add/remove favorite (Ctrl+D)"
+                                                        Click="BookmarkButton_Click">
+
+                                                        <Viewbox Width="18"
+                                                                 Height="18">
+
+                                                                <Path x:Name="BookmarkIcon"
+                                                                       Stroke="#9AAABD"
+                                                                       StrokeThickness="1.6"
+                                                                       StrokeLineJoin="Round"
+                                                                       Fill="Transparent"
+                                                                       Data="M12,2 L15,8 L22,9 L17,14 L18,21 L12,18 L6,21 L7,14 L2,9 L9,8 Z"/>
+                                                        </Viewbox>
+                                                </Button>
+
+                                        </Grid>
+                                </Border>
+
+                                <StackPanel Grid.Column="2"
+                                            Orientation="Horizontal"
+                                            VerticalAlignment="Center"
+                                            Margin="14,0,0,0">
+
+                                        <Button x:Name="ShieldButton"
+                                                Style="{StaticResource IconButton}"
+                                                Width="38"
+                                                Height="38"
+                                                Padding="0"
+                                                Background="Transparent"
+                                                BorderThickness="0"
+                                                ToolTip="Feather Shield"
+                                                Click="ShieldButton_Click">
+
+                                                <Viewbox Width="18"
+                                                         Height="18">
+                                                        <Path Stroke="#8FA0B5"
+                                                              StrokeThickness="1.6"
+                                                              StrokeLineJoin="Round"
+                                                              Fill="Transparent"
+                                                              Data="M12,2 L20,5 L20,11 C20,16 16.5,19 12,21 C7.5,19 4,16 4,11 L4,5 Z"/>
+                                                </Viewbox>
+                                        </Button>
+
+                                        <Button x:Name="DownloadsButton"
+                                                Style="{StaticResource IconButton}"
+                                                Width="38"
+                                                Height="38"
+                                                Padding="0"
+                                                Background="Transparent"
+                                                BorderThickness="0"
+                                                ToolTip="Downloads"
+                                                Tag="downloads"
+                                                Click="SidebarQuickButton_Click">
+
+                                                <Viewbox Width="19"
+                                                         Height="19">
+                                                        <Canvas Width="24"
+                                                                Height="24">
+
+                                                                <Path Stroke="#9AAABD"
+                                                                      StrokeThickness="1.7"
+                                                                      StrokeStartLineCap="Round"
+                                                                      StrokeEndLineCap="Round"
+                                                                      StrokeLineJoin="Round"
+                                                                      Data="M12,3 L12,15 M7,11 L12,16 L17,11"/>
+
+                                                                <Path Stroke="#9AAABD"
+                                                                      StrokeThickness="1.7"
+                                                                      StrokeStartLineCap="Round"
+                                                                      Data="M5,20 L19,20"/>
+                                                        </Canvas>
+                                                </Viewbox>
+                                        </Button>
+                                        <Button x:Name="MenuButton"
+                                                Style="{StaticResource IconButton}"
+                                                Width="40"
+                                                Height="38"
+                                                Padding="0"
+                                                Background="Transparent"
+                                                BorderThickness="0"
+                                                ToolTip="Feather menu"
+                                                Click="MenuButton_Click">
+
+                                                <StackPanel Orientation="Horizontal"
+                                                            HorizontalAlignment="Center"
+                                                            VerticalAlignment="Center">
+
+                                                        <Ellipse Width="3"
+                                                                 Height="3"
+                                                                 Fill="#A8B6C8"
+                                                                 Margin="1.5,0"/>
+
+                                                        <Ellipse Width="3"
+                                                                 Height="3"
+                                                                 Fill="#A8B6C8"
+                                                                 Margin="1.5,0"/>
+
+                                                        <Ellipse Width="3"
+                                                                 Height="3"
+                                                                 Fill="#A8B6C8"
+                                                                 Margin="1.5,0"/>
+
+                                                </StackPanel>
+                                        </Button>
+
+                                </StackPanel>
+
+                        </Grid>
                 </Border>
-            </Grid>
-        </Grid>
-    </DockPanel>
+                <ProgressBar x:Name="NavigationProgress"
+                             DockPanel.Dock="Top"
+                             Height="2"
+                             IsIndeterminate="True"
+                             Visibility="Collapsed"
+                             BorderThickness="0"
+                             Background="#0B1118"
+                             Foreground="{StaticResource Accent}"/>
+
+                <Border x:Name="StatusBar"
+                        DockPanel.Dock="Bottom"
+                        Height="27"
+                        Background="#0B1726"
+                        BorderBrush="#2B435C"
+                        BorderThickness="0,1,0,0"
+                        Padding="12,0">
+                        <Grid>
+                                <TextBlock x:Name="StatusText"
+                                           Foreground="{StaticResource TextMuted}"
+                                           VerticalAlignment="Center"
+                                           FontSize="10.5"
+                                           Text="Starting…"
+                                           TextTrimming="CharacterEllipsis"/>
+                                <Border HorizontalAlignment="Right"
+                                        VerticalAlignment="Center"
+                                        Background="#101720"
+                                        BorderBrush="#1D2935"
+                                        BorderThickness="1"
+                                        CornerRadius="7"
+                                        Padding="8,3"
+                                        Cursor="Hand">
+                                        <TextBlock x:Name="ResourceText"
+                                                   Foreground="{StaticResource TextSecondary}"
+                                                   FontSize="10"
+                                                   ToolTip="Performance Center (Shift+Esc)"
+                                                   MouseLeftButtonDown="ResourceText_MouseLeftButtonDown"/>
+                                </Border>
+                        </Grid>
+                </Border>
+
+                <Border x:Name="WorkspaceSidebar"
+                        DockPanel.Dock="Left"
+                        Width="230"
+                        Background="#122337"
+                        BorderBrush="#364F68"
+                        BorderThickness="0,0,1,0"
+                        Padding="10,12,10,10">
+                        <DockPanel LastChildFill="True">
+                                <StackPanel DockPanel.Dock="Top"
+                                            Margin="2,0,2,10">
+                                        <StackPanel Orientation="Horizontal"
+                                                    Margin="10,8,0,22">
+                                                <Path Width="28"
+                                                      Height="34"
+                                                      Stretch="Uniform"
+                                                      Fill="{StaticResource Accent}"
+                                                      Data="M 4,35 C 5,13 16,4 32,0 C 28,21 21,29 8,29 L 0,40 L 17,17 Z"
+                                                      Margin="0,0,13,0"/>
+                                                <TextBlock Text="Feather Browser"
+                                                           FontSize="13"
+                                                           Foreground="{StaticResource TextPrimary}"
+                                                           VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <Button Style="{StaticResource ChromeButton}"
+                                                HorizontalContentAlignment="Left"
+                                                Content="⌂   Home"
+                                                Click="HomeButton_Click"
+                                                Height="44"
+                                                Background="{StaticResource TabActiveBackground}"
+                                                Margin="0,0,0,20"/>
+                                        <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel VerticalAlignment="Center">
+                                                        <TextBlock Text="WORKSPACES"
+                                                                   Foreground="#A0ADBC"
+                                                                   FontSize="10"
+                                                                   FontWeight="Bold"/>
+                                                        <TextBlock x:Name="WorkspaceHintText"
+                                                                   Text="Cold when inactive"
+                                                                   Foreground="#536174"
+                                                                   FontSize="9.5"
+                                                                   Margin="0,3,0,0"/>
+                                                </StackPanel>
+                                                <Button Grid.Column="1"
+                                                        Style="{StaticResource IconButton}"
+                                                        Content="+"
+                                                        Width="30"
+                                                        Height="29"
+                                                        Padding="0"
+                                                        FontSize="15"
+                                                        ToolTip="New workspace"
+                                                        Click="AddWorkspaceButton_Click"/>
+                                        </Grid>
+                                </StackPanel>
+
+                                <StackPanel DockPanel.Dock="Bottom"
+                                            Margin="0,10,0,0">
+                                        <Border Height="1"
+                                                Background="#1D2834"
+                                                Margin="3,0,3,8"/>
+                                        <Button Style="{StaticResource ChromeButton}"
+                                                HorizontalContentAlignment="Left"
+                                                Content="★   Favorites"
+                                                Tag="favorites"
+                                                Click="SidebarQuickButton_Click"
+                                                FontSize="11.5"/>
+                                        <Button Style="{StaticResource ChromeButton}"
+                                                HorizontalContentAlignment="Left"
+                                                Content="◷   History"
+                                                Tag="history"
+                                                Click="SidebarQuickButton_Click"
+                                                FontSize="11.5"/>
+                                        <Button Style="{StaticResource ChromeButton}"
+                                                HorizontalContentAlignment="Left"
+                                                Content="↓   Downloads"
+                                                Tag="downloads"
+                                                Click="SidebarQuickButton_Click"
+                                                FontSize="11.5"/>
+                                        <Border Margin="2,18,2,16"
+                                                Padding="14,17"
+                                                CornerRadius="15"
+                                                Background="{StaticResource TabActiveBackground}"
+                                                BorderBrush="#496480"
+                                                BorderThickness="1">
+                                                <StackPanel>
+                                                        <TextBlock Text="Browse lighter."
+                                                                   FontSize="14"
+                                                                   Foreground="{StaticResource TextPrimary}"/>
+                                                        <TextBlock Text="Go further."
+                                                                   FontSize="14"
+                                                                   Foreground="{StaticResource TextSecondary}"
+                                                                   Margin="0,4,0,12"/>
+                                                        <TextBlock Text="━  ━  ━"
+                                                                   Foreground="{StaticResource Accent}"/>
+                                                </StackPanel>
+                                        </Border>
+                                        <Button Style="{StaticResource ChromeButton}"
+                                                HorizontalContentAlignment="Left"
+                                                Content="⚙   Settings"
+                                                Tag="settings"
+                                                Click="SidebarQuickButton_Click"
+                                                FontSize="11.5"/>
+                                        <Button Style="{StaticResource ChromeButton}"
+                                                HorizontalContentAlignment="Left"
+                                                Content="↯   Trim memory"
+                                                Tag="trim"
+                                                Click="SidebarQuickButton_Click"
+                                                FontSize="11.5"
+                                                Foreground="{StaticResource GameAccent}"/>
+                                </StackPanel>
+
+                                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                              HorizontalScrollBarVisibility="Disabled">
+                                        <StackPanel x:Name="WorkspaceButtonsPanel"/>
+                                </ScrollViewer>
+                        </DockPanel>
+                </Border>
+
+                <Grid x:Name="BrowserHost"
+                      Background="#0A1422">
+                        <Border x:Name="LoadingOverlay"
+                                Background="#0A1422"
+                                Visibility="Visible"
+                                Panel.ZIndex="90">
+                                <StackPanel HorizontalAlignment="Center"
+                                            VerticalAlignment="Center">
+                                        <Border Width="54"
+                                                Height="54"
+                                                CornerRadius="17"
+                                                Background="#173B5C"
+                                                Margin="0,0,0,14">
+                                                <TextBlock Text="◒"
+                                                           Foreground="#A8D4FF"
+                                                           FontWeight="Bold"
+                                                           FontSize="26"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center"/>
+                                        </Border>
+                                        <TextBlock Text="Feather Browser"
+                                                   Foreground="{StaticResource TextPrimary}"
+                                                   HorizontalAlignment="Center"
+                                                   FontSize="24"
+                                                   FontWeight="SemiBold"/>
+                                        <TextBlock Text="Preparing a lightweight session"
+                                                   Foreground="{StaticResource TextMuted}"
+                                                   HorizontalAlignment="Center"
+                                                   FontSize="11.5"
+                                                   Margin="0,7,0,0"/>
+                                </StackPanel>
+                        </Border>
+
+                        <Grid x:Name="CommandPaletteOverlay"
+                              Visibility="Collapsed"
+                              Background="#B3070A0F"
+                              Panel.ZIndex="100"
+                              MouseDown="CommandPaletteOverlay_MouseDown">
+                                <Border Width="720"
+                                        MaxHeight="540"
+                                        VerticalAlignment="Top"
+                                        Margin="0,72,0,0"
+                                        Background="#172C42"
+                                        BorderBrush="#314052"
+                                        BorderThickness="1"
+                                        CornerRadius="16"
+                                        Padding="10">
+                                        <Border.Effect>
+                                                <DropShadowEffect BlurRadius="36"
+                                                                  ShadowDepth="12"
+                                                                  Opacity="0.65"/>
+                                        </Border.Effect>
+                                        <DockPanel LastChildFill="True">
+                                                <Grid DockPanel.Dock="Top"
+                                                      Margin="0,0,0,8">
+                                                        <Border Background="#151E29"
+                                                                BorderBrush="#34465B"
+                                                                BorderThickness="1"
+                                                                CornerRadius="12"
+                                                                Height="46">
+                                                                <Grid>
+                                                                        <Grid.ColumnDefinitions>
+                                                                                <ColumnDefinition Width="Auto"/>
+                                                                                <ColumnDefinition Width="*"/>
+                                                                        </Grid.ColumnDefinitions>
+                                                                        <TextBlock Text="⌕"
+                                                                                   Foreground="{StaticResource Accent}"
+                                                                                   FontSize="20"
+                                                                                   Margin="13,0,7,0"
+                                                                                   VerticalAlignment="Center"/>
+                                                                        <TextBox x:Name="CommandPaletteBox"
+                                                                                 Grid.Column="1"
+                                                                                 Background="Transparent"
+                                                                                 Foreground="{StaticResource TextPrimary}"
+                                                                                 CaretBrush="{StaticResource Accent}"
+                                                                                 BorderThickness="0"
+                                                                                 Padding="3,0,13,0"
+                                                                                 FontSize="14.5"
+                                                                                 VerticalContentAlignment="Center"
+                                                                                 TextChanged="CommandPaletteBox_TextChanged"
+                                                                                 KeyDown="CommandPaletteBox_KeyDown"/>
+                                                                </Grid>
+                                                        </Border>
+                                                </Grid>
+                                                <Border DockPanel.Dock="Bottom"
+                                                        Background="#0B1016"
+                                                        CornerRadius="8"
+                                                        Padding="10,7"
+                                                        Margin="0,8,0,0">
+                                                        <TextBlock Text="Enter run   ·   ↑↓ move   ·   Esc close   ·   Search tabs, history, favorites and commands"
+                                                                   Foreground="#617084"
+                                                                   FontSize="9.5"/>
+                                                </Border>
+                                                <ListBox x:Name="CommandPaletteList"
+                                                         Background="Transparent"
+                                                         BorderThickness="0"
+                                                         Foreground="{StaticResource TextPrimary}"
+                                                         MouseDoubleClick="CommandPaletteList_MouseDoubleClick"
+                                                         MaxHeight="430">
+                                                        <ListBox.ItemTemplate>
+                                                                <DataTemplate>
+                                                                        <Grid Margin="5,3">
+                                                                                <Grid.ColumnDefinitions>
+                                                                                        <ColumnDefinition Width="*"/>
+                                                                                        <ColumnDefinition Width="Auto"/>
+                                                                                </Grid.ColumnDefinitions>
+                                                                                <TextBlock Text="{Binding Label}"
+                                                                                           Foreground="{StaticResource TextPrimary}"
+                                                                                           FontSize="12.5"
+                                                                                           TextTrimming="CharacterEllipsis"/>
+                                                                                <TextBlock Grid.Column="1"
+                                                                                           Text="{Binding Detail}"
+                                                                                           Foreground="{StaticResource TextMuted}"
+                                                                                           FontSize="10.5"
+                                                                                           Margin="16,0,4,0"
+                                                                                           TextTrimming="CharacterEllipsis"
+                                                                                           MaxWidth="270"/>
+                                                                        </Grid>
+                                                                </DataTemplate>
+                                                        </ListBox.ItemTemplate>
+                                                        <ListBox.ItemContainerStyle>
+                                                                <Style TargetType="ListBoxItem">
+                                                                        <Setter Property="Padding"
+                                                                                Value="8,7"/>
+                                                                        <Setter Property="Margin"
+                                                                                Value="0,1"/>
+                                                                        <Setter Property="HorizontalContentAlignment"
+                                                                                Value="Stretch"/>
+                                                                        <Setter Property="Template">
+                                                                                <Setter.Value>
+                                                                                        <ControlTemplate TargetType="ListBoxItem">
+                                                                                                <Border x:Name="Row"
+                                                                                                        Background="Transparent"
+                                                                                                        CornerRadius="9">
+                                                                                                        <ContentPresenter/>
+                                                                                                </Border>
+                                                                                                <ControlTemplate.Triggers>
+                                                                                                        <Trigger Property="IsMouseOver"
+                                                                                                                 Value="True">
+                                                                                                                <Setter TargetName="Row"
+                                                                                                                        Property="Background"
+                                                                                                                        Value="#18222E"/>
+                                                                                                        </Trigger>
+                                                                                                        <Trigger Property="IsSelected"
+                                                                                                                 Value="True">
+                                                                                                                <Setter TargetName="Row"
+                                                                                                                        Property="Background"
+                                                                                                                        Value="#1C3044"/>
+                                                                                                        </Trigger>
+                                                                                                </ControlTemplate.Triggers>
+                                                                                        </ControlTemplate>
+                                                                                </Setter.Value>
+                                                                        </Setter>
+                                                                </Style>
+                                                        </ListBox.ItemContainerStyle>
+                                                </ListBox>
+                                        </DockPanel>
+                                </Border>
+                        </Grid>
+                </Grid>
+        </DockPanel>
 </Window>
