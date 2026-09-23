@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Welcome to Feather</title>
+<style>
+__PAGE_STYLES__
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><div class="brand"><div class="mark">F</div><div><div class="brandname">Feather</div><div class="version">__APP_VERSION__ · Alpine</div></div></div><div class="private">Built to leave more of your PC to you.</div></div>
+  <div class="hero"><div class="eyebrow">Welcome to Feather</div><h1>Fast when open.<br><span>Almost gone when idle.</span></h1><p class="sub">Feather keeps the browser shell lightweight, cold-unloads background tabs and gives you direct control over memory. Choose a starting profile and you can tune everything later.</p></div>
+
+  <div class="grid">
+    <div class="card"><div class="pill green">RECOMMENDED</div><h2>Low Memory</h2><p>Keep one tab hot, unload hidden tabs quickly and enable RAM Guard. Best for gaming, streaming and lower-memory systems.</p><button class="btn green" onclick="preset('low')">Use Low Memory</button></div>
+    <div class="card"><div class="pill">SMOOTHER</div><h2>Balanced</h2><p>Keep a few recent tabs warm for quicker switching while still preventing forgotten tabs from sitting in memory forever.</p><button class="btn" onclick="preset('balanced')">Use Balanced</button></div>
+    <div class="card"><div class="pill">MIGRATION</div><h2>Bring your browser data</h2><p>Import Edge favorites, history and recoverable tab URLs. Passwords can be imported separately through Edge's supported CSV export.</p><button class="btn" onclick="send('import-edge')">Import Edge data</button></div>
+  </div>
+
+  <div class="actions"><button class="btn" onclick="send('default-browser')">Set up as default</button><button class="btn" onclick="send('open-settings')">Review settings</button><button class="btn primary" onclick="send('finish-welcome')">Start browsing</button></div>
+  <div id="status" class="status">Nothing here is permanent — every option can be changed later.</div>
+  <div class="foot">Feather uses Microsoft WebView2 for website compatibility. Its low-memory model comes from unloading inactive WebView controls instead of pretending every saved tab needs a live renderer.</div>
+</div>
+<script>
+__PAGE_SCRIPT__
+</script>
+</body>
+</html>

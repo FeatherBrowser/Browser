@@ -1,0 +1,27 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 18
+VisualStudioVersion = 18.10.12201.205 stable
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FeatherBrowser", "src\FeatherBrowser\FeatherBrowser.csproj", "{438F5FD4-99CB-4FE8-9F59-8E4B15F54209}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FeatherBrowser.StructureChecks", "tests\FeatherBrowser.StructureChecks\FeatherBrowser.StructureChecks.csproj", "{A448D75E-BC6C-49E7-93B5-4B90CFC48739}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{438F5FD4-99CB-4FE8-9F59-8E4B15F54209}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{438F5FD4-99CB-4FE8-9F59-8E4B15F54209}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{438F5FD4-99CB-4FE8-9F59-8E4B15F54209}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{438F5FD4-99CB-4FE8-9F59-8E4B15F54209}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A448D75E-BC6C-49E7-93B5-4B90CFC48739}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A448D75E-BC6C-49E7-93B5-4B90CFC48739}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A448D75E-BC6C-49E7-93B5-4B90CFC48739}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A448D75E-BC6C-49E7-93B5-4B90CFC48739}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

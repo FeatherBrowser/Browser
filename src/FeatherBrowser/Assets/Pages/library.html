@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Feather Library</title>
+<style>
+__PAGE_STYLES__
+</style>
+</head>
+<body>
+<aside class="side"><div class="brandrow"><div class="mark">F</div><div><div class="brand">Feather</div><div class="sub">Library · Alpine</div></div></div><nav>
+<button data-section="history"><span>History</span><span id="historyCount" class="count">0</span></button>
+<button data-section="downloads"><span>Downloads</span><span id="downloadCount" class="count">0</span></button>
+<button data-section="favorites"><span>Favorites</span><span id="favoriteCount" class="count">0</span></button>
+</nav></aside>
+<main>
+<div class="top"><div><h1 id="heading">History</h1><div id="hint" class="hint">Recently visited pages stored locally by Feather.</div></div><input id="search" class="search" placeholder="Search this page"></div>
+
+<section id="history" class="section">
+<div class="toolbar"><button class="btn danger" data-action="clear-history">Clear history</button></div><div id="historyRows" class="panel"></div>
+</section>
+
+<section id="downloads" class="section">
+<div class="toolbar"><button class="btn" data-action="open-downloads">Open Downloads folder</button><button class="btn danger" data-action="clear-downloads">Clear download list</button></div><div id="downloadRows" class="panel"></div>
+</section>
+
+<section id="favorites" class="section">
+<div class="toolbar"><span class="hint">Use Ctrl+D on any page to add or remove a favorite.</span></div><div id="favoriteRows" class="panel"></div>
+</section>
+<div class="footer">Library pages are local Feather UI and do not create website history entries.</div>
+</main>
+<script>
+__PAGE_SCRIPT__
+</script>
+</body></html>

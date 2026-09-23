@@ -1,0 +1,15 @@
+
+/* Shared Alpine glass surfaces across all internal pages. */
+:root{--bg:#091321;--side:#101e2e;--panel:#132438;--panel2:#1a2d43;--line:#30465d;--line2:#45617d;--text:#edf5ff;--muted:#a4b6ca;--muted2:#839bb4;--accent:#63b5ff;--accent-hi:#a6dcff;--shadow:inset 0 1px 0 #ffffff0c,0 16px 38px #02071040}
+body{background:radial-gradient(ellipse at 80% 0,#29496766,transparent 58%),linear-gradient(135deg,#0d1b2b,#080f1a);background-attachment:fixed}
+.sidebar,.side{background:linear-gradient(155deg,#20334aea,#0a1422f5);border-color:#354d65;box-shadow:inset 1px 1px #c8e4ff12,12px 0 40px #0002}
+.card,.panel,.stat,.hero-callout{background:linear-gradient(135deg,#263b50bb,#0c1827e8);border-color:#3a536c;box-shadow:var(--shadow);border-radius:17px}
+.cardhead,.row{border-color:#2b4055}.desc,.meta,.hint,.sub,.card p{color:#a1b3c6}
+button,input,select,textarea{font-family:inherit}button{transition:background .15s,border-color .15s,transform .15s}
+button:hover{border-color:#76b8ed}button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid #8dd4ff;outline-offset:3px}
+nav button.active{background:linear-gradient(120deg,#314d6d,#1c3048);border-color:#5b7d9f;color:#eaf5ff;box-shadow:inset 0 1px #d1eaff20}
+.btn,button.action,.settings-search,.search,select,input[type=number],textarea{border-color:#405b75;background-color:#122338;border-radius:11px}
+.footer{background:#122338f2;border-color:#46617b}.brandmark,.mark{background:linear-gradient(135deg,#294c6c,#122239);border-color:#467296;color:#a8deff}
+.switch input{display:block;position:absolute;opacity:0;width:100%;height:100%;margin:0}.switch:focus-within{outline:2px solid #8dd4ff;outline-offset:4px;border-radius:20px}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
+body{min-height:100vh}.empty,.footer{color:#8da8c2}main .footer{background:none;border:0}.mark{font-size:0}.mark::after{content:"";display:block;width:15px;height:23px;border-radius:90% 0 90% 0;background:linear-gradient(135deg,#bcecff,#3f9cf4);transform:rotate(22deg)}
