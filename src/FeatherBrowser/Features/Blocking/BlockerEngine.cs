@@ -156,18 +156,14 @@ internal sealed class BlockerEngine
     public bool IsSiteAllowlisted(string? host, BrowserSettings settings)
     {
         if (string.IsNullOrWhiteSpace(host))
-            return false;
-
-        foreach (string raw in settings.AllowlistedSites ?? new List<string>())
         {
-            string allowed = NormalizeHost(raw);
-            if (allowed.Length == 0)
-                continue;
-            if (HostMatches(host, allowed))
-                return true;
+            return false;
         }
 
-        return false;
+        return (settings.AllowlistedSites ?? new List<string>())
+            .Select(NormalizeHost)
+            .Where(allowed => allowed.Length > 0)
+            .Any(allowed => HostMatches(host, allowed));
     }
 
     public bool ShouldBlock(Uri requestUri, string? topLevelAddress, CoreWebView2WebResourceContext context, BrowserSettings settings)

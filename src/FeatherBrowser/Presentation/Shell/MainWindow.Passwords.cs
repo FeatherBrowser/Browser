@@ -55,12 +55,22 @@ public partial class MainWindow : Window
         };
         chooser.Items.Add(new MenuItem { Header = "Choose account", IsEnabled = false });
         chooser.Items.Add(new Separator());
-        foreach (SavedCredential credential in matches)
+        foreach (MenuItem item in matches.Select(credential =>
+{
+    string label = string.IsNullOrWhiteSpace(credential.Username)
+        ? "(no username)"
+        : credential.Username;
+    var menuItem = new MenuItem
+    {
+        Header = label,
+        ToolTip = credential.Origin
+    };
+
+    menuItem.Click += async (_, _) => await FillCredentialAsync(credential);
+
+    return menuItem;
+}))
         {
-            SavedCredential selected = credential;
-            string label = string.IsNullOrWhiteSpace(selected.Username) ? "(no username)" : selected.Username;
-            var item = new MenuItem { Header = label, ToolTip = selected.Origin };
-            item.Click += async (_, _) => await FillCredentialAsync(selected);
             chooser.Items.Add(item);
         }
         chooser.IsOpen = true;

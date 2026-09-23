@@ -137,24 +137,27 @@ public partial class MainWindow : Window
 
     private bool IsKeepAliveTab(BrowserTab tab)
     {
-        if (tab.IsInternalPage || string.IsNullOrWhiteSpace(tab.LastAddress) || _store.Settings.KeepAliveSites.Count == 0)
+        if (tab.IsInternalPage ||
+            string.IsNullOrWhiteSpace(tab.LastAddress) ||
+            _store.Settings.KeepAliveSites.Count == 0)
+        {
             return false;
+        }
 
         string host = SafeHost(tab.LastAddress);
+
         if (host == "page")
-            return false;
-
-        foreach (string raw in _store.Settings.KeepAliveSites)
         {
-            string allowed = raw.Trim().TrimStart('.');
-            if (allowed.Length == 0)
-                continue;
-            if (host.Equals(allowed, StringComparison.OrdinalIgnoreCase) || host.EndsWith('.' + allowed, StringComparison.OrdinalIgnoreCase))
-                return true;
+            return false;
         }
-        return false;
-    }
 
+        return _store.Settings.KeepAliveSites
+            .Select(raw => raw.Trim().TrimStart('.'))
+            .Where(allowed => allowed.Length > 0)
+            .Any(allowed =>
+                host.Equals(allowed, StringComparison.OrdinalIgnoreCase) ||
+                host.EndsWith('.' + allowed, StringComparison.OrdinalIgnoreCase));
+    }
     private bool HibernateTab(BrowserTab tab)
     {
         if (tab.IsClosed || !tab.IsLoaded || IsProtectedTab(tab))
