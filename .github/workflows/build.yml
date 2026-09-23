@@ -1,4 +1,4 @@
-name: Windows build
+name: Windows build and release
 on:
   push:
     branches: [main, master]
@@ -7,8 +7,8 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: build-${{ github.ref }}
-  cancel-in-progress: true
+  group: windows-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   windows:
     runs-on: windows-latest
@@ -31,3 +31,25 @@ jobs:
           name: FeatherBrowser-win-x64
           path: artifacts/publish/win-x64/
           if-no-files-found: error
+
+  release:
+    needs: windows
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: feather-release
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: FeatherBrowser-win-x64
+          path: artifacts/publish/win-x64/
+      - name: Create release from changelogs.md
+        shell: pwsh
+        run: ./scripts/release.ps1

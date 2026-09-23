@@ -42,10 +42,7 @@ public partial class MainWindow : Window
                 continue;
             }
 
-            if (_store.Settings.MuteBackgroundTabs || _store.Settings.GameMode)
-                tab.View.CoreWebView2.IsMuted = true;
-            else
-                tab.View.CoreWebView2.IsMuted = false;
+            tab.View.CoreWebView2.IsMuted = _store.Settings.MuteBackgroundTabs || _store.Settings.GameMode;
 
             if (shouldManage && !IsProtectedTab(tab))
                 ScheduleBackgroundLifecycle(tab);
@@ -85,36 +82,88 @@ public partial class MainWindow : Window
 
     private async void UpdateResourceText()
     {
-        if (_environment is null || _isClosing || _samplingResources) return;
+        if (_environment is null ||
+            System.Threading.Volatile.Read(ref _isClosing) ||
+            _samplingResources)
+        {
+            return;
+        }
+
         PublishResourceSnapshot();
-        if (DateTime.UtcNow < _nextResourceSampleUtc) return;
+
+        if (DateTime.UtcNow < _nextResourceSampleUtc)
+            return;
+
         _samplingResources = true;
+
         try
         {
-            var ids = new Dictionary<int, string> { [Environment.ProcessId] = "Feather UI" };
+            var ids = new Dictionary<int, string>
+            {
+                [Environment.ProcessId] = "Feather UI"
+            };
+
             foreach (CoreWebView2ProcessInfo info in _environment.GetProcessInfos())
                 ids.TryAdd(info.ProcessId, info.Kind.ToString());
-            _resourceSnapshot = await Task.Run(() => _resourceSampler.Sample(ids));
-            if (_isClosing) return;
+
+            _resourceSnapshot = await Task.Run(
+                () => _resourceSampler.Sample(ids));
+
+            if (System.Threading.Volatile.Read(ref _isClosing))
+                return;
+
             _lastObservedMemoryBytes = _resourceSnapshot.MemoryBytes;
+
             PublishResourceSnapshot();
-            if (!_resourceSnapshot.IsPartial && _resourceSnapshot.Processes.Count > 0)
+
+            if (!_resourceSnapshot.IsPartial &&
+                _resourceSnapshot.Processes.Count > 0)
+            {
                 ApplyMemoryGuard(_lastObservedMemoryBytes);
+            }
+
             EnforceLoadedTabBudget();
         }
-        catch (Exception ex) when (ex is COMException or InvalidOperationException or Win32Exception)
+        catch (COMException ex)
         {
+            System.Diagnostics.Trace.TraceWarning(
+                $"Resource sampling failed due to a WebView2 COM error: {ex.Message}");
+
+            StatusText.Text = "Resource sample unavailable; browser remains active";
+        }
+        catch (InvalidOperationException ex)
+        {
+            System.Diagnostics.Trace.TraceWarning(
+                $"Resource sampling failed due to an invalid state: {ex.Message}");
+
+            StatusText.Text = "Resource sample unavailable; browser remains active";
+        }
+        catch (Win32Exception ex)
+        {
+            System.Diagnostics.Trace.TraceWarning(
+                $"Resource sampling failed due to a Windows process error: {ex.Message}");
+
             StatusText.Text = "Resource sample unavailable; browser remains active";
         }
         finally
         {
-            int interval = FeatherBrowser.Features.WebView3.PerformancePolicy.SampleIntervalSeconds(WindowState == WindowState.Minimized);
-            _nextResourceSampleUtc = DateTime.UtcNow.AddSeconds(interval);
-            _resourceTimer.Interval = TimeSpan.FromSeconds(interval);
             _samplingResources = false;
+
+            if (!System.Threading.Volatile.Read(ref _isClosing))
+            {
+                int interval =
+                    FeatherBrowser.Features.WebView3.PerformancePolicy
+                        .SampleIntervalSeconds(
+                            WindowState == WindowState.Minimized);
+
+                _nextResourceSampleUtc =
+                    DateTime.UtcNow.AddSeconds(interval);
+
+                _resourceTimer.Interval =
+                    TimeSpan.FromSeconds(interval);
+            }
         }
     }
-
     private void PublishResourceSnapshot()
     {
         int loaded = _tabs.Count(t => !t.IsClosed && t.IsLoaded);

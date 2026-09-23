@@ -195,10 +195,64 @@ public partial class MainWindow : Window
         {
             await EnsureTabLoadedAsync(tab);
         }
-        catch (Exception ex)
+        catch (OperationCanceledException ex)
         {
+            System.Diagnostics.Trace.TraceWarning(
+                $"Tab wake was cancelled: {ex.Message}");
+
             StatusText.Text = "Could not wake this tab";
-            MessageBox.Show($"Feather could not recreate this tab.\n\n{ex.Message}", "Feather tab", MessageBoxButton.OK, MessageBoxImage.Warning);
+
+            MessageBox.Show(
+                $"Feather could not recreate this tab.\n\n{ex.Message}",
+                "Feather tab",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+
+            return;
+        }
+        catch (ObjectDisposedException ex)
+        {
+            System.Diagnostics.Trace.TraceWarning(
+                $"Tab wake failed because the WebView was disposed: {ex.Message}");
+
+            StatusText.Text = "Could not wake this tab";
+
+            MessageBox.Show(
+                $"Feather could not recreate this tab.\n\n{ex.Message}",
+                "Feather tab",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+
+            return;
+        }
+        catch (InvalidOperationException ex)
+        {
+            System.Diagnostics.Trace.TraceWarning(
+                $"Tab wake failed due to an invalid WebView state: {ex.Message}");
+
+            StatusText.Text = "Could not wake this tab";
+
+            MessageBox.Show(
+                $"Feather could not recreate this tab.\n\n{ex.Message}",
+                "Feather tab",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+
+            return;
+        }
+        catch (System.Runtime.InteropServices.COMException ex)
+        {
+            System.Diagnostics.Trace.TraceWarning(
+                $"Tab wake failed due to a WebView2 COM error: {ex.Message}");
+
+            StatusText.Text = "Could not wake this tab";
+
+            MessageBox.Show(
+                $"Feather could not recreate this tab.\n\n{ex.Message}",
+                "Feather tab",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+
             return;
         }
 
