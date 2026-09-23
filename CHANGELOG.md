@@ -1,5 +1,28 @@
 # Changelog
 
+## 2.0.0
+
+Feather 2.0 is a big update focused on making the browser feel cleaner, faster and more polished.
+
+- Reworked the tab bar so it feels more like a proper browser UI.
+- Added website favicons to tabs.
+- Moved the new tab button next to the last tab.
+- Improved tab overflow so the new tab button stays visible when lots of tabs are open.
+- Cleaned up active and inactive tab styling.
+- Made the tab bar blend into the navigation bar better instead of looking like a separate section.
+- Improved tab spacing, close buttons and overall alignment.
+- Improved tab switching and background tab handling.
+- Improved sleeping and waking tabs to reduce unnecessary memory usage.
+- Fixed several WebView2 tab lifecycle issues.
+- Improved background tab muting.
+- Improved favicon loading on sites that update their icon after the page loads.
+- Improved workspace tab handling when opening, switching and closing tabs.
+- Cleaned up duplicated tab code and simplified parts of the browser internals.
+- Improved ad and tracker blocking.
+- Improved error handling around navigation and WebView2.
+- General performance, UI and stability improvements.
+- Various smaller fixes and code cleanup across the project.
+
 ## 1.0.1
 
 - Publish one Windows x64 Setup EXE instead of a ZIP of application files.

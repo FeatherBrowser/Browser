@@ -59,7 +59,6 @@ public partial class MainWindow : Window
         if (!_isPrivateMode)
             return;
 
-        ModeBadge.Visibility = Visibility.Visible;
         TitleBar.Background = new SolidColorBrush(Color.FromRgb(24, 17, 34));
         Title = "Private — Feather Browser";
         TitleText.Text = "Private browsing";

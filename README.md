@@ -1,6 +1,6 @@
 # Feather Browser
 
-**Version 1.0.1** · Windows · C# / WPF · MIT
+**Version 2.0.0** · Windows · C# / WPF · MIT
 
 Feather is a desktop browser built on Microsoft WebView2, with workspaces, configurable background-tab suspension/unloading, a dark interface and local browser data.
 
