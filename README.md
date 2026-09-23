@@ -1,6 +1,6 @@
 # Feather Browser
 
-**Version 1.0.0** · Windows · C# / WPF · MIT
+**Version 1.0.1** · Windows · C# / WPF · MIT
 
 Feather is a desktop browser built on Microsoft WebView2, with workspaces, configurable background-tab suspension/unloading, a dark interface and local browser data.
 
@@ -33,7 +33,7 @@ To build and run the checks:
 .\scripts\check.ps1
 ```
 
-The workflow in `.github/workflows/build.yml` builds, checks and packages Windows x64 artifacts. It does not create a public GitHub Release or publish your repository.
+The workflow in `.github/workflows/build.yml` builds and checks the app, then packages a Windows x64 installer. Pushes to `main` or `master` create a GitHub Release for the project version if that release does not already exist. Pull requests only build artifacts.
 
 ## Package a Windows build
 
@@ -41,7 +41,19 @@ The workflow in `.github/workflows/build.yml` builds, checks and packages Window
 .\scripts\publish.ps1 -Runtime win-x64 -SelfContained
 ```
 
-Output: `artifacts/publish/win-x64/`. Distribute the **whole folder** or zip its contents. Self-contained includes .NET, but the user still needs the WebView2 Runtime. Other supported publish targets are `win-arm64` and `win-x86`.
+Then install [Inno Setup 6.3 or newer](https://jrsoftware.org/isinfo.php) and run:
+
+```powershell
+.\scripts\installer.ps1
+```
+
+Distribute `artifacts/installer/FeatherBrowser-v1.0.1-win-x64-Setup.exe`. The installer bundles the self-contained .NET app, adds a Start menu shortcut and optional desktop shortcut, and provides an uninstaller. It installs for the current user under `%LOCALAPPDATA%\Programs\FeatherBrowser`. Browser profile data stays under `%LOCALAPPDATA%\FeatherBrowser` and is preserved during upgrades and uninstall.
+
+A Microsoft-signed WebView2 bootstrapper is bundled and runs only if the runtime is missing; in that case installation needs internet access. Packaging also needs internet to download and verify that bootstrapper. See [Microsoft's deployment documentation](https://learn.microsoft.com/microsoft-edge/webview2/concepts/distribution).
+
+The installer is one download; supporting files are unpacked into the install directory. .NET remains included, so this is not a promise of a smaller download. No signing certificate is configured for the app or installer.
+
+Release assets now contain the installer EXE. GitHub also supplies its standard source-code archives. Set a new `<Version>` in the project (and corresponding assembly/file versions and changelog) before the next release: existing releases are skipped, not overwritten. Raw folder publishing still supports `win-arm64` and `win-x86`; the installer targets `win-x64` only.
 
 ## Data and privacy
 

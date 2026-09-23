@@ -69,6 +69,6 @@ var fallback = new FeatherBrowser.Features.WebView3.ResourceSnapshot([
 Check(fallback.MemoryBytes == 650 && fallback.MemoryLabel == "Private commit" && fallback.IsPartial, "Fallback uses a consistent labelled metric and marks partial coverage");
 Check(fallback.CpuPercent is null, "First sample does not invent CPU usage");
 Check(FeatherBrowser.Features.WebView3.PerformancePolicy.SampleIntervalSeconds(true) > FeatherBrowser.Features.WebView3.PerformancePolicy.SampleIntervalSeconds(false), "Minimized sampling is less frequent");
-Check(EmbeddedAssets.LoadPage("welcome").Contains("1.0.0"), "Welcome version supplied by assembly metadata");
+Check(EmbeddedAssets.LoadPage("welcome").Contains(AppInfo.Version), "Welcome version supplied by assembly metadata");
 Check(EmbeddedAssets.Load("autofill.js").IndexOf("origin-changed", StringComparison.Ordinal) < EmbeddedAssets.Load("autofill.js").IndexOf("const password", StringComparison.Ordinal), "Autofill checks origin before touching credentials");
 Console.WriteLine($"Passed {checks} navigation and embedded-resource checks.");

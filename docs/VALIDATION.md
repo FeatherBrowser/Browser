@@ -21,3 +21,11 @@
 7. Inspect the Windows CI artifact, enable private vulnerability reporting on the repository, and retain all third-party notices when distributing binaries.
 
 The GitHub workflow has been added but has not been run remotely. The project has not had an independent security audit.
+
+## 1.0.1 installer changes
+
+Static checks passed for workflow artifact handoff, project and window XML, release asset naming, and the multi-resolution icon (16 through 256 pixels). The icon was visually inspected.
+
+The editing environment has no Windows runtime, .NET SDK, PowerShell or Inno Setup. Compilation and native setup execution were not performed here. The Windows workflow now compiles the installer, installs it silently into a temporary directory, verifies core installed files/version, and uninstalls it before allowing a release. `scripts/check-installer.ps1` is intended for a disposable CI machine: setup also creates a Start menu shortcut and uninstall registration.
+
+Before distributing publicly, manually check launching the installed browser, icons in Explorer/taskbar, optional desktop shortcut, upgrades over an existing installation, and preservation of browser data. Also exercise WebView2-missing machines with and without internet. The installer and application are unsigned unless your own signing is added.

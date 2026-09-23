@@ -4,6 +4,7 @@
         xmlns:info="clr-namespace:FeatherBrowser.Infrastructure.Resources"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="Feather Browser"
+        Icon="/Assets/Branding/feather.ico"
         Width="1360" Height="860" MinWidth="860" MinHeight="540"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None"
@@ -36,10 +37,7 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="18,0,20,0">
-                    <Border Width="20" Height="20" CornerRadius="6" Background="#173B5C" Margin="0,0,8,0">
-                        <TextBlock Text="◒" Foreground="#A8D4FF" FontWeight="Bold" FontSize="11"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Border>
+                    <Image Source="/Assets/Branding/feather.png" Width="24" Height="24" Margin="0,0,8,0"/>
                     <TextBlock Text="Feather Browser" Foreground="{StaticResource TextPrimary}" FontWeight="SemiBold" FontSize="12.5" VerticalAlignment="Center"/>
                     <Border Background="#111A25" BorderBrush="#203044" BorderThickness="1" CornerRadius="6" Padding="6,2" Margin="8,0,0,0">
                         <TextBlock Text="{x:Static info:AppInfo.Version}" Foreground="{StaticResource Accent}" FontSize="9" FontWeight="SemiBold"/>

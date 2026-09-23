@@ -75,7 +75,7 @@ Automated release of Feather Browser $version.
 
 ### Installation
 
-Download the Windows x64 archive below, extract it, and run FeatherBrowser.exe.
+Download FeatherBrowser-v$version-win-x64-Setup.exe below and run the installer.
 "@
     }
 
@@ -109,11 +109,9 @@ Download the Windows x64 archive below, extract it, and run FeatherBrowser.exe.
         throw 'GITHUB_SHA is required.'
     }
 
-    $publishDirectory = 'artifacts/publish/win-x64'
-    $exePath = Join-Path $publishDirectory 'FeatherBrowser.exe'
-
-    if (-not (Test-Path $exePath)) {
-        throw "Published FeatherBrowser.exe is missing: $exePath"
+    $installer = "artifacts/installer/FeatherBrowser-$tag-win-x64-Setup.exe"
+    if (-not (Test-Path $installer)) {
+        throw "Installer is missing: $installer"
     }
 
     $releaseDirectory = 'artifacts/release'
@@ -131,26 +129,7 @@ Download the Windows x64 archive below, extract it, and run FeatherBrowser.exe.
             -Path $notesPath `
             -Encoding utf8
 
-    $archive = Join-Path `
-        $releaseDirectory `
-        "FeatherBrowser-$tag-win-x64.zip"
-
-    if (Test-Path $archive) {
-        Remove-Item $archive -Force
-    }
-
-    Compress-Archive `
-        -Path "$publishDirectory/*" `
-        -DestinationPath $archive `
-        -Force
-
-    if (-not (Test-Path $archive)) {
-        throw "Failed to create release archive: $archive"
-    }
-
-    Write-Host "Created archive: $archive"
-
-    gh release create $tag $archive `
+    gh release create $tag $installer `
         --target $env:GITHUB_SHA `
         --title "Feather Browser $version" `
         --notes-file $notesPath

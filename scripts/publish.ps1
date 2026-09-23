@@ -7,7 +7,9 @@ $project = Join-Path $PSScriptRoot "../src/FeatherBrowser/FeatherBrowser.csproj"
 $out = Join-Path $PSScriptRoot "../artifacts/publish/$Runtime"
 $includeRuntime = $SelfContained.IsPresent.ToString().ToLowerInvariant()
 
-dotnet publish $project --configuration Release --runtime $Runtime --self-contained $includeRuntime --output $out
+if (Test-Path $out) { Remove-Item $out -Recurse -Force }
+
+dotnet publish $project --configuration Release --runtime $Runtime --self-contained $includeRuntime --output $out -p:DebugType=None -p:DebugSymbols=false
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 $root = Join-Path $PSScriptRoot ".."
 foreach ($file in @("LICENSE", "THIRD_PARTY_NOTICES.md", "README.md")) {

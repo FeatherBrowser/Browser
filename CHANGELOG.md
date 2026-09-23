@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.1
+
+- Publish one Windows x64 Setup EXE instead of a ZIP of application files.
+- Add per-user installation, Start menu and optional desktop shortcuts, upgrades and uninstall.
+- Bundle .NET and a verified Microsoft WebView2 bootstrapper for machines missing the runtime.
+- Add a Feather icon to the executable, window, title bar, shortcuts and installer.
+- Preserve browser profiles when upgrading or uninstalling.
+
 ## 1.0.0
 
 Initial public-source release. Internal preview version numbers have been consolidated into 1.0.0.
