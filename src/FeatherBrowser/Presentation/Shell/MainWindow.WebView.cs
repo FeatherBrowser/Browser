@@ -219,8 +219,21 @@ public partial class MainWindow : Window
 
                 if (_shieldEnabled && _store.Settings.CosmeticBlocking && !_blocker.IsSiteAllowlisted(SafeHost(source), _store.Settings))
                 {
-                    try { await core.ExecuteScriptAsync(BlockerEngine.GetCosmeticFilterScript(_store.Settings.StrictBlocking)); }
-                    catch { }
+                    try
+                    {
+                        await core.ExecuteScriptAsync(
+                            BlockerEngine.GetCosmeticFilterScript(_store.Settings.StrictBlocking));
+                    }
+                    catch (ObjectDisposedException ex)
+                    {
+                        System.Diagnostics.Trace.TraceWarning(
+                            $"Cosmetic filtering skipped: WebView was disposed. {ex.Message}");
+                    }
+                    catch (InvalidOperationException ex)
+                    {
+                        System.Diagnostics.Trace.TraceWarning(
+                            $"Cosmetic filtering failed: WebView is unavailable. {ex.Message}");
+                    }
                 }
             }
 
@@ -280,8 +293,7 @@ public partial class MainWindow : Window
         {
             if (_store.Settings.SendDoNotTrack)
             {
-                try { e.Request.Headers.SetHeader("DNT", "1"); }
-                catch { }
+                e.Request.Headers.SetHeader("DNT", "1");
             }
 
             if (!_shieldEnabled || _environment is null)
@@ -322,23 +334,39 @@ public partial class MainWindow : Window
         }
 
         bool wasActive = _activeTab == tab;
-        try
+        if (!tab.IsInternalPage &&
+     tab.IsLoaded &&
+     tab.View.CoreWebView2 is { } core)
         {
-            if (!tab.IsInternalPage && tab.IsLoaded)
+            string source = core.Source ?? string.Empty;
+
+            if (!string.IsNullOrWhiteSpace(source) &&
+                !source.Equals("about:blank", StringComparison.OrdinalIgnoreCase) &&
+                !source.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
             {
-                string source = tab.View.CoreWebView2.Source ?? string.Empty;
-                if (!string.IsNullOrWhiteSpace(source) && source != "about:blank" && !source.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
-                    tab.LastAddress = source;
+                tab.LastAddress = source;
             }
         }
-        catch { }
 
         tab.SleepCancellation?.Cancel();
         tab.SleepCancellation?.Dispose();
         tab.SleepCancellation = null;
         if (tab.IsLoaded)
             BrowserHost.Children.Remove(tab.View);
-        try { tab.View.Dispose(); } catch { }
+        try
+        {
+            tab.View.Dispose();
+        }
+        catch (ObjectDisposedException ex)
+        {
+            System.Diagnostics.Trace.TraceWarning(
+                $"WebView2 was already disposed: {ex.Message}");
+        }
+        catch (InvalidOperationException ex)
+        {
+            System.Diagnostics.Trace.TraceWarning(
+                $"WebView2 disposal failed: {ex.Message}");
+        }
         tab.View = CreateWebViewControl();
         tab.IsLoaded = false;
         tab.IsPlayingAudio = false;
@@ -361,8 +389,28 @@ public partial class MainWindow : Window
             AddressBox.Text = DisplayAddress(tab);
             StatusText.Text = "Tab recovered";
         }
-        catch
+        catch (OperationCanceledException ex)
         {
+            System.Diagnostics.Trace.TraceWarning(
+                $"Tab recovery was cancelled: {ex.Message}");
+            StatusText.Text = "Tab recovery cancelled · press Ctrl+R to retry";
+        }
+        catch (ObjectDisposedException ex)
+        {
+            System.Diagnostics.Trace.TraceWarning(
+                $"Tab recovery failed because the WebView was disposed: {ex.Message}");
+            StatusText.Text = "Tab recovery failed · press Ctrl+R to retry";
+        }
+        catch (InvalidOperationException ex)
+        {
+            System.Diagnostics.Trace.TraceWarning(
+                $"Tab recovery failed due to an invalid WebView state: {ex.Message}");
+            StatusText.Text = "Tab recovery failed · press Ctrl+R to retry";
+        }
+        catch (System.Runtime.InteropServices.COMException ex)
+        {
+            System.Diagnostics.Trace.TraceWarning(
+                $"Tab recovery failed due to a WebView2 COM error: {ex.Message}");
             StatusText.Text = "Tab recovery failed · press Ctrl+R to retry";
         }
         UpdateResourceText();

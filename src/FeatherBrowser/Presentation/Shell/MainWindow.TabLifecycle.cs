@@ -93,15 +93,32 @@ public partial class MainWindow : Window
 
         try
         {
-            if (!tab.IsInternalPage)
+            if (!tab.IsInternalPage && tab.View.CoreWebView2 is not null)
             {
                 string source = tab.View.CoreWebView2.Source ?? string.Empty;
-                if (!string.IsNullOrWhiteSpace(source) && !source.StartsWith("data:", StringComparison.OrdinalIgnoreCase) && source != "about:blank")
+
+                if (!string.IsNullOrWhiteSpace(source) &&
+                    !source.StartsWith("data:", StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(source, "about:blank", StringComparison.OrdinalIgnoreCase))
+                {
                     tab.LastAddress = source;
+                }
             }
         }
-        catch
+        catch (ObjectDisposedException ex)
         {
+            System.Diagnostics.Trace.TraceWarning(
+                $"Could not preserve tab address because WebView2 was disposed: {ex.Message}");
+        }
+        catch (InvalidOperationException ex)
+        {
+            System.Diagnostics.Trace.TraceWarning(
+                $"Could not preserve tab address due to an invalid WebView2 state: {ex.Message}");
+        }
+        catch (System.Runtime.InteropServices.COMException ex)
+        {
+            System.Diagnostics.Trace.TraceWarning(
+                $"Could not preserve tab address due to a WebView2 COM error: {ex.Message}");
         }
 
         tab.SleepCancellation?.Cancel();
@@ -147,14 +164,33 @@ public partial class MainWindow : Window
 
         try
         {
-            if (!tab.IsInternalPage)
+            if (!tab.IsInternalPage && tab.View.CoreWebView2 is not null)
             {
                 string source = tab.View.CoreWebView2.Source ?? string.Empty;
-                if (!string.IsNullOrWhiteSpace(source) && !source.StartsWith("data:", StringComparison.OrdinalIgnoreCase) && source != "about:blank")
+
+                if (!string.IsNullOrWhiteSpace(source) &&
+                    !source.StartsWith("data:", StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(source, "about:blank", StringComparison.OrdinalIgnoreCase))
+                {
                     tab.LastAddress = source;
+                }
             }
         }
-        catch { }
+        catch (ObjectDisposedException ex)
+        {
+            System.Diagnostics.Trace.TraceWarning(
+                $"Could not preserve tab address because WebView2 was disposed: {ex.Message}");
+        }
+        catch (InvalidOperationException ex)
+        {
+            System.Diagnostics.Trace.TraceWarning(
+                $"Could not preserve tab address due to an invalid WebView2 state: {ex.Message}");
+        }
+        catch (System.Runtime.InteropServices.COMException ex)
+        {
+            System.Diagnostics.Trace.TraceWarning(
+                $"Could not preserve tab address due to a WebView2 COM error: {ex.Message}");
+        }
 
         tab.SleepCancellation?.Cancel();
         tab.SleepCancellation?.Dispose();

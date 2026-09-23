@@ -179,8 +179,15 @@ public partial class MainWindow : Window
         var copyUrl = new MenuItem { Header = "Copy page address" };
         copyUrl.Click += (_, _) =>
         {
-            try { Clipboard.SetText(_activeTab?.LastAddress ?? string.Empty); }
-            catch { }
+            try
+            {
+                Clipboard.SetText(_activeTab?.LastAddress ?? string.Empty);
+            }
+            catch (System.Runtime.InteropServices.ExternalException ex)
+            {
+                System.Diagnostics.Trace.TraceWarning(
+                    $"Could not copy address to clipboard: {ex.Message}");
+            }
         };
         menu.Items.Add(copyUrl);
         menu.IsOpen = true;
@@ -193,15 +200,53 @@ public partial class MainWindow : Window
 
         try
         {
-            var cookies = await tab.View.CoreWebView2.CookieManager.GetCookiesAsync(tab.LastAddress);
+            CoreWebView2? core = tab.View.CoreWebView2;
+
+            if (core is null)
+            {
+                StatusText.Text = "Could not clear site cookies: tab is not ready";
+                return;
+            }
+
+            var cookies = await core.CookieManager.GetCookiesAsync(tab.LastAddress);
+
             foreach (CoreWebView2Cookie cookie in cookies)
-                tab.View.CoreWebView2.CookieManager.DeleteCookie(cookie);
-            StatusText.Text = $"Cleared {cookies.Count} cookie{(cookies.Count == 1 ? "" : "s")} for {SafeHost(tab.LastAddress)}";
+            {
+                core.CookieManager.DeleteCookie(cookie);
+            }
+
+            StatusText.Text =
+                $"Cleared {cookies.Count} cookie{(cookies.Count == 1 ? "" : "s")} for {SafeHost(tab.LastAddress)}";
+
             tab.View.Reload();
         }
-        catch (Exception ex)
+        catch (ObjectDisposedException ex)
         {
-            StatusText.Text = $"Could not clear site cookies: {ex.Message}";
+            System.Diagnostics.Trace.TraceWarning(
+                $"Could not clear cookies because WebView2 was disposed: {ex.Message}");
+
+            StatusText.Text = "Could not clear site cookies";
+        }
+        catch (InvalidOperationException ex)
+        {
+            System.Diagnostics.Trace.TraceWarning(
+                $"Could not clear cookies due to an invalid WebView2 state: {ex.Message}");
+
+            StatusText.Text = "Could not clear site cookies";
+        }
+        catch (ArgumentException ex)
+        {
+            System.Diagnostics.Trace.TraceWarning(
+                $"Could not clear cookies because the site address was invalid: {ex.Message}");
+
+            StatusText.Text = "Could not clear site cookies: invalid address";
+        }
+        catch (System.Runtime.InteropServices.COMException ex)
+        {
+            System.Diagnostics.Trace.TraceWarning(
+                $"Could not clear cookies due to a WebView2 runtime error: {ex.Message}");
+
+            StatusText.Text = "Could not clear site cookies";
         }
     }
 }
