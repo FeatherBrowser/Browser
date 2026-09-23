@@ -1,10 +1,17 @@
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
-Push-Location (Join-Path $PSScriptRoot '..')
+$repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
+Push-Location $repoRoot
 
 try {
-    [xml]$project = Get-Content 'src/FeatherBrowser/FeatherBrowser.csproj' -Raw
+    $projectPath = 'src/FeatherBrowser/FeatherBrowser.csproj'
+
+    if (-not (Test-Path $projectPath)) {
+        throw "Project file not found: $projectPath"
+    }
+
+    [xml]$project = Get-Content $projectPath -Raw
     $versionNode = $project.SelectSingleNode('/Project/PropertyGroup/Version')
 
     if ($null -eq $versionNode) {
@@ -18,14 +25,58 @@ try {
     }
 
     $tag = "v$version"
-    $changelog = Get-Content 'changelogs.md' -Raw
-    $escaped = [regex]::Escape($version)
-    $pattern = "(?ms)^##[ \t]+(?:\[v?$escaped\]|v?$escaped)(?=[ \t\r\n]|$)[^\r\n]*\r?\n(?<notes>.*?)(?=^##[ \t]+|\z)"
-    $section = [regex]::Match($changelog, $pattern)
 
-    if (-not $section.Success -or
-        [string]::IsNullOrWhiteSpace($section.Groups['notes'].Value)) {
-        throw "changelogs.md needs a nonempty ## $version section."
+    Write-Host "Preparing Feather Browser $version"
+    Write-Host "Release tag: $tag"
+
+    $changelogCandidates = @(
+        'changelogs.md',
+        'CHANGELOG.md',
+        'Changelog.md',
+        'CHANGELOG.MD'
+    )
+
+    $changelogPath = $null
+
+    foreach ($candidate in $changelogCandidates) {
+        if (Test-Path $candidate) {
+            $changelogPath = $candidate
+            break
+        }
+    }
+
+    $releaseNotes = $null
+
+    if ($null -ne $changelogPath) {
+        Write-Host "Using changelog: $changelogPath"
+
+        $changelog = Get-Content $changelogPath -Raw
+        $escaped = [regex]::Escape($version)
+        $pattern = "(?ms)^##[ \t]+(?:\[v?$escaped\]|v?$escaped)(?=[ \t\r\n]|$)[^\r\n]*\r?\n(?<notes>.*?)(?=^##[ \t]+|\z)"
+        $section = [regex]::Match($changelog, $pattern)
+
+        if ($section.Success -and
+            -not [string]::IsNullOrWhiteSpace($section.Groups['notes'].Value)) {
+            $releaseNotes = $section.Groups['notes'].Value.Trim()
+        }
+        else {
+            Write-Warning "No non-empty ## $version section was found in $changelogPath."
+        }
+    }
+    else {
+        Write-Warning 'No changelog file was found.'
+    }
+
+    if ([string]::IsNullOrWhiteSpace($releaseNotes)) {
+        $releaseNotes = @"
+## Feather Browser $version
+
+Automated release of Feather Browser $version.
+
+### Installation
+
+Download the Windows x64 archive below, extract it, and run FeatherBrowser.exe.
+"@
     }
 
     $tags = @(
@@ -42,7 +93,9 @@ try {
         return
     }
 
-    $existingTag = @(git ls-remote --tags origin "refs/tags/$tag")
+    $existingTag = @(
+        git ls-remote --tags origin "refs/tags/$tag"
+    )
 
     if ($LASTEXITCODE -ne 0) {
         throw 'Could not check remote tags.'
@@ -56,21 +109,46 @@ try {
         throw 'GITHUB_SHA is required.'
     }
 
-    if (-not (Test-Path 'artifacts/publish/win-x64/FeatherBrowser.exe')) {
-        throw 'Published FeatherBrowser.exe is missing.'
+    $publishDirectory = 'artifacts/publish/win-x64'
+    $exePath = Join-Path $publishDirectory 'FeatherBrowser.exe'
+
+    if (-not (Test-Path $exePath)) {
+        throw "Published FeatherBrowser.exe is missing: $exePath"
     }
 
-    New-Item -ItemType Directory -Path 'artifacts/release' -Force |
+    $releaseDirectory = 'artifacts/release'
+
+    New-Item `
+        -ItemType Directory `
+        -Path $releaseDirectory `
+        -Force |
         Out-Null
 
-    $notesPath = 'artifacts/release/notes.md'
-    $section.Groups['notes'].Value.Trim() |
-        Set-Content $notesPath -Encoding utf8
+    $notesPath = Join-Path $releaseDirectory 'notes.md'
 
-    $archive = "artifacts/release/FeatherBrowser-$tag-win-x64.zip"
+    $releaseNotes |
+        Set-Content `
+            -Path $notesPath `
+            -Encoding utf8
 
-    Compress-Archive -Path 'artifacts/publish/win-x64/*' `
-        -DestinationPath $archive -Force
+    $archive = Join-Path `
+        $releaseDirectory `
+        "FeatherBrowser-$tag-win-x64.zip"
+
+    if (Test-Path $archive) {
+        Remove-Item $archive -Force
+    }
+
+    Compress-Archive `
+        -Path "$publishDirectory/*" `
+        -DestinationPath $archive `
+        -Force
+
+    if (-not (Test-Path $archive)) {
+        throw "Failed to create release archive: $archive"
+    }
+
+    Write-Host "Created archive: $archive"
 
     gh release create $tag $archive `
         --target $env:GITHUB_SHA `
@@ -80,6 +158,8 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw 'GitHub release creation failed.'
     }
+
+    Write-Host "Successfully published Feather Browser $version."
 }
 finally {
     Pop-Location
