@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Text.Json;
@@ -54,10 +55,10 @@ internal sealed class BrowserDataStore
 
     public BrowserDataStore()
     {
-        _root = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            ApplicationDirectoryName,
-            DataDirectoryName);
+        _root = Path.Join(
+    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+    ApplicationDirectoryName,
+    DataDirectoryName);
 
         Directory.CreateDirectory(_root);
 
@@ -79,7 +80,7 @@ internal sealed class BrowserDataStore
         MigrateSettings();
     }
 
-    private string GetDataPath(string fileName) => Path.Combine(_root, fileName);
+    private string GetDataPath(string fileName) => Path.Join(_root, fileName);
 
     private void MigrateSettings()
     {
@@ -333,11 +334,13 @@ internal sealed class BrowserDataStore
             if (File.Exists(path))
                 File.Delete(path);
         }
-        catch (IOException)
+        catch (IOException exception)
         {
+            Debug.WriteLine($"Failed to delete file '{path}': {exception.Message}");
         }
-        catch (UnauthorizedAccessException)
+        catch (UnauthorizedAccessException exception)
         {
+            Debug.WriteLine($"Access denied deleting file '{path}': {exception.Message}");
         }
     }
 
@@ -551,11 +554,10 @@ internal sealed class BrowserDataStore
             Dictionary<string, HistoryEntry> historyByUrl = new(
                 StringComparer.OrdinalIgnoreCase);
 
-            foreach (HistoryEntry entry in History)
+            foreach (HistoryEntry entry in History.Where(static entry => !string.IsNullOrWhiteSpace(entry.Url)))
             {
-                if (!string.IsNullOrWhiteSpace(entry.Url))
-                    historyByUrl.TryAdd(entry.Url, entry);
-            }
+                historyByUrl.TryAdd(entry.Url, entry);
+                }
 
             int added = 0;
 

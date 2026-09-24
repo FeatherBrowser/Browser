@@ -1,3 +1,4 @@
+/* trunk-ignore-all(prettier) */
 let links = __QUICK_LINKS_JSON__;
 const initialState = __HOME_STATE_JSON__;
 const bridge = window.chrome?.webview;

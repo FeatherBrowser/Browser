@@ -1,88 +1,159 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>New Tab</title>
-  <style>__PAGE_STYLES__</style>
-</head>
-<body>
-  <div class="wallpaper" aria-hidden="true">
-    <div class="wallpaper-image"></div>
-    <div class="wallpaper-tint"></div>
-</div>
-
-  <main class="newtab-shell">
-    <section class="hero" aria-labelledby="hero-title">
-      <p class="eyebrow">YOUR SPACE TO EXPLORE</p>
-      <h1 id="hero-title">A little lighter. A little clearer.</h1>
-
-      <form id="search" class="searchbox" role="search">
-        <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="11" cy="11" r="6.5"></circle>
-          <path d="m16 16 4 4"></path>
-        </svg>
-        <input id="q" aria-label="Search the web or enter an address" autocomplete="off" spellcheck="false" placeholder="Search the web">
-        <button class="sr-only" type="submit">Search</button>
-      </form>
-
-      <section class="shortcut-section" aria-label="Quick links">
-        <div id="quick-links" class="quicklinks"></div>
-      </section>
-    </section>
-
-    <section class="continue-section" aria-labelledby="continue-title">
-      <div class="section-heading">
-        <h2 id="continue-title">Continue browsing</h2>
-        <button id="history-link" type="button">View history</button>
-      </div>
-      <div id="recent-grid" class="recent-grid">
-        <div class="recent-placeholder">Your recent pages will show up here.</div>
-      </div>
-    </section>
-  </main>
-
-  <div class="customize-wrap">
-    <div id="customize-panel" class="customize-panel" hidden>
-      <div class="customize-title">Customize Feather</div>
-      <button id="edit-links" class="customize-row" type="button"><span class="customize-row-icon">＋</span><span>Edit shortcuts</span></button>
-      <button class="customize-row" type="button" data-action="open-settings"><span class="customize-row-icon">⚙</span><span>Browser settings</span></button>
-      <button class="customize-row" type="button" data-action="open-favorites-library"><span class="customize-row-icon">☆</span><span>Bookmarks</span></button>
-      <div class="customize-divider"></div>
-      <button id="memory-toggle" class="toggle-row" type="button" role="switch" aria-checked="false" data-action="toggle-memory"><span>Memory Saver</span><i></i></button>
-      <button id="shield-toggle" class="toggle-row" type="button" role="switch" aria-checked="false" data-action="toggle-shield"><span>Tracker Shield</span><i></i></button>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>New Tab</title>
+    <style>
+      __PAGE_STYLES__
+    </style>
+  </head>
+  <body>
+    <div class="wallpaper" aria-hidden="true">
+      <div class="wallpaper-image"></div>
+      <div class="wallpaper-tint"></div>
     </div>
 
-    <button id="customize-button" class="customize-button" type="button" aria-expanded="false">
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="m4 20 4.2-1 10.6-10.6a2.2 2.2 0 0 0-3.1-3.1L5.1 15.9 4 20Z"></path>
-        <path d="m13.8 7.2 3 3"></path>
-      </svg>
-      <span>Customize</span>
-    </button>
-  </div>
+    <main class="newtab-shell">
+      <section class="hero" aria-labelledby="hero-title">
+        <p class="eyebrow">YOUR SPACE TO EXPLORE</p>
+        <h1 id="hero-title">A little lighter. A little clearer.</h1>
 
-  <dialog id="shortcut-dialog">
-    <form id="shortcut-form">
-      <div class="dialog-heading">
-        <div><small>SHORTCUT</small><h2 id="dialog-title">Add shortcut</h2></div>
-        <button type="button" id="close-dialog" class="dialog-close" aria-label="Close">×</button>
+        <form id="search" class="searchbox" role="search">
+          <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="11" cy="11" r="6.5"></circle>
+            <path d="m16 16 4 4"></path>
+          </svg>
+          <input
+            id="q"
+            aria-label="Search the web or enter an address"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="Search the web"
+          />
+          <button class="sr-only" type="submit">Search</button>
+        </form>
+
+        <section class="shortcut-section" aria-label="Quick links">
+          <div id="quick-links" class="quicklinks"></div>
+        </section>
+      </section>
+
+      <section class="continue-section" aria-labelledby="continue-title">
+        <div class="section-heading">
+          <h2 id="continue-title">Continue browsing</h2>
+          <button id="history-link" type="button">View history</button>
+        </div>
+        <div id="recent-grid" class="recent-grid">
+          <div class="recent-placeholder">
+            Your recent pages will show up here.
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div class="customize-wrap">
+      <div id="customize-panel" class="customize-panel" hidden>
+        <div class="customize-title">Customize Feather</div>
+        <button id="edit-links" class="customize-row" type="button">
+          <span class="customize-row-icon">＋</span><span>Edit shortcuts</span>
+        </button>
+        <button class="customize-row" type="button" data-action="open-settings">
+          <span class="customize-row-icon">⚙</span><span>Browser settings</span>
+        </button>
+        <button
+          class="customize-row"
+          type="button"
+          data-action="open-favorites-library"
+        >
+          <span class="customize-row-icon">☆</span><span>Bookmarks</span>
+        </button>
+        <div class="customize-divider"></div>
+        <button
+          id="memory-toggle"
+          class="toggle-row"
+          type="button"
+          role="switch"
+          aria-checked="false"
+          data-action="toggle-memory"
+        >
+          <span>Memory Saver</span><i></i>
+        </button>
+        <button
+          id="shield-toggle"
+          class="toggle-row"
+          type="button"
+          role="switch"
+          aria-checked="false"
+          data-action="toggle-shield"
+        >
+          <span>Tracker Shield</span><i></i>
+        </button>
       </div>
 
-      <label>Name<input id="shortcut-name" maxlength="32" required autocomplete="off" placeholder="GitHub"></label>
-      <label>Website<input id="shortcut-url" maxlength="2048" required autocomplete="off" placeholder="https://github.com"></label>
+      <button
+        id="customize-button"
+        class="customize-button"
+        type="button"
+        aria-expanded="false"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            d="m4 20 4.2-1 10.6-10.6a2.2 2.2 0 0 0-3.1-3.1L5.1 15.9 4 20Z"
+          ></path>
+          <path d="m13.8 7.2 3 3"></path>
+        </svg>
+        <span>Customize</span>
+      </button>
+    </div>
 
-      <p id="shortcut-error" role="alert"></p>
+    <dialog id="shortcut-dialog">
+      <form id="shortcut-form">
+        <div class="dialog-heading">
+          <div>
+            <small>SHORTCUT</small>
+            <h2 id="dialog-title">Add shortcut</h2>
+          </div>
+          <button
+            type="button"
+            id="close-dialog"
+            class="dialog-close"
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
 
-      <div class="dialog-actions">
-        <button type="button" id="delete-link" class="danger">Delete</button>
-        <button type="button" id="cancel-link">Cancel</button>
-        <button type="submit" class="primary">Save shortcut</button>
-      </div>
-    </form>
-  </dialog>
+        <label
+          >Name<input
+            id="shortcut-name"
+            maxlength="32"
+            required
+            autocomplete="off"
+            placeholder="GitHub"
+        /></label>
+        <label
+          >Website<input
+            id="shortcut-url"
+            maxlength="2048"
+            required
+            autocomplete="off"
+            placeholder="https://github.com"
+        /></label>
 
-  <div id="toast" role="status" aria-live="polite"></div>
-  <script>__PAGE_SCRIPT__</script>
-</body>
+        <p id="shortcut-error" role="alert"></p>
+
+        <div class="dialog-actions">
+          <button type="button" id="delete-link" class="danger">Delete</button>
+          <button type="button" id="cancel-link">Cancel</button>
+          <button type="submit" class="primary">Save shortcut</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div id="toast" role="status" aria-live="polite"></div>
+    <script>
+      __PAGE_SCRIPT__;
+    </script>
+  </body>
 </html>

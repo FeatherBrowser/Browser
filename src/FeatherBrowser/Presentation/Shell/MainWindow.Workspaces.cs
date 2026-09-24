@@ -61,15 +61,10 @@ public partial class MainWindow : Window
 
     private void RefreshWorkspaceTabVisibility()
     {
-        foreach (BrowserTab tab in _tabs)
+        foreach (BrowserTab tab in _tabs.Where(static tab => !tab.IsClosed))
         {
-            if (tab.IsClosed)
-                continue;
-
-            tab.Header.Visibility = IsTabInActiveWorkspace(tab)
-                ? Visibility.Visible
-                : Visibility.Collapsed;
-        }
+            tab.Header.Visibility = IsTabInActiveWorkspace(tab) ? Visibility.Visible : Visibility.Collapsed;
+            }
     }
 
     private void UpdateWorkspaceSidebar()
@@ -222,12 +217,7 @@ public partial class MainWindow : Window
                 WorkspaceEquals(tab.Workspace, workspace))
             .ToArray();
 
-        int unloadedCount = 0;
-        foreach (BrowserTab tab in unloadableTabs)
-        {
-            if (HibernateTab(tab))
-                unloadedCount++;
-        }
+        int unloadedCount = unloadableTabs.Sum(tab => HibernateTab(tab) ? 1 : 0);
 
         StatusText.Text = unloadedCount > 0
             ? $"Unloaded {unloadedCount} tab(s) in {workspace}"

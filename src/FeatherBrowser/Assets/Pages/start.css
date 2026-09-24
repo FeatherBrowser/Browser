@@ -1,3 +1,4 @@
+/* trunk-ignore-all(prettier) */
 :root {
     color-scheme: dark;
     --text: #f5f8ff;
@@ -76,12 +77,10 @@ input:focus-visible {
     inset: 0;
 
     background:
-        linear-gradient(
-            180deg,
+        linear-gradient(180deg,
             rgba(6, 17, 32, 0.20) 0%,
             rgba(5, 15, 28, 0.10) 45%,
-            rgba(3, 10, 19, 0.42) 100%
-        );
+            rgba(3, 10, 19, 0.42) 100%);
 }
 
 .wallpaper-tint {
