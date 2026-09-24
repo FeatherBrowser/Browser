@@ -20,6 +20,7 @@ public partial class MainWindow : Window
         public required Image Favicon { get; init; }
         public required FrameworkElement FallbackIcon { get; init; }
         public CoreWebView2? FaviconCore { get; set; }
+        public int FaviconRevision { get; set; }
     }
 
     private static readonly Brush TabActiveBrush =
@@ -473,21 +474,32 @@ public partial class MainWindow : Window
     }
 
     private void HookTabFavicon(BrowserTab tab)
+{
+    if (tab.IsClosed || !tab.IsLoaded || tab.View.CoreWebView2 is null)
+        return;
+
+    if (tab.Header.Tag is not TabHeaderVisuals visuals)
+        return;
+
+    CoreWebView2 core = tab.View.CoreWebView2;
+
+    if (ReferenceEquals(visuals.FaviconCore, core))
+        return;
+
+    visuals.FaviconCore = core;
+
+    core.NavigationStarting += (_, _) =>
     {
-        if (tab.IsClosed || !tab.IsLoaded || tab.View.CoreWebView2 is null)
-            return;
+        visuals.FaviconRevision++;
+        ShowFallbackIcon(visuals);
+    };
 
-        if (tab.Header.Tag is not TabHeaderVisuals visuals)
-            return;
+    core.FaviconChanged += async (_, _) =>
+        await UpdateTabFaviconAsync(tab);
 
-        CoreWebView2 core = tab.View.CoreWebView2;
-        if (ReferenceEquals(visuals.FaviconCore, core))
-            return;
-
-        visuals.FaviconCore = core;
-        core.FaviconChanged += async (_, _) => await UpdateTabFaviconAsync(tab);
-        core.NavigationCompleted += async (_, _) => await UpdateTabFaviconAsync(tab);
-    }
+    core.NavigationCompleted += async (_, _) =>
+        await UpdateTabFaviconAsync(tab);
+}
 
     private static void ShowFallbackIcon(TabHeaderVisuals visuals)
     {
@@ -504,49 +516,87 @@ public partial class MainWindow : Window
     }
 
     private async Task UpdateTabFaviconAsync(BrowserTab tab)
+{
+    if (tab.IsClosed || !tab.IsLoaded || tab.View.CoreWebView2 is null)
+        return;
+
+    if (tab.Header.Tag is not TabHeaderVisuals visuals)
+        return;
+
+    CoreWebView2 core = tab.View.CoreWebView2;
+    string pageUrl = core.Source;
+    int revision = ++visuals.FaviconRevision;
+
+    bool IsCurrent() =>
+        !tab.IsClosed &&
+        tab.IsLoaded &&
+        ReferenceEquals(tab.View.CoreWebView2, core) &&
+        visuals.FaviconRevision == revision;
+
+    try
     {
-        if (tab.IsClosed || !tab.IsLoaded || tab.View.CoreWebView2 is null)
+        using Stream faviconStream = await core.GetFaviconAsync(
+            CoreWebView2FaviconImageFormat.Png);
+
+        if (!IsCurrent() || core.Source != pageUrl)
             return;
 
-        if (tab.Header.Tag is not TabHeaderVisuals visuals)
+        if (faviconStream.Length == 0)
+        {
+            ShowFallbackIcon(visuals);
             return;
-
-        try
-        {
-            using Stream faviconStream = await tab.View.CoreWebView2.GetFaviconAsync(
-                CoreWebView2FaviconImageFormat.Png);
-
-            if (faviconStream.Length == 0)
-            {
-                ShowFallbackIcon(visuals);
-                return;
-            }
-
-            var bitmap = new BitmapImage();
-            bitmap.BeginInit();
-            bitmap.CacheOption = BitmapCacheOption.OnLoad;
-            bitmap.StreamSource = faviconStream;
-            bitmap.DecodePixelWidth = 32;
-            bitmap.EndInit();
-            bitmap.Freeze();
-
-            if (!tab.IsClosed)
-                ShowFavicon(visuals, bitmap);
         }
-        catch (COMException)
+
+        var bitmap = new BitmapImage();
+        bitmap.BeginInit();
+        bitmap.CacheOption = BitmapCacheOption.OnLoad;
+        bitmap.StreamSource = faviconStream;
+        bitmap.DecodePixelWidth = 32;
+        bitmap.EndInit();
+        bitmap.Freeze();
+
+        ShowFavicon(visuals, bitmap);
+
+        if (!_isPrivateMode && !tab.IsInternalPage)
         {
-            ShowFallbackIcon(visuals);
-        }
-        catch (ObjectDisposedException)
-        {
-            ShowFallbackIcon(visuals);
-        }
-        catch (InvalidOperationException)
-        {
-            ShowFallbackIcon(visuals);
+            var encoder = new PngBitmapEncoder();
+            encoder.Frames.Add(BitmapFrame.Create(bitmap));
+
+            using var image = new MemoryStream();
+            encoder.Save(image);
+
+            _store.CacheFavicon(
+                pageUrl,
+                "data:image/png;base64," +
+                Convert.ToBase64String(image.ToArray()));
         }
     }
-
+    catch (COMException)
+    {
+        if (IsCurrent())
+            ShowFallbackIcon(visuals);
+    }
+    catch (ObjectDisposedException)
+    {
+        if (IsCurrent())
+            ShowFallbackIcon(visuals);
+    }
+    catch (InvalidOperationException)
+    {
+        if (IsCurrent())
+            ShowFallbackIcon(visuals);
+    }
+    catch (IOException)
+    {
+        if (IsCurrent())
+            ShowFallbackIcon(visuals);
+    }
+    catch (NotSupportedException)
+    {
+        if (IsCurrent())
+            ShowFallbackIcon(visuals);
+    }
+}
     private void ReportTabWakeFailure(string reason, Exception exception)
     {
         Trace.TraceWarning($"{reason}: {exception.Message}");
