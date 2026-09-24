@@ -8,6 +8,7 @@ const send = (action, data = {}) =>
 let editing = false;
 let selected = -1;
 let recentItems = [];
+let favicons = {};
 let toastTimer;
 
 const dialog = document.getElementById("shortcut-dialog");
@@ -39,11 +40,12 @@ function hostFor(url) {
 }
 
 function faviconFor(url) {
-    try {
-        return new URL("/favicon.ico", url).href;
-    } catch {
-        return "";
-    }
+    const source = Object.hasOwn(favicons, url) ? favicons[url] : "";
+
+    return typeof source === "string" &&
+        source.startsWith("data:image/png;base64,")
+        ? source
+        : "";
 }
 
 function makeIcon(url, label, className) {
@@ -101,6 +103,16 @@ document.querySelectorAll("[data-action]").forEach(button => {
 });
 
 function renderState(state) {
+  if (state.favicons && typeof state.favicons === "object") {
+      const changed =
+          JSON.stringify(favicons) !== JSON.stringify(state.favicons);
+
+      favicons = state.favicons;
+
+      if (changed) {
+          renderLinks();
+      }
+    }
     for (const [id, key] of [
         ["memory-toggle", "memorySaver"],
         ["shield-toggle", "shield"]
@@ -139,6 +151,11 @@ function renderLinks() {
             link.Url,
             link.Name,
             "site-icon"
+            image.alt = "";
+            image.decoding = "async";
+            image.addEventListener("error", () => image.replaceWith(fallback), { once: true }); 
+            image.src = source;
+            icon.append(image);
         );
 
         const label = document.createElement("span");
