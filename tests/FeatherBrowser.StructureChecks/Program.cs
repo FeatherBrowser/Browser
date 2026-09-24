@@ -29,7 +29,18 @@ foreach (string page in new[] { "start", "settings", "library", "welcome" })
 }
 foreach (string script in new[] { "autofill.js", "cosmetic-filter.js", "cosmetic-filter-strict.js" })
     Check(!string.IsNullOrWhiteSpace(EmbeddedAssets.Load(script)), $"Embedded script loads: {script}");
-Check(EmbeddedAssets.LoadPage("start").Contains("__SEARCH_PREFIX_JSON__"), "Page data placeholders remain available for safe binding");
+string startTemplate = EmbeddedAssets.LoadPage("start");
+
+foreach (string placeholder in new[]
+{
+    "__QUICK_LINKS_JSON__",
+    "__HOME_STATE_JSON__"
+})
+{
+    Check(
+        startTemplate.Contains(placeholder, StringComparison.Ordinal),
+        $"Start-page binding placeholder: {placeholder}");
+}
 Check(EmbeddedAssets.Load("autofill.js").Contains("__PASSWORD_JSON__"), "Autofill binding placeholder");
 bool missingAssetRejected = false;
 try { EmbeddedAssets.Load("missing.js"); }

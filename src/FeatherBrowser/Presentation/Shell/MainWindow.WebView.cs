@@ -101,6 +101,40 @@ public partial class MainWindow : Window
     private void ConfigureWebView(BrowserTab tab)
     {
         CoreWebView2 core = tab.View.CoreWebView2;
+
+        core.ContainsFullScreenElementChanged += (_, _) =>
+        {
+            if (_isClosing || tab.IsClosed || !tab.IsLoaded ||
+                !ReferenceEquals(tab.View.CoreWebView2, core))
+                return;
+
+            if (core.ContainsFullScreenElement)
+            {
+                if (!ReferenceEquals(tab, _activeTab))
+                {
+                    _ = ExitDocumentFullscreenAsync(tab);
+                    return;
+                }
+
+                _videoFullscreenTab = tab;
+            }
+            else if (ReferenceEquals(_videoFullscreenTab, tab))
+            {
+                _videoFullscreenTab = null;
+            }
+
+            ApplyFullscreen();
+        };
+
+        core.NavigationStarting += (_, _) =>
+        {
+            if (ReferenceEquals(_videoFullscreenTab, tab))
+            {
+                _videoFullscreenTab = null;
+                ApplyFullscreen();
+            }
+        };
+
         string assetsRoot = PrepareWebAssets();
 
         core.SetVirtualHostNameToFolderMapping(
@@ -339,6 +373,12 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (ReferenceEquals(_videoFullscreenTab, tab))
+        {
+            _videoFullscreenTab = null;
+            ApplyFullscreen();
+        }
+
         bool wasActive = _activeTab == tab;
         if (!tab.IsInternalPage &&
      tab.IsLoaded &&
@@ -422,3 +462,4 @@ public partial class MainWindow : Window
         UpdateResourceText();
     }
 }
+
