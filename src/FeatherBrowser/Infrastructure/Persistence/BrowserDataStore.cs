@@ -15,6 +15,8 @@ internal sealed class BrowserDataStore
     private readonly string _sessionPath;
     private readonly string _downloadsPath;
     private readonly bool _hadExistingSettings;
+    private readonly string _faviconsPath;
+    private readonly Dictionary<string, string> _favicons;
 
     public List<BrowserBookmark> Bookmarks { get; private set; }
     public List<HistoryEntry> History { get; private set; }
@@ -36,6 +38,8 @@ internal sealed class BrowserDataStore
         History = Load(_historyPath, new List<HistoryEntry>());
         Settings = Load(_settingsPath, new BrowserSettings());
         Downloads = Load(_downloadsPath, new List<DownloadEntry>());
+        _faviconsPath = Path.Combine(_root, "favicons.json");
+        _favicons = Load(_faviconsPath, new Dictionary<string, string>()).Where(pair => pair.Value is not null && pair.Value.Length <= 65536 && pair.Value.StartsWith("data:image/png;base64,", StringComparison.Ordinal)).TakeLast(256).ToDictionary(pair => pair.Key, pair => pair.Value);
         MigrateSettings();
     }
 
@@ -147,6 +151,38 @@ internal sealed class BrowserDataStore
             catch { }
         }
     }
+
+    public string GetFavicon(string url)
+{
+    lock (_sync)
+        return _favicons.GetValueOrDefault(url, string.Empty);
+}
+
+public void CacheFavicon(string url, string image)
+{
+    if (!Uri.TryCreate(url, UriKind.Absolute, out Uri? uri) ||
+        (uri.Scheme != Uri.UriSchemeHttp &&
+         uri.Scheme != Uri.UriSchemeHttps) ||
+        image.Length > 65536 ||
+        !image.StartsWith(
+            "data:image/png;base64,",
+            StringComparison.Ordinal))
+        return;
+
+    lock (_sync)
+    {
+        if (_favicons.GetValueOrDefault(url) == image)
+            return;
+
+        _favicons.Remove(url);
+        _favicons[url] = image;
+
+        while (_favicons.Count > 256)
+            _favicons.Remove(_favicons.Keys.First());
+
+        Save(_faviconsPath, _favicons);
+    }
+}
 
     public bool IsBookmarked(string url)
     {
@@ -287,6 +323,8 @@ internal sealed class BrowserDataStore
         lock (_sync)
         {
             History.RemoveAll(x => string.Equals(x.Url, url, StringComparison.OrdinalIgnoreCase));
+            _favicons.Remove(url);
+            Save(_faviconsPath, _favicons);
             Save(_historyPath, History);
         }
     }
@@ -296,6 +334,9 @@ internal sealed class BrowserDataStore
         lock (_sync)
         {
             History.Clear();
+            _favicons.Clear();
+            Save(_faviconsPath, _favicons);
+            if (File.Exists(_faviconsPath + ".bak")) File.Delete(_faviconsPath + ".bak");
             Save(_historyPath, History);
         }
     }
