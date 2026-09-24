@@ -10,12 +10,13 @@ public partial class MainWindow : Window
     private void SendHomeStats(BrowserTab tab)
     {
         if (!tab.IsLoaded || !tab.IsStartPage || tab.IsClosed ||
-            !string.Equals(tab.View.CoreWebView2.Source, "about:blank", StringComparison.OrdinalIgnoreCase))
+            !string.Equals(
+                tab.View.CoreWebView2.Source,
+                "about:blank",
+                StringComparison.OrdinalIgnoreCase))
             return;
 
         var open = _tabs.Where(t => !t.IsClosed).ToList();
-
-        favicons = (_store.Settings.QuickLinks ?? []).Select(link => link.Url).Concat(recent.Select(entry => entry.url)).Distinct(StringComparer.Ordinal).ToDictionary(url => url, url => _store.GetFavicon(url)),
 
         var recent = _store.History
             .Where(entry =>
@@ -27,6 +28,7 @@ public partial class MainWindow : Window
             .Select(entry =>
             {
                 string host = SafeHost(entry.Url);
+
                 return new
                 {
                     title = string.IsNullOrWhiteSpace(entry.Title) ? host : entry.Title,
@@ -39,11 +41,16 @@ public partial class MainWindow : Window
         tab.View.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new
         {
             type = "home-stats",
-            memory = _lastObservedMemoryBytes > 0 ? FormatBytes(_lastObservedMemoryBytes) : "—",
-            memoryLabel = _resourceSnapshot.MemoryLabel + (_resourceSnapshot.IsPartial ? " (partial)" : ""),
-            cpu = _resourceSnapshot.CpuPercent is double cpu ? $"{cpu:0.0}% CPU" : "Measuring CPU…",
+            memory = _lastObservedMemoryBytes > 0
+                ? FormatBytes(_lastObservedMemoryBytes)
+                : "—",
+            memoryLabel = _resourceSnapshot.MemoryLabel +
+                (_resourceSnapshot.IsPartial ? " (partial)" : ""),
+            cpu = _resourceSnapshot.CpuPercent is double cpu
+                ? $"{cpu:0.0}% CPU"
+                : "Measuring CPU…",
             ratio = _lastObservedMemoryBytes /
-                    (Math.Clamp(_store.Settings.MemoryGuardMb, 350, 8192) * 1024d * 1024d),
+                (Math.Clamp(_store.Settings.MemoryGuardMb, 350, 8192) * 1024d * 1024d),
             loaded = open.Count(t => t.IsLoaded),
             cold = open.Count(t => !t.IsLoaded),
             sleeping = open.Count(t => t.IsLoaded && t.View.CoreWebView2.IsSuspended),
@@ -51,6 +58,11 @@ public partial class MainWindow : Window
             memorySaver = _store.Settings.EcoMode || _store.Settings.LowMemoryMode,
             shield = _store.Settings.ShieldEnabled,
             gaming = _store.Settings.GameMode,
+            favicons = (_store.Settings.QuickLinks ?? [])
+                .Select(link => link.Url)
+                .Concat(recent.Select(entry => entry.url))
+                .Distinct(StringComparer.Ordinal)
+                .ToDictionary(url => url, url => _store.GetFavicon(url)),
             recent
         }));
     }
