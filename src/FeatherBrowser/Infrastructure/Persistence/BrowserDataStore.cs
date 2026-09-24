@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Text.Json;
 using FeatherBrowser.Domain.Models;
@@ -6,16 +7,44 @@ namespace FeatherBrowser.Infrastructure.Persistence;
 
 internal sealed class BrowserDataStore
 {
+    private const string ApplicationDirectoryName = "FeatherBrowser";
+    private const string DataDirectoryName = "Data";
+
+    private const string BackupSuffix = ".bak";
+    private const string TemporarySuffix = ".tmp";
+
+    private const string DefaultBookmarkFolder = "Favorites";
+    private const string DownloadInProgressState = "In progress";
+
+    private const int MaxFavicons = 256;
+    private const int MaxFaviconBytes = 65_536;
+    private const int MaxHistoryEntries = 3_000;
+    private const int MaxDownloadEntries = 500;
+    private const int MaxSessionTabs = 40;
+    private const int MaxWorkspaces = 12;
+
+    private const int SchemaVersion4 = 4;
+    private const int SchemaVersion5 = 5;
+    private const int SchemaVersion6 = 6;
+
+    private const string FaviconDataPrefix = "data:image/png;base64,";
+
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        WriteIndented = true
+    };
+
     private readonly object _sync = new();
-    private readonly JsonSerializerOptions _jsonOptions = new() { WriteIndented = true };
+
     private readonly string _root;
     private readonly string _bookmarksPath;
     private readonly string _historyPath;
     private readonly string _settingsPath;
     private readonly string _sessionPath;
     private readonly string _downloadsPath;
-    private readonly bool _hadExistingSettings;
     private readonly string _faviconsPath;
+
+    private readonly bool _hadExistingSettings;
     private readonly Dictionary<string, string> _favicons;
 
     public List<BrowserBookmark> Bookmarks { get; private set; }
@@ -25,179 +54,380 @@ internal sealed class BrowserDataStore
 
     public BrowserDataStore()
     {
-        _root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FeatherBrowser", "Data");
+        _root = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            ApplicationDirectoryName,
+            DataDirectoryName);
+
         Directory.CreateDirectory(_root);
-        _bookmarksPath = Path.Combine(_root, "bookmarks.json");
-        _historyPath = Path.Combine(_root, "history.json");
-        _settingsPath = Path.Combine(_root, "settings.json");
-        _sessionPath = Path.Combine(_root, "session.json");
-        _downloadsPath = Path.Combine(_root, "downloads.json");
+
+        _bookmarksPath = GetDataPath("bookmarks.json");
+        _historyPath = GetDataPath("history.json");
+        _settingsPath = GetDataPath("settings.json");
+        _sessionPath = GetDataPath("session.json");
+        _downloadsPath = GetDataPath("downloads.json");
+        _faviconsPath = GetDataPath("favicons.json");
+
         _hadExistingSettings = File.Exists(_settingsPath);
 
         Bookmarks = Load(_bookmarksPath, new List<BrowserBookmark>());
         History = Load(_historyPath, new List<HistoryEntry>());
         Settings = Load(_settingsPath, new BrowserSettings());
         Downloads = Load(_downloadsPath, new List<DownloadEntry>());
-        _faviconsPath = Path.Join(_root, "favicons.json");
-        _favicons = Load(_faviconsPath, new Dictionary<string, string>()).Where(pair => pair.Value is not null && pair.Value.Length <= 65536 && pair.Value.StartsWith("data:image/png;base64,", StringComparison.Ordinal)).TakeLast(256).ToDictionary(pair => pair.Key, pair => pair.Value);
+        _favicons = LoadFavicons();
+
         MigrateSettings();
     }
+
+    private string GetDataPath(string fileName) => Path.Combine(_root, fileName);
 
     private void MigrateSettings()
     {
         bool changed = false;
 
-        if (Settings.SettingsSchemaVersion < 4)
+        if (Settings.SettingsSchemaVersion < SchemaVersion4)
         {
-            Settings.MaxLoadedTabs = 1;
-            Settings.UnloadAfterSeconds = Math.Min(Settings.UnloadAfterSeconds <= 0 ? 5 : Settings.UnloadAfterSeconds, 5);
-            Settings.SleepAfterSeconds = Math.Min(Settings.SleepAfterSeconds <= 0 ? 2 : Settings.SleepAfterSeconds, 2);
-            Settings.LowMemoryMode = true;
-            Settings.EcoMode = true;
-            Settings.AutoMemoryGuard = true;
-            Settings.MemoryGuardMb = 700;
-            Settings.HibernateWhenMinimized = true;
-            Settings.CrashRecoveryAutosave = true;
-            Settings.ShowWorkspaceSidebar = true;
-            Settings.AdaptiveMemoryMode = true;
-            Settings.ColdUnloadOtherWorkspaces = true;
-            Settings.Workspaces ??= ["Main", "Gaming", "Work"];
-            if (Settings.Workspaces.Count == 0)
-                Settings.Workspaces = ["Main", "Gaming", "Work"];
-            if (string.IsNullOrWhiteSpace(Settings.ActiveWorkspace) || !Settings.Workspaces.Contains(Settings.ActiveWorkspace, StringComparer.OrdinalIgnoreCase))
-                Settings.ActiveWorkspace = Settings.Workspaces[0];
-            Settings.StartupMode = Settings.RestorePreviousSession ? "Restore" : "NewTab";
-            Settings.SettingsSchemaVersion = 4;
+            MigrateToSchema4();
             changed = true;
         }
 
-        if (Settings.SettingsSchemaVersion < 5)
+        if (Settings.SettingsSchemaVersion < SchemaVersion5)
         {
-            Settings.SitePermissions ??= new Dictionary<string, string>();
-            Settings.BlockNotificationPrompts = true;
-            Settings.SendDoNotTrack = true;
-            Settings.SettingsSchemaVersion = 5;
+            MigrateToSchema5();
             changed = true;
         }
 
-        if (Settings.SettingsSchemaVersion < 6)
+        if (Settings.SettingsSchemaVersion < SchemaVersion6)
         {
-            Settings.FirstRunCompleted = _hadExistingSettings;
-            Settings.DataBackupsEnabled = true;
-            Settings.SettingsSchemaVersion = 6;
+            MigrateToSchema6();
             changed = true;
         }
 
-        Settings.SitePermissions ??= new Dictionary<string, string>();
-        Settings.Workspaces ??= ["Main", "Gaming", "Work"];
-        Settings.KeepAliveSites ??= [];
-        Settings.AllowlistedSites ??= [];
-        Settings.CustomBlockRules ??= [];
+        changed |= NormalizeSettings();
 
         if (changed)
             Save(_settingsPath, Settings);
     }
 
+    private void MigrateToSchema4()
+    {
+        Settings.MaxLoadedTabs = 1;
+        Settings.UnloadAfterSeconds = Math.Min(
+            Settings.UnloadAfterSeconds <= 0 ? 5 : Settings.UnloadAfterSeconds,
+            5);
+        Settings.SleepAfterSeconds = Math.Min(
+            Settings.SleepAfterSeconds <= 0 ? 2 : Settings.SleepAfterSeconds,
+            2);
+
+        Settings.LowMemoryMode = true;
+        Settings.EcoMode = true;
+        Settings.AutoMemoryGuard = true;
+        Settings.MemoryGuardMb = 700;
+        Settings.HibernateWhenMinimized = true;
+        Settings.CrashRecoveryAutosave = true;
+        Settings.ShowWorkspaceSidebar = true;
+        Settings.AdaptiveMemoryMode = true;
+        Settings.ColdUnloadOtherWorkspaces = true;
+        Settings.StartupMode = Settings.RestorePreviousSession ? "Restore" : "NewTab";
+        Settings.SettingsSchemaVersion = SchemaVersion4;
+    }
+
+    private void MigrateToSchema5()
+    {
+        Settings.SitePermissions ??= new Dictionary<string, string>();
+        Settings.BlockNotificationPrompts = true;
+        Settings.SendDoNotTrack = true;
+        Settings.SettingsSchemaVersion = SchemaVersion5;
+    }
+
+    private void MigrateToSchema6()
+    {
+        Settings.FirstRunCompleted = _hadExistingSettings;
+        Settings.DataBackupsEnabled = true;
+        Settings.SettingsSchemaVersion = SchemaVersion6;
+    }
+
+    private bool NormalizeSettings()
+    {
+        bool changed = false;
+
+        if (Settings.SitePermissions is null)
+        {
+            Settings.SitePermissions = new Dictionary<string, string>();
+            changed = true;
+        }
+
+        if (Settings.KeepAliveSites is null)
+        {
+            Settings.KeepAliveSites = [];
+            changed = true;
+        }
+
+        if (Settings.AllowlistedSites is null)
+        {
+            Settings.AllowlistedSites = [];
+            changed = true;
+        }
+
+        if (Settings.CustomBlockRules is null)
+        {
+            Settings.CustomBlockRules = [];
+            changed = true;
+        }
+
+        List<string> normalizedWorkspaces = (Settings.Workspaces ?? [])
+            .Where(workspace => !string.IsNullOrWhiteSpace(workspace))
+            .Select(workspace => workspace.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(MaxWorkspaces)
+            .ToList();
+
+        if (normalizedWorkspaces.Count == 0)
+            normalizedWorkspaces = CreateDefaultWorkspaces();
+
+        if (Settings.Workspaces is null ||
+            !Settings.Workspaces.SequenceEqual(normalizedWorkspaces, StringComparer.Ordinal))
+        {
+            Settings.Workspaces = normalizedWorkspaces;
+            changed = true;
+        }
+
+        bool activeWorkspaceIsValid =
+            !string.IsNullOrWhiteSpace(Settings.ActiveWorkspace) &&
+            Settings.Workspaces.Contains(
+                Settings.ActiveWorkspace,
+                StringComparer.OrdinalIgnoreCase);
+
+        if (!activeWorkspaceIsValid)
+        {
+            Settings.ActiveWorkspace = Settings.Workspaces[0];
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    private static List<string> CreateDefaultWorkspaces() =>
+        ["Main", "Gaming", "Work"];
+
     private T Load<T>(string path, T fallback)
     {
-        foreach (string candidate in new[] { path, path + ".bak" })
+        foreach (string candidate in GetLoadCandidates(path))
         {
-            try
-            {
-                if (!File.Exists(candidate))
-                    continue;
-                T? value = JsonSerializer.Deserialize<T>(File.ReadAllText(candidate), _jsonOptions);
-                if (value is not null)
-                    return value;
-            }
-            catch
-            {
-            }
+            if (TryReadJson(candidate, out T? value) && value is not null)
+                return value;
         }
+
         return fallback;
+    }
+
+    private static IEnumerable<string> GetLoadCandidates(string path)
+    {
+        yield return path;
+        yield return path + BackupSuffix;
+    }
+
+    private static bool TryReadJson<T>(string path, out T? value)
+    {
+        value = default;
+
+        if (!File.Exists(path))
+            return false;
+
+        try
+        {
+            string json = File.ReadAllText(path);
+            value = JsonSerializer.Deserialize<T>(json, JsonOptions);
+            return value is not null;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     private bool Save<T>(string path, T value)
     {
-        string temp = path + ".tmp";
-        string backup = path + ".bak";
+        string temporaryPath = path + TemporarySuffix;
+        string backupPath = path + BackupSuffix;
+
         try
         {
-            if (Settings.DataBackupsEnabled && File.Exists(path))
-                File.Copy(path, backup, true);
+            string json = JsonSerializer.Serialize(value, JsonOptions);
 
-            string json = JsonSerializer.Serialize(value, _jsonOptions);
-            using (var stream = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None, 4096, FileOptions.WriteThrough))
-            using (var writer = new StreamWriter(stream))
+            using (FileStream stream = new(
+                       temporaryPath,
+                       FileMode.Create,
+                       FileAccess.Write,
+                       FileShare.None,
+                       bufferSize: 4096,
+                       FileOptions.WriteThrough))
+            using (StreamWriter writer = new(stream))
             {
                 writer.Write(json);
                 writer.Flush();
-                stream.Flush(true);
+                stream.Flush(flushToDisk: true);
             }
-            File.Move(temp, path, true);
+
+            ReplaceFile(temporaryPath, path, backupPath);
             return true;
         }
-        catch
+        catch (JsonException)
+        {
+            return false;
+        }
+        catch (NotSupportedException)
+        {
+            return false;
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+        catch (UnauthorizedAccessException)
         {
             return false;
         }
         finally
         {
-            try
-            {
-                if (File.Exists(temp))
-                    File.Delete(temp);
-            }
-            catch { }
+            DeleteFileIfExists(temporaryPath);
         }
     }
 
-    public string GetFavicon(string url)
-{
-    lock (_sync)
-        return _favicons.GetValueOrDefault(url, string.Empty);
-}
-
-public void CacheFavicon(string url, string image)
-{
-    if (!Uri.TryCreate(url, UriKind.Absolute, out Uri? uri) ||
-        (uri.Scheme != Uri.UriSchemeHttp &&
-         uri.Scheme != Uri.UriSchemeHttps) ||
-        image.Length > 65536 ||
-        !image.StartsWith(
-            "data:image/png;base64,",
-            StringComparison.Ordinal))
-        return;
-
-    lock (_sync)
+    private void ReplaceFile(
+        string temporaryPath,
+        string destinationPath,
+        string backupPath)
     {
-        if (_favicons.GetValueOrDefault(url) == image)
+        if (!File.Exists(destinationPath))
+        {
+            File.Move(temporaryPath, destinationPath);
+            return;
+        }
+
+        if (Settings.DataBackupsEnabled)
+        {
+            File.Replace(
+                temporaryPath,
+                destinationPath,
+                backupPath,
+                ignoreMetadataErrors: true);
+            return;
+        }
+
+        File.Move(temporaryPath, destinationPath, overwrite: true);
+    }
+
+    private static void DeleteFileIfExists(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+    }
+
+    private Dictionary<string, string> LoadFavicons()
+    {
+        Dictionary<string, string> stored = Load(
+            _faviconsPath,
+            new Dictionary<string, string>());
+
+        return stored
+            .Where(pair =>
+                !string.IsNullOrWhiteSpace(pair.Key) &&
+                IsValidFaviconImage(pair.Value))
+            .TakeLast(MaxFavicons)
+            .ToDictionary(
+                pair => pair.Key,
+                pair => pair.Value,
+                StringComparer.Ordinal);
+    }
+
+    public string GetFavicon(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return string.Empty;
+
+        lock (_sync)
+            return _favicons.GetValueOrDefault(url, string.Empty);
+    }
+
+    public void CacheFavicon(string? url, string? image)
+    {
+        if (!IsHttpUrl(url) || !IsValidFaviconImage(image))
             return;
 
-        _favicons.Remove(url);
-        _favicons[url] = image;
-
-        while (_favicons.Count > 256)
-            _favicons.Remove(_favicons.Keys.First());
-
-        Save(_faviconsPath, _favicons);
-    }
-}
-
-    public bool IsBookmarked(string url)
-    {
         lock (_sync)
-            return Bookmarks.Any(x => string.Equals(x.Url, url, StringComparison.OrdinalIgnoreCase));
+        {
+            if (string.Equals(
+                    _favicons.GetValueOrDefault(url),
+                    image,
+                    StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            _favicons.Remove(url);
+            _favicons[url] = image;
+
+            while (_favicons.Count > MaxFavicons)
+                _favicons.Remove(_favicons.Keys.First());
+
+            Save(_faviconsPath, _favicons);
+        }
     }
 
-    public bool ToggleBookmark(string title, string url)
+    private static bool IsValidFaviconImage([NotNullWhen(true)] string? image) =>
+        !string.IsNullOrEmpty(image) &&
+        image.Length <= MaxFaviconBytes &&
+        image.StartsWith(FaviconDataPrefix, StringComparison.Ordinal);
+
+    private static bool IsHttpUrl([NotNullWhen(true)] string? url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out Uri? uri))
+            return false;
+
+        return string.Equals(uri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public bool IsBookmarked(string? url)
     {
         if (string.IsNullOrWhiteSpace(url))
             return false;
 
         lock (_sync)
         {
-            var existing = Bookmarks.FirstOrDefault(x => string.Equals(x.Url, url, StringComparison.OrdinalIgnoreCase));
+            return Bookmarks.Any(bookmark =>
+                UrlEquals(bookmark.Url, url));
+        }
+    }
+
+    public bool ToggleBookmark(string? title, string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return false;
+
+        lock (_sync)
+        {
+            BrowserBookmark? existing = Bookmarks.FirstOrDefault(bookmark =>
+                UrlEquals(bookmark.Url, url));
+
             if (existing is not null)
             {
                 Bookmarks.Remove(existing);
@@ -209,123 +439,190 @@ public void CacheFavicon(string url, string image)
             {
                 Title = string.IsNullOrWhiteSpace(title) ? url : title,
                 Url = url,
-                Folder = "Favorites",
+                Folder = DefaultBookmarkFolder,
                 CreatedAt = DateTimeOffset.Now
             });
+
             Save(_bookmarksPath, Bookmarks);
             return true;
         }
     }
 
-    public void RemoveBookmark(string url)
+    public void RemoveBookmark(string? url)
     {
         if (string.IsNullOrWhiteSpace(url))
             return;
+
         lock (_sync)
         {
-            Bookmarks.RemoveAll(x => string.Equals(x.Url, url, StringComparison.OrdinalIgnoreCase));
-            Save(_bookmarksPath, Bookmarks);
+            int removed = Bookmarks.RemoveAll(bookmark =>
+                UrlEquals(bookmark.Url, url));
+
+            if (removed > 0)
+                Save(_bookmarksPath, Bookmarks);
         }
     }
 
     public int MergeBookmarks(IEnumerable<BrowserBookmark> incoming)
     {
+        ArgumentNullException.ThrowIfNull(incoming);
+
         lock (_sync)
         {
+            HashSet<string> knownUrls = new(
+                Bookmarks
+                    .Where(bookmark => !string.IsNullOrWhiteSpace(bookmark.Url))
+                    .Select(bookmark => bookmark.Url),
+                StringComparer.OrdinalIgnoreCase);
+
             int added = 0;
-            var known = new HashSet<string>(Bookmarks.Select(x => x.Url), StringComparer.OrdinalIgnoreCase);
-            foreach (var item in incoming)
+
+            foreach (BrowserBookmark bookmark in incoming)
             {
-                if (string.IsNullOrWhiteSpace(item.Url) || !known.Add(item.Url))
+                if (string.IsNullOrWhiteSpace(bookmark.Url) ||
+                    !knownUrls.Add(bookmark.Url))
+                {
                     continue;
-                Bookmarks.Add(item);
+                }
+
+                Bookmarks.Add(bookmark);
                 added++;
             }
-            Bookmarks = Bookmarks.OrderByDescending(x => x.CreatedAt).ToList();
+
+            if (added == 0)
+                return 0;
+
+            Bookmarks = Bookmarks
+                .OrderByDescending(bookmark => bookmark.CreatedAt)
+                .ToList();
+
             Save(_bookmarksPath, Bookmarks);
             return added;
         }
     }
 
-    public void AddHistory(string title, string url, DateTimeOffset? when = null, int visitIncrement = 1)
+    public void AddHistory(
+        string? title,
+        string? url,
+        DateTimeOffset? when = null,
+        int visitIncrement = 1)
     {
-        if (string.IsNullOrWhiteSpace(url) ||
-            (!url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) && !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase)))
+        if (!IsHttpUrl(url))
             return;
+
+        DateTimeOffset visitedAt = when ?? DateTimeOffset.Now;
+        int increment = Math.Max(1, visitIncrement);
 
         lock (_sync)
         {
-            var existing = History.FirstOrDefault(x => string.Equals(x.Url, url, StringComparison.OrdinalIgnoreCase));
+            HistoryEntry? existing = History.FirstOrDefault(entry =>
+                UrlEquals(entry.Url, url));
+
             if (existing is null)
             {
                 History.Add(new HistoryEntry
                 {
                     Title = string.IsNullOrWhiteSpace(title) ? url : title,
                     Url = url,
-                    LastVisited = when ?? DateTimeOffset.Now,
-                    VisitCount = Math.Max(1, visitIncrement)
+                    LastVisited = visitedAt,
+                    VisitCount = increment
                 });
             }
             else
             {
                 if (!string.IsNullOrWhiteSpace(title))
                     existing.Title = title;
-                existing.LastVisited = when ?? DateTimeOffset.Now;
-                existing.VisitCount = Math.Max(1, existing.VisitCount + Math.Max(1, visitIncrement));
+
+                existing.LastVisited = visitedAt;
+                existing.VisitCount = Math.Max(1, existing.VisitCount + increment);
             }
 
-            History = History
-                .OrderByDescending(x => x.LastVisited)
-                .Take(3000)
-                .ToList();
+            TrimHistory();
             Save(_historyPath, History);
         }
     }
 
     public int MergeHistory(IEnumerable<HistoryEntry> incoming)
     {
+        ArgumentNullException.ThrowIfNull(incoming);
+
         lock (_sync)
         {
+            Dictionary<string, HistoryEntry> historyByUrl = new(
+                StringComparer.OrdinalIgnoreCase);
+
+            foreach (HistoryEntry entry in History)
+            {
+                if (!string.IsNullOrWhiteSpace(entry.Url))
+                    historyByUrl.TryAdd(entry.Url, entry);
+            }
+
             int added = 0;
-            var byUrl = History.ToDictionary(x => x.Url, StringComparer.OrdinalIgnoreCase);
-            foreach (var item in incoming)
+
+            foreach (HistoryEntry item in incoming)
             {
                 if (string.IsNullOrWhiteSpace(item.Url))
                     continue;
 
-                if (byUrl.TryGetValue(item.Url, out var existing))
+                if (historyByUrl.TryGetValue(item.Url, out HistoryEntry? existing))
                 {
-                    if (item.LastVisited > existing.LastVisited)
-                    {
-                        existing.LastVisited = item.LastVisited;
-                        existing.Title = string.IsNullOrWhiteSpace(item.Title) ? existing.Title : item.Title;
-                    }
-                    existing.VisitCount = Math.Max(existing.VisitCount, item.VisitCount);
+                    MergeHistoryEntry(existing, item);
+                    continue;
                 }
-                else
-                {
-                    History.Add(item);
-                    byUrl[item.Url] = item;
-                    added++;
-                }
+
+                History.Add(item);
+                historyByUrl[item.Url] = item;
+                added++;
             }
 
-            History = History.OrderByDescending(x => x.LastVisited).Take(3000).ToList();
+            TrimHistory();
             Save(_historyPath, History);
             return added;
         }
     }
 
-    public void RemoveHistory(string url)
+    private static void MergeHistoryEntry(
+        HistoryEntry existing,
+        HistoryEntry incoming)
+    {
+        if (incoming.LastVisited > existing.LastVisited)
+        {
+            existing.LastVisited = incoming.LastVisited;
+
+            if (!string.IsNullOrWhiteSpace(incoming.Title))
+                existing.Title = incoming.Title;
+        }
+
+        existing.VisitCount = Math.Max(
+            existing.VisitCount,
+            incoming.VisitCount);
+    }
+
+    private void TrimHistory()
+    {
+        History = History
+            .OrderByDescending(entry => entry.LastVisited)
+            .Take(MaxHistoryEntries)
+            .ToList();
+    }
+
+    public void RemoveHistory(string? url)
     {
         if (string.IsNullOrWhiteSpace(url))
             return;
+
         lock (_sync)
         {
-            History.RemoveAll(x => string.Equals(x.Url, url, StringComparison.OrdinalIgnoreCase));
-            _favicons.Remove(url);
-            Save(_faviconsPath, _favicons);
-            Save(_historyPath, History);
+            bool historyChanged = History.RemoveAll(entry =>
+                UrlEquals(entry.Url, url)) > 0;
+
+            bool faviconChanged = _favicons.Remove(url);
+
+            if (faviconChanged)
+                Save(_faviconsPath, _favicons);
+
+            if (historyChanged)
+                Save(_historyPath, History);
         }
     }
 
@@ -335,59 +632,96 @@ public void CacheFavicon(string url, string image)
         {
             History.Clear();
             _favicons.Clear();
+
             Save(_faviconsPath, _favicons);
-            if (File.Exists(_faviconsPath + ".bak")) File.Delete(_faviconsPath + ".bak");
+            DeleteFileIfExists(_faviconsPath + BackupSuffix);
             Save(_historyPath, History);
         }
     }
 
-
-    public DownloadEntry AddDownload(string filePath, string sourceUrl)
+    public DownloadEntry AddDownload(
+        string? filePath,
+        string? sourceUrl)
     {
         lock (_sync)
         {
-            var entry = new DownloadEntry
+            DownloadEntry entry = new()
             {
-                FileName = string.IsNullOrWhiteSpace(filePath) ? "Download" : Path.GetFileName(filePath),
+                FileName = string.IsNullOrWhiteSpace(filePath)
+                    ? "Download"
+                    : Path.GetFileName(filePath),
                 FilePath = filePath ?? string.Empty,
                 SourceUrl = sourceUrl ?? string.Empty,
-                State = "In progress",
+                State = DownloadInProgressState,
                 StartedAt = DateTimeOffset.Now
             };
+
             Downloads.Insert(0, entry);
-            if (Downloads.Count > 500)
-                Downloads = Downloads.Take(500).ToList();
+            TrimDownloads();
+
             Save(_downloadsPath, Downloads);
             return entry;
         }
     }
 
-    public void UpdateDownload(string id, string state, string? filePath = null)
+    public void UpdateDownload(
+        string id,
+        string state,
+        string? filePath = null)
     {
+        if (string.IsNullOrWhiteSpace(id))
+            return;
+
         lock (_sync)
         {
-            DownloadEntry? entry = Downloads.FirstOrDefault(x => x.Id == id);
+            DownloadEntry? entry = Downloads.FirstOrDefault(download =>
+                string.Equals(download.Id, id, StringComparison.Ordinal));
+
             if (entry is null)
                 return;
 
             entry.State = state;
+
             if (!string.IsNullOrWhiteSpace(filePath))
             {
                 entry.FilePath = filePath;
                 entry.FileName = Path.GetFileName(filePath);
             }
-            if (!string.Equals(state, "In progress", StringComparison.OrdinalIgnoreCase))
+
+            if (!string.Equals(
+                    state,
+                    DownloadInProgressState,
+                    StringComparison.OrdinalIgnoreCase))
+            {
                 entry.CompletedAt = DateTimeOffset.Now;
+            }
+
             Save(_downloadsPath, Downloads);
         }
     }
 
-    public void RemoveDownload(string id)
+    private void TrimDownloads()
     {
+        if (Downloads.Count <= MaxDownloadEntries)
+            return;
+
+        Downloads.RemoveRange(
+            MaxDownloadEntries,
+            Downloads.Count - MaxDownloadEntries);
+    }
+
+    public void RemoveDownload(string? id)
+    {
+        if (string.IsNullOrWhiteSpace(id))
+            return;
+
         lock (_sync)
         {
-            Downloads.RemoveAll(x => x.Id == id);
-            Save(_downloadsPath, Downloads);
+            int removed = Downloads.RemoveAll(download =>
+                string.Equals(download.Id, id, StringComparison.Ordinal));
+
+            if (removed > 0)
+                Save(_downloadsPath, Downloads);
         }
     }
 
@@ -395,6 +729,9 @@ public void CacheFavicon(string url, string image)
     {
         lock (_sync)
         {
+            if (Downloads.Count == 0)
+                return;
+
             Downloads.Clear();
             Save(_downloadsPath, Downloads);
         }
@@ -408,63 +745,108 @@ public void CacheFavicon(string url, string image)
 
     public SessionState LoadSessionState()
     {
-        foreach (string candidate in new[] { _sessionPath, _sessionPath + ".bak" })
+        foreach (string candidate in GetLoadCandidates(_sessionPath))
         {
-            try
+            if (TryReadJson(candidate, out SessionState? state) &&
+                state is not null)
             {
-                if (!File.Exists(candidate))
-                    continue;
-
-                string json = File.ReadAllText(candidate);
-                SessionState? state = JsonSerializer.Deserialize<SessionState>(json, _jsonOptions);
-                if (state is not null)
-                {
-                    state.Tabs ??= [];
-                    state.TabStates ??= [];
-                    state.Tabs = state.Tabs.Take(40).ToList();
-                    state.TabStates = state.TabStates.Take(40).ToList();
-                    int count = state.TabStates.Count > 0 ? state.TabStates.Count : state.Tabs.Count;
-                    state.ActiveIndex = count == 0 ? 0 : Math.Clamp(state.ActiveIndex, 0, count - 1);
-                    return state;
-                }
+                return NormalizeSessionState(state);
             }
-            catch
+
+            if (TryReadJson(candidate, out List<string>? legacy) &&
+                legacy is not null)
             {
-                try
+                return NormalizeSessionState(new SessionState
                 {
-                    List<string>? legacy = JsonSerializer.Deserialize<List<string>>(File.ReadAllText(candidate), _jsonOptions);
-                    if (legacy is not null)
-                        return new SessionState { Tabs = legacy.Take(40).ToList(), ActiveIndex = 0 };
-                }
-                catch { }
+                    Tabs = legacy,
+                    ActiveIndex = 0
+                });
             }
         }
 
-        return new SessionState();
+        return NormalizeSessionState(new SessionState());
     }
 
-    public bool SaveSessionState(IEnumerable<SessionTabState> tabStates, int activeIndex)
+    private static SessionState NormalizeSessionState(SessionState state)
     {
+        state.Tabs ??= [];
+        state.TabStates ??= [];
+
+        state.Tabs = state.Tabs
+            .Take(MaxSessionTabs)
+            .ToList();
+
+        state.TabStates = state.TabStates
+            .Take(MaxSessionTabs)
+            .ToList();
+
+        int tabCount = state.TabStates.Count > 0
+            ? state.TabStates.Count
+            : state.Tabs.Count;
+
+        state.ActiveIndex = tabCount == 0
+            ? 0
+            : Math.Clamp(state.ActiveIndex, 0, tabCount - 1);
+
+        return state;
+    }
+
+    public bool SaveSessionState(
+        IEnumerable<SessionTabState> tabStates,
+        int activeIndex)
+    {
+        ArgumentNullException.ThrowIfNull(tabStates);
+
         lock (_sync)
         {
-            List<SessionTabState> states = tabStates.Take(40).ToList();
-            return Save(_sessionPath, new SessionState
+            List<SessionTabState> states = tabStates
+                .Take(MaxSessionTabs)
+                .ToList();
+
+            SessionState state = new()
             {
-                Tabs = states.Select(x => x.Address).ToList(),
+                Tabs = states
+                    .Select(tab => tab.Address)
+                    .ToList(),
                 TabStates = states,
-                ActiveIndex = states.Count == 0 ? 0 : Math.Clamp(activeIndex, 0, states.Count - 1),
+                ActiveIndex = states.Count == 0
+                    ? 0
+                    : Math.Clamp(activeIndex, 0, states.Count - 1),
                 SavedAt = DateTimeOffset.Now
-            });
+            };
+
+            return Save(_sessionPath, state);
         }
     }
 
-    public void SaveSessionState(IEnumerable<string> addresses, int activeIndex) =>
-        SaveSessionState(addresses.Select(x => new SessionTabState { Address = x }), activeIndex);
+    public void SaveSessionState(
+        IEnumerable<string> addresses,
+        int activeIndex)
+    {
+        ArgumentNullException.ThrowIfNull(addresses);
 
-    public List<string> LoadSession() => LoadSessionState().TabStates.Count > 0
-        ? LoadSessionState().TabStates.Select(x => x.Address).ToList()
-        : LoadSessionState().Tabs;
+        SaveSessionState(
+            addresses.Select(address => new SessionTabState
+            {
+                Address = address
+            }),
+            activeIndex);
+    }
 
-    public void SaveSession(IEnumerable<string> addresses) => SaveSessionState(addresses, 0);
+    public List<string> LoadSession()
+    {
+        SessionState state = LoadSessionState();
+
+        return state.TabStates.Count > 0
+            ? state.TabStates.Select(tab => tab.Address).ToList()
+            : state.Tabs;
+    }
+
+    public void SaveSession(IEnumerable<string> addresses)
+    {
+        SaveSessionState(addresses, 0);
+    }
+
+    private static bool UrlEquals(string? left, string? right) =>
+        string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
 }
-

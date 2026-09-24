@@ -47,7 +47,7 @@ Then install [Inno Setup 6.3 or newer](https://jrsoftware.org/isinfo.php) and ru
 .\scripts\installer.ps1
 ```
 
-Distribute `artifacts/installer/FeatherBrowser-v1.0.1-win-x64-Setup.exe`. The installer bundles the self-contained .NET app, adds a Start menu shortcut and optional desktop shortcut, and provides an uninstaller. It installs for the current user under `%LOCALAPPDATA%\Programs\FeatherBrowser`. Browser profile data stays under `%LOCALAPPDATA%\FeatherBrowser` and is preserved during upgrades and uninstall.
+Distribute `artifacts/installer/FeatherBrowser-v2.0.0-win-x64-Setup.exe`. The installer bundles the self-contained .NET app, adds a Start menu shortcut and optional desktop shortcut, and provides an uninstaller. It installs for the current user under `%LOCALAPPDATA%\Programs\FeatherBrowser`. Browser profile data stays under `%LOCALAPPDATA%\FeatherBrowser` and is preserved during upgrades and uninstall.
 
 A Microsoft-signed WebView2 bootstrapper is bundled and runs only if the runtime is missing; in that case installation needs internet access. Packaging also needs internet to download and verify that bootstrapper. See [Microsoft's deployment documentation](https://learn.microsoft.com/microsoft-edge/webview2/concepts/distribution).
 

@@ -6,23 +6,62 @@ namespace FeatherBrowser.Presentation.Pages;
 
 internal static class LibraryPage
 {
+    private const int BookmarkLimit = 1_000;
+    private const int HistoryLimit = 1_500;
+    private const int DownloadLimit = 500;
+
+    private const string DefaultSection = "history";
+    private const string TemplateName = "library";
+
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    };
+
     public static string Html(
         IReadOnlyList<BrowserBookmark> bookmarks,
         IReadOnlyList<HistoryEntry> history,
         IReadOnlyList<DownloadEntry> downloads,
-        string section)
+        string? section)
     {
-        string bookmarksJson = JsonSerializer.Serialize(bookmarks.Take(1000)).Replace("</", "<\\/", StringComparison.Ordinal);
-        string historyJson = JsonSerializer.Serialize(history.Take(1500)).Replace("</", "<\\/", StringComparison.Ordinal);
-        string downloadsJson = JsonSerializer.Serialize(downloads.Take(500)).Replace("</", "<\\/", StringComparison.Ordinal);
-        string sectionJson = JsonSerializer.Serialize(string.IsNullOrWhiteSpace(section) ? "history" : section);
+        ArgumentNullException.ThrowIfNull(bookmarks);
+        ArgumentNullException.ThrowIfNull(history);
+        ArgumentNullException.ThrowIfNull(downloads);
 
-        string template = EmbeddedAssets.LoadPage("library");
+        string template = EmbeddedAssets.LoadPage(TemplateName);
+
+        string selectedSection = NormalizeSection(section);
 
         return template
-            .Replace("__HISTORY_JSON__", historyJson, StringComparison.Ordinal)
-            .Replace("__DOWNLOADS_JSON__", downloadsJson, StringComparison.Ordinal)
-            .Replace("__BOOKMARKS_JSON__", bookmarksJson, StringComparison.Ordinal)
-            .Replace("__SECTION_JSON__", sectionJson, StringComparison.Ordinal);
+            .Replace(
+                "__BOOKMARKS_JSON__",
+                SerializeForHtml(bookmarks.Take(BookmarkLimit)),
+                StringComparison.Ordinal)
+            .Replace(
+                "__HISTORY_JSON__",
+                SerializeForHtml(history.Take(HistoryLimit)),
+                StringComparison.Ordinal)
+            .Replace(
+                "__DOWNLOADS_JSON__",
+                SerializeForHtml(downloads.Take(DownloadLimit)),
+                StringComparison.Ordinal)
+            .Replace(
+                "__SECTION_JSON__",
+                SerializeForHtml(selectedSection),
+                StringComparison.Ordinal);
+    }
+
+    private static string NormalizeSection(string? section)
+    {
+        return string.IsNullOrWhiteSpace(section)
+            ? DefaultSection
+            : section.Trim();
+    }
+
+    private static string SerializeForHtml<T>(T value)
+    {
+        return JsonSerializer
+            .Serialize(value, JsonOptions)
+            .Replace("</", "<\\/", StringComparison.Ordinal);
     }
 }
