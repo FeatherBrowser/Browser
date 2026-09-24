@@ -15,6 +15,8 @@ public partial class MainWindow : Window
 
         var open = _tabs.Where(t => !t.IsClosed).ToList();
 
+        favicons = (_store.Settings.QuickLinks ?? []).Select(link => link.Url).Concat(recent.Select(entry => entry.url)).Distinct(StringComparer.Ordinal).ToDictionary(url => url, url => _store.GetFavicon(url)),
+
         var recent = _store.History
             .Where(entry =>
                 !string.IsNullOrWhiteSpace(entry.Url) &&
