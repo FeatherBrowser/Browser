@@ -177,7 +177,7 @@ public partial class MainWindow : Window
 
     private static string PrepareWebAssets()
     {
-        string assetsRoot = Path.Combine(
+        string assetsRoot = Path.Join(
             Environment.GetFolderPath(
                 Environment.SpecialFolder.LocalApplicationData),
             "FeatherBrowser",
@@ -186,7 +186,7 @@ public partial class MainWindow : Window
         Directory.CreateDirectory(assetsRoot);
 
         string backgroundPath =
-            Path.Combine(assetsRoot, "background.png");
+            Path.Join(assetsRoot, "background.png");
 
         if (!File.Exists(backgroundPath))
         {
@@ -209,8 +209,7 @@ public partial class MainWindow : Window
 
         foreach (BrowserTab tab in _tabs.ToArray())
         {
-            tab.SleepCancellation?.Cancel();
-            tab.SleepCancellation?.Dispose();
+            CancelSleepSchedule(tab);
             tab.View.Dispose();
         }
         _tabs.Clear();
@@ -255,3 +254,4 @@ public partial class MainWindow : Window
             _lastSessionSnapshot = fingerprint;
     }
 }
+

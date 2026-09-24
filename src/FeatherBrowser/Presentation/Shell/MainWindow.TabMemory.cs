@@ -45,13 +45,13 @@ public partial class MainWindow
         if (_isClosing || !tab.IsLoaded || IsProtectedTab(tab) || !ShouldManageBackgroundTabs())
             return;
 
-        var cancellation = new CancellationTokenSource();
-        tab.SleepCancellation = cancellation;
-        _ = RunBackgroundLifecycleAsync(tab, cancellation);
+        _ = RunBackgroundLifecycleAsync(tab);
     }
 
-    private async Task RunBackgroundLifecycleAsync(BrowserTab tab, CancellationTokenSource cancellation)
+    private async Task RunBackgroundLifecycleAsync(BrowserTab tab)
     {
+        using var cancellation = new CancellationTokenSource();
+        tab.SleepCancellation = cancellation;
         CancellationToken token = cancellation.Token;
         var view = tab.View;
         bool IsCurrent() => !token.IsCancellationRequested && !_isClosing &&
@@ -95,14 +95,12 @@ public partial class MainWindow
             await Task.Delay(TimeSpan.FromSeconds(unloadAfter - sleepAfter), token);
             if (IsCurrent() && !IsProtectedTab(tab) &&
                 (_store.Settings.LowMemoryMode || _store.Settings.GameMode ||
-                 (WindowState == WindowState.Minimized && _store.Settings.HibernateWhenMinimized)))
+                 (WindowState == WindowState.Minimized && _store.Settings.HibernateWhenMinimized)) &&
+                ColdUnloadTab(tab))
             {
-                if (ColdUnloadTab(tab))
-                {
-                    UpdateWorkspaceSidebar();
-                    UpdateResourceText();
-                    SaveSessionSnapshotIfEnabled();
-                }
+                UpdateWorkspaceSidebar();
+                UpdateResourceText();
+                SaveSessionSnapshotIfEnabled();
             }
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
@@ -120,10 +118,7 @@ public partial class MainWindow
         finally
         {
             if (ReferenceEquals(tab.SleepCancellation, cancellation))
-            {
                 tab.SleepCancellation = null;
-                cancellation.Dispose();
-            }
         }
     }
 
@@ -224,13 +219,11 @@ public partial class MainWindow
         if (_isClosing)
             return;
 
-        int unloaded = 0;
-        foreach (BrowserTab tab in _tabs.Where(tab => !tab.IsClosed && tab.IsLoaded && tab != _activeTab)
-                     .OrderBy(tab => tab.LastActivatedUtc).ToList())
-        {
-            if (ColdUnloadTab(tab))
-                unloaded++;
-        }
+        int unloaded = _tabs
+            .Where(tab => !tab.IsClosed && tab.IsLoaded && tab != _activeTab)
+            .OrderBy(tab => tab.LastActivatedUtc)
+            .ToList()
+            .Count(ColdUnloadTab);
 
         UpdateWorkspaceSidebar();
         UpdateResourceText();
@@ -240,3 +233,4 @@ public partial class MainWindow
             : "No eligible background tabs to unload";
     }
 }
+

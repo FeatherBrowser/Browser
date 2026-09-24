@@ -394,9 +394,7 @@ public partial class MainWindow : Window
             }
         }
 
-        tab.SleepCancellation?.Cancel();
-        tab.SleepCancellation?.Dispose();
-        tab.SleepCancellation = null;
+        CancelSleepSchedule(tab);
         if (tab.IsLoaded)
             BrowserHost.Children.Remove(tab.View);
         try
@@ -462,4 +460,5 @@ public partial class MainWindow : Window
         UpdateResourceText();
     }
 }
+
 

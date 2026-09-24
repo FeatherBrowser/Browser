@@ -77,9 +77,9 @@ public partial class MainWindow
 
     private static void CancelSleepSchedule(BrowserTab tab)
     {
-        tab.SleepCancellation?.Cancel();
-        tab.SleepCancellation?.Dispose();
+        var cancellation = tab.SleepCancellation;
         tab.SleepCancellation = null;
+        cancellation?.Cancel();
     }
 
     private async Task<bool> TryEnsureTabLoadedAsync(BrowserTab tab)
@@ -231,3 +231,4 @@ public partial class MainWindow
         return 0;
     }
 }
+

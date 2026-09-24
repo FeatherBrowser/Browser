@@ -38,7 +38,7 @@ internal sealed class BrowserDataStore
         History = Load(_historyPath, new List<HistoryEntry>());
         Settings = Load(_settingsPath, new BrowserSettings());
         Downloads = Load(_downloadsPath, new List<DownloadEntry>());
-        _faviconsPath = Path.Combine(_root, "favicons.json");
+        _faviconsPath = Path.Join(_root, "favicons.json");
         _favicons = Load(_faviconsPath, new Dictionary<string, string>()).Where(pair => pair.Value is not null && pair.Value.Length <= 65536 && pair.Value.StartsWith("data:image/png;base64,", StringComparison.Ordinal)).TakeLast(256).ToDictionary(pair => pair.Key, pair => pair.Value);
         MigrateSettings();
     }
@@ -467,3 +467,4 @@ public void CacheFavicon(string url, string image)
 
     public void SaveSession(IEnumerable<string> addresses) => SaveSessionState(addresses, 0);
 }
+
