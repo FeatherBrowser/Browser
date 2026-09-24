@@ -65,7 +65,7 @@ The RAM dashboard distinguishes private resident memory from the private-commit 
 
 ## Development
 
-Read [architecture](docs/ARCHITECTURE.md), [contribution guidance](CONTRIBUTING.md), [security reporting](SECURITY.md) and [validation](docs/VALIDATION.md).
+Read [architecture](docs/ARCHITECTURE.md), [contribution guidance](CONTRIBUTING.md), [security reporting](SECURITY.md), [changelogs](CHANGELOG.md) and [validation](docs/VALIDATION.md).
 
 Optional page interaction checks require Python 3, Node.js and Playwright:
 
