@@ -1,28 +1,28 @@
 # trunk-ignore-all(pinact/config-error)
-name: Windows build
+name: Stable release
 
 on:
   push:
-    branches:
-      - main
-      - master
-      - v2.0.0
-  pull_request:
-  workflow_dispatch:
+    tags:
+      - 'v*.*.*'
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
-  group: windows-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: feather-release
+  cancel-in-progress: false
 
 jobs:
-  windows:
+  release:
     runs-on: windows-latest
 
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+
     steps:
-      - name: Checkout repository
+      - name: Checkout release tag
         uses: actions/checkout@v4
         with:
           submodules: recursive
@@ -32,6 +32,22 @@ jobs:
         uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '9.0.x'
+
+      - name: Verify tag matches project version
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+
+          if ($tag -notmatch '^v(?<version>\d+\.\d+\.\d+)$') {
+            throw "Release tag must use vMAJOR.MINOR.PATCH format. Received: $tag"
+          }
+
+          [xml]$project = Get-Content "src/FeatherBrowser/FeatherBrowser.csproj" -Raw
+          $projectVersion = $project.SelectSingleNode('/Project/PropertyGroup/Version').InnerText.Trim()
+
+          if ($Matches['version'] -ne $projectVersion) {
+            throw "Tag version $($Matches['version']) does not match project version $projectVersion."
+          }
 
       - name: Build
         run: ./scripts/build.ps1
@@ -45,21 +61,6 @@ jobs:
         run: ./scripts/publish.ps1 -Runtime win-x64 -SelfContained
         shell: pwsh
 
-      - name: Verify extracted repositories
-        shell: pwsh
-        run: |
-          $required = @(
-            "external/FeatherShield/src/FeatherShield/FeatherShield.csproj",
-            "external/FeatherImport/src/FeatherImport/FeatherImport.csproj",
-            "external/FeatherFilters/metadata.json"
-          )
-
-          foreach ($path in $required) {
-            if (-not (Test-Path $path)) {
-              throw "Required external repository file is missing: $path"
-            }
-          }
-
       - name: Verify FeatherFilters publish output
         shell: pwsh
         run: |
@@ -70,9 +71,6 @@ jobs:
           if (-not $filters) {
             throw "FeatherFilters was not included in the published application."
           }
-
-          Write-Host "FeatherFilters publish output found at:"
-          Write-Host $filters.FullName
 
       - name: Ensure Inno Setup is available
         shell: pwsh
@@ -91,13 +89,17 @@ jobs:
         run: ./scripts/installer.ps1
         shell: pwsh
 
-      - name: Check installer installation and uninstall
+      - name: Check installer
         run: ./scripts/check-installer.ps1
         shell: pwsh
 
-      - name: Upload installer
+      - name: Upload installer artifact
         uses: actions/upload-artifact@v7
         with:
           name: FeatherBrowser-win-x64-installer
           path: artifacts/installer/*-Setup.exe
           if-no-files-found: error
+
+      - name: Create GitHub release
+        shell: pwsh
+        run: ./scripts/release.ps1

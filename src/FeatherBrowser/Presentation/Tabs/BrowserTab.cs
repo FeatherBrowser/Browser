@@ -19,6 +19,7 @@ internal sealed class BrowserTab
     public bool IsLibraryPage { get; set; }
     public bool IsWelcomePage { get; set; }
     public string LibrarySection { get; set; } = "history";
+    public string SettingsSection { get; set; } = "performance";
     public bool IsClosed { get; set; }
     public bool IsLoaded { get; set; }
     public bool IsPinned { get; set; }
@@ -29,7 +30,6 @@ internal sealed class BrowserTab
     public DateTime HiddenSinceUtc { get; set; } = DateTime.UtcNow;
     public DateTime LastActivatedUtc { get; set; } = DateTime.UtcNow;
     public string Workspace { get; set; } = "Main";
-
     public bool IsInternalPage => IsStartPage || IsSettingsPage || IsLibraryPage || IsWelcomePage;
     public bool IsCold => !IsLoaded;
 

@@ -83,7 +83,8 @@ public partial class MainWindow : Window
 
         if (tab.IsLoaded)
         {
-            tab.View.NavigateToString(SettingsPage.Html(_store.Settings, _store.Bookmarks.Count, _store.History.Count, _passwordVault.Count, _accountPageState));
+            tab.SettingsSection = SettingsPage.NormalizeSection(tab.SettingsSection);
+            tab.View.NavigateToString(SettingsPage.Html(_store.Settings, _store.Bookmarks.Count, _store.History.Count, _passwordVault.Count, _accountPageState, tab.SettingsSection));
             tab.NeedsContentRestore = false;
         }
 

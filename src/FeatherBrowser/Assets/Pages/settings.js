@@ -1,5 +1,6 @@
 const initial=__SETTINGS_JSON__;
 const account=__ACCOUNT_JSON__;
+const initialSection=__SETTINGS_SECTION_JSON__;
 const $=id=>document.getElementById(id);
 
 const fieldKeys={
@@ -70,7 +71,7 @@ function loadInitial(){
   setDirty(false);
 }
 
-function setSection(id,resetSearch=true){
+function setSection(id,resetSearch=true,notifyHost=false){
   document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('active',x.dataset.section===id));
   document.querySelectorAll('.section').forEach(x=>x.classList.toggle('active',x.id===id));
   const section=$(id);
@@ -82,10 +83,13 @@ function setSection(id,resetSearch=true){
     $('settingsSearch').value='';
     clearSearch();
   }
+  if(notifyHost){
+    post('settings-section-changed',{section:id});
+  }
 }
 
 document.querySelectorAll('nav button[data-section]').forEach(btn=>{
-  btn.addEventListener('click',()=>setSection(btn.dataset.section,true));
+  btn.addEventListener('click',()=>setSection(btn.dataset.section,true,true));
 });
 
 document.querySelectorAll('[data-action]').forEach(btn=>{
@@ -304,7 +308,7 @@ $('settingsSearch').addEventListener('input',e=>{
     $('searchEmpty').classList.add('show');
     return;
   }
-  setSection(matchSection.id,false);
+  setSection(matchSection.id,false,false);
   clearSearch();
   let matched=false;
   matchSection.querySelectorAll('.row,.textblock,.device-item').forEach(row=>{

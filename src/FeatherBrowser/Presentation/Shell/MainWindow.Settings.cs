@@ -12,6 +12,7 @@ using System.Windows.Threading;
 using System.Windows;
 using FeatherBrowser.Domain.Models;
 using FeatherBrowser.Presentation.Tabs;
+using FeatherBrowser.Presentation.Pages;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.Wpf;
 using Microsoft.Win32;
@@ -238,6 +239,13 @@ public partial class MainWindow : Window
                 case "open-command-palette":
                     OpenCommandPalette();
                     break;
+                case "settings-section-changed":
+                    if (tab.IsSettingsPage)
+                    {
+                        tab.SettingsSection = SettingsPage.NormalizeSection(
+                        GetString(root, "section", tab.SettingsSection));
+                    }
+                break;
                 case "toggle-game":
                     ToggleGameMode();
                     if (tab.IsStartPage)

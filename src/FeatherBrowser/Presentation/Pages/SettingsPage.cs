@@ -13,24 +13,61 @@ internal static class SettingsPage
         int bookmarkCount,
         int historyCount,
         int passwordCount,
-        AccountPageState account)
+        AccountPageState account,
+        string selectedSection)
     {
-        string json = JsonSerializer.Serialize(settings).Replace("</", "<\\/", StringComparison.Ordinal);
-        string accountJson = JsonSerializer.Serialize(account).Replace("</", "<\\/", StringComparison.Ordinal);
-        string allowlist = WebUtility.HtmlEncode(string.Join("\n", settings.AllowlistedSites ?? new List<string>()));
-        string customRules = WebUtility.HtmlEncode(string.Join("\n", settings.CustomBlockRules ?? new List<string>()));
-        string keepAlive = WebUtility.HtmlEncode(string.Join("\n", settings.KeepAliveSites ?? new List<string>()));
+        selectedSection = NormalizeSection(selectedSection);
+
+        string json = JsonSerializer.Serialize(settings)
+            .Replace("</", "<\\/", StringComparison.Ordinal);
+
+        string accountJson = JsonSerializer.Serialize(account)
+            .Replace("</", "<\\/", StringComparison.Ordinal);
+
+        string sectionJson = JsonSerializer.Serialize(selectedSection);
+
+        string allowlist = WebUtility.HtmlEncode(
+            string.Join("\n", settings.AllowlistedSites ?? new List<string>()));
+
+        string customRules = WebUtility.HtmlEncode(
+            string.Join("\n", settings.CustomBlockRules ?? new List<string>()));
+
+        string keepAlive = WebUtility.HtmlEncode(
+            string.Join("\n", settings.KeepAliveSites ?? new List<string>()));
 
         string template = EmbeddedAssets.LoadPage("settings");
 
         return template
             .Replace("__SETTINGS_JSON__", json, StringComparison.Ordinal)
+            .Replace("__SETTINGS_SECTION_JSON__", sectionJson, StringComparison.Ordinal)
             .Replace("__ACCOUNT_JSON__", accountJson, StringComparison.Ordinal)
             .Replace("__ALLOWLIST__", allowlist, StringComparison.Ordinal)
             .Replace("__CUSTOM_RULES__", customRules, StringComparison.Ordinal)
             .Replace("__KEEP_ALIVE__", keepAlive, StringComparison.Ordinal)
-            .Replace("__BOOKMARK_COUNT__", bookmarkCount.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal)
-            .Replace("__HISTORY_COUNT__", historyCount.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal)
-            .Replace("__PASSWORD_COUNT__", passwordCount.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
+            .Replace(
+                "__BOOKMARK_COUNT__",
+                bookmarkCount.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                StringComparison.Ordinal)
+            .Replace(
+                "__HISTORY_COUNT__",
+                historyCount.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                StringComparison.Ordinal)
+            .Replace(
+                "__PASSWORD_COUNT__",
+                passwordCount.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                StringComparison.Ordinal);
     }
+
+    internal static string NormalizeSection(string? section) =>
+        section?.ToLowerInvariant() switch
+        {
+            "general" => "general",
+            "account" => "account",
+            "gaming" => "gaming",
+            "performance" => "performance",
+            "privacy" => "privacy",
+            "appearance" => "appearance",
+            "data" => "data",
+            _ => "performance"
+        };
 }
