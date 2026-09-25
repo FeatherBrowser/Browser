@@ -27,8 +27,20 @@ foreach (string page in new[] { "start", "settings", "library", "welcome" })
     Check(!html.Contains("__PAGE_STYLES__") && !html.Contains("__PAGE_SCRIPT__"), $"Styles and scripts composed: {page}");
     Check(html.Contains("<style>") && html.Contains("<script>"), $"Inline assets preserved: {page}");
 }
-foreach (string script in new[] { "autofill.js", "cosmetic-filter.js", "cosmetic-filter-strict.js" })
-    Check(!string.IsNullOrWhiteSpace(EmbeddedAssets.Load(script)), $"Embedded script loads: {script}");
+Check(
+    !string.IsNullOrWhiteSpace(
+        EmbeddedAssets.Load("autofill.js")),
+    "Autofill script loads");
+
+Check(
+    !string.IsNullOrWhiteSpace(
+        FeatherShield.Cosmetic.CosmeticFilterScripts.Get(false)),
+    "Normal cosmetic filter loads");
+
+Check(
+    !string.IsNullOrWhiteSpace(
+        FeatherShield.Cosmetic.CosmeticFilterScripts.Get(true)),
+    "Strict cosmetic filter loads");
 string startTemplate = EmbeddedAssets.LoadPage("start");
 
 foreach (string placeholder in new[]

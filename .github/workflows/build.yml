@@ -1,45 +1,103 @@
+# trunk-ignore-all(pinact/config-error)
 name: Windows build and release
+
 on:
   push:
-    branches: [main, master]
+    branches:
+      - main
+      - master
+      - v2.0.0
   pull_request:
   workflow_dispatch:
+
 permissions:
   contents: read
+
 concurrency:
   group: windows-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   windows:
     runs-on: windows-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v6
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          # trunk-ignore(yamllint/quoted-strings)
           dotnet-version: '9.0.x'
+
       - name: Build
         run: ./scripts/build.ps1
         shell: pwsh
+
       - name: Checks
         run: ./scripts/check.ps1
         shell: pwsh
+
       - name: Publish Windows x64
         run: ./scripts/publish.ps1 -Runtime win-x64 -SelfContained
         shell: pwsh
+
+      - name: Verify extracted repositories
+        shell: pwsh
+        run: |
+          $required = @(
+            "external/FeatherShield/src/FeatherShield/FeatherShield.csproj",
+            "external/FeatherImport/src/FeatherImport/FeatherImport.csproj",
+            "external/FeatherFilters/metadata.json"
+          )
+
+          foreach ($path in $required) {
+            if (-not (Test-Path $path)) {
+              throw "Required external repository file is missing: $path"
+            }
+          }
+
+      - name: Verify FeatherFilters publish output
+        shell: pwsh
+        run: |
+          $filters = Get-ChildItem -Path "artifacts" -Recurse -Filter "metadata.json" |
+            Where-Object { $_.FullName -match "FeatherFilters" } |
+            Select-Object -First 1
+
+          if (-not $filters) {
+            throw "FeatherFilters was not included in the published application."
+          }
+
+          Write-Host "FeatherFilters publish output found at:"
+          Write-Host $filters.FullName
+
       - name: Ensure Inno Setup is available
         shell: pwsh
         run: |
-          if (-not (Test-Path "${env:ProgramFiles(x86)}/Inno Setup 6/ISCC.exe")) {
+          $iscc = "${env:ProgramFiles(x86)}/Inno Setup 6/ISCC.exe"
+
+          if (-not (Test-Path $iscc)) {
             choco install innosetup --yes --no-progress
-            if ($LASTEXITCODE -ne 0) { throw 'Inno Setup installation failed.' }
+
+            if ($LASTEXITCODE -ne 0) {
+              throw "Inno Setup installation failed."
+            }
           }
+
       - name: Build installer
         run: ./scripts/installer.ps1
         shell: pwsh
+
       - name: Check installer installation and uninstall
         run: ./scripts/check-installer.ps1
         shell: pwsh
-      - uses: actions/upload-artifact@v7
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v7
         with:
           name: FeatherBrowser-win-x64-installer
           path: artifacts/installer/*-Setup.exe
@@ -47,22 +105,38 @@ jobs:
 
   release:
     needs: windows
-    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+
+    if: >
+      github.event_name != 'pull_request' &&
+      (github.ref == 'refs/heads/main' ||
+       github.ref == 'refs/heads/master')
+
     runs-on: windows-latest
+
     permissions:
       contents: write
+
     concurrency:
       group: feather-release
       cancel-in-progress: false
+
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Download installer
+        uses: actions/download-artifact@v4
         with:
           name: FeatherBrowser-win-x64-installer
           path: artifacts/installer/
+
       - name: Create release from changelogs.md
         shell: pwsh
         run: ./scripts/release.ps1
