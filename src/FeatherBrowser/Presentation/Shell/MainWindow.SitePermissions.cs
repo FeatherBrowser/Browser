@@ -115,7 +115,7 @@ public partial class MainWindow : Window
 
         var menu = new ContextMenu
         {
-            PlacementTarget = SiteButton,
+            PlacementTarget = AddressBorder,
             Placement = PlacementMode.Bottom,
             MinWidth = 290
         };

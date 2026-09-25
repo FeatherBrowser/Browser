@@ -59,7 +59,6 @@ public partial class MainWindow : Window
         if (!_isPrivateMode)
             return;
 
-        ModeBadge.Visibility = Visibility.Visible;
         TitleBar.Background = new SolidColorBrush(Color.FromRgb(24, 17, 34));
         Title = "Private — Feather Browser";
         TitleText.Text = "Private browsing";
@@ -82,7 +81,9 @@ public partial class MainWindow : Window
                 AreBrowserExtensionsEnabled = false
             };
 
-            _environment = await CoreWebView2Environment.CreateAsync(null, dataRoot, options);
+            _environment = await CoreWebView2Environment.CreateAsync(
+    browserExecutableFolder: null,
+    userDataFolder: dataRoot);
 
             if (!string.IsNullOrWhiteSpace(_initialAddress))
             {
@@ -174,6 +175,30 @@ public partial class MainWindow : Window
         }
     }
 
+    private static string PrepareWebAssets()
+    {
+        string assetsRoot = Path.Join(
+            Environment.GetFolderPath(
+                Environment.SpecialFolder.LocalApplicationData),
+            "FeatherBrowser",
+            "Assets");
+
+        Directory.CreateDirectory(assetsRoot);
+
+        string backgroundPath =
+            Path.Join(assetsRoot, "background.png");
+
+        if (!File.Exists(backgroundPath))
+        {
+            File.WriteAllBytes(
+                backgroundPath,
+                FeatherBrowser.Infrastructure.Resources.EmbeddedAssets
+                    .LoadBytes("background.png"));
+        }
+
+        return assetsRoot;
+    }
+
     private void Window_Closing(object? sender, CancelEventArgs e)
     {
         _isClosing = true;
@@ -184,8 +209,7 @@ public partial class MainWindow : Window
 
         foreach (BrowserTab tab in _tabs.ToArray())
         {
-            tab.SleepCancellation?.Cancel();
-            tab.SleepCancellation?.Dispose();
+            CancelSleepSchedule(tab);
             tab.View.Dispose();
         }
         _tabs.Clear();
@@ -230,3 +254,4 @@ public partial class MainWindow : Window
             _lastSessionSnapshot = fingerprint;
     }
 }
+

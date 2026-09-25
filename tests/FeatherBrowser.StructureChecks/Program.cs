@@ -27,9 +27,32 @@ foreach (string page in new[] { "start", "settings", "library", "welcome" })
     Check(!html.Contains("__PAGE_STYLES__") && !html.Contains("__PAGE_SCRIPT__"), $"Styles and scripts composed: {page}");
     Check(html.Contains("<style>") && html.Contains("<script>"), $"Inline assets preserved: {page}");
 }
-foreach (string script in new[] { "autofill.js", "cosmetic-filter.js", "cosmetic-filter-strict.js" })
-    Check(!string.IsNullOrWhiteSpace(EmbeddedAssets.Load(script)), $"Embedded script loads: {script}");
-Check(EmbeddedAssets.LoadPage("start").Contains("__SEARCH_PREFIX_JSON__"), "Page data placeholders remain available for safe binding");
+Check(
+    !string.IsNullOrWhiteSpace(
+        EmbeddedAssets.Load("autofill.js")),
+    "Autofill script loads");
+
+Check(
+    !string.IsNullOrWhiteSpace(
+        FeatherShield.Cosmetic.CosmeticFilterScripts.Get(false)),
+    "Normal cosmetic filter loads");
+
+Check(
+    !string.IsNullOrWhiteSpace(
+        FeatherShield.Cosmetic.CosmeticFilterScripts.Get(true)),
+    "Strict cosmetic filter loads");
+string startTemplate = EmbeddedAssets.LoadPage("start");
+
+foreach (string placeholder in new[]
+{
+    "__QUICK_LINKS_JSON__",
+    "__HOME_STATE_JSON__"
+})
+{
+    Check(
+        startTemplate.Contains(placeholder, StringComparison.Ordinal),
+        $"Start-page binding placeholder: {placeholder}");
+}
 Check(EmbeddedAssets.Load("autofill.js").Contains("__PASSWORD_JSON__"), "Autofill binding placeholder");
 bool missingAssetRejected = false;
 try { EmbeddedAssets.Load("missing.js"); }

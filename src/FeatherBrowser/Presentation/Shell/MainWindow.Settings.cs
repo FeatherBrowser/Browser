@@ -12,6 +12,7 @@ using System.Windows.Threading;
 using System.Windows;
 using FeatherBrowser.Domain.Models;
 using FeatherBrowser.Presentation.Tabs;
+using FeatherBrowser.Presentation.Pages;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.Wpf;
 using Microsoft.Win32;
@@ -100,6 +101,10 @@ public partial class MainWindow : Window
         settings.BlockNotificationPrompts = GetBool(element, "BlockNotificationPrompts", settings.BlockNotificationPrompts);
         settings.SendDoNotTrack = GetBool(element, "SendDoNotTrack", settings.SendDoNotTrack);
         settings.DataBackupsEnabled = GetBool(element, "DataBackupsEnabled", settings.DataBackupsEnabled);
+        settings.AutoSyncEnabled = GetBool(element, "AutoSyncEnabled", settings.AutoSyncEnabled);
+        settings.AutoSyncMinutes = Math.Clamp(GetInt(element, "AutoSyncMinutes", settings.AutoSyncMinutes), 1, 60);
+        settings.SyncHistory = GetBool(element, "SyncHistory", settings.SyncHistory);
+        settings.SyncOpenTabs = GetBool(element, "SyncOpenTabs", settings.SyncOpenTabs);
 
         if (settings.GameMode)
         {
@@ -109,6 +114,7 @@ public partial class MainWindow : Window
 
         _store.SaveSettings();
         ApplyRuntimeSettings();
+        ConfigureAutomaticSync();
         StatusText.Text = settings.GameMode ? "Settings saved · Gaming Mode active" : "Settings saved";
     }
 
@@ -166,14 +172,12 @@ public partial class MainWindow : Window
             ShowStartPage(_activeTab);
     }
 
-    private async Task HandleWebMessageAsync(BrowserTab tab, CoreWebView2WebMessageReceivedEventArgs e)
+    private async Task HandleWebMessageAsync(BrowserTab tab, string messageJson)
     {
-        // Only our top-level NavigateToString pages may invoke privileged commands.
-        if (!tab.IsInternalPage || !string.Equals(e.Source, "about:blank", StringComparison.OrdinalIgnoreCase))
-            return;
+        if (!tab.IsInternalPage) return;
         try
         {
-            using JsonDocument document = JsonDocument.Parse(e.WebMessageAsJson);
+            using JsonDocument document = JsonDocument.Parse(messageJson);
             JsonElement root = document.RootElement;
             if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty("action", out JsonElement actionElement)
                 || actionElement.ValueKind != JsonValueKind.String)
@@ -235,6 +239,13 @@ public partial class MainWindow : Window
                 case "open-command-palette":
                     OpenCommandPalette();
                     break;
+                case "settings-section-changed":
+                    if (tab.IsSettingsPage)
+                    {
+                        tab.SettingsSection = SettingsPage.NormalizeSection(
+                        GetString(root, "section", tab.SettingsSection));
+                    }
+                break;
                 case "toggle-game":
                     ToggleGameMode();
                     if (tab.IsStartPage)
@@ -243,6 +254,66 @@ public partial class MainWindow : Window
                 case "save-settings":
                     if (root.TryGetProperty("settings", out JsonElement settingsElement))
                         SaveSettingsFromMessage(settingsElement);
+                    break;
+                case "account-sign-up":
+                    if (tab.IsSettingsPage)
+                        await SignUpAccountAsync();
+                    break;
+                case "account-sign-in":
+                    if (tab.IsSettingsPage)
+                        await SignInAccountAsync();
+                    break;
+                case "account-sign-out":
+                    if (tab.IsSettingsPage)
+                        await SignOutAccountAsync();
+                    break;
+                case "account-setup-mfa":
+                    if (tab.IsSettingsPage)
+                        await StartTotpEnrollmentAsync();
+                    break;
+                case "account-verify-mfa":
+                    if (tab.IsSettingsPage)
+                        await VerifyTotpEnrollmentAsync();
+                    break;
+                case "account-verify-existing-mfa":
+                    if (tab.IsSettingsPage)
+                        await VerifyExistingMfaAsync();
+                    break;
+                case "sync-enable":
+                    if (tab.IsSettingsPage)
+                        await EnableEncryptedSyncAsync();
+                    break;
+                case "sync-now":
+                    if (tab.IsSettingsPage)
+                        await SyncNowAsync();
+                    break;
+                case "sync-request-approval":
+                    if (tab.IsSettingsPage)
+                        await RequestDeviceApprovalAsync();
+                    break;
+                case "sync-check-approval":
+                    if (tab.IsSettingsPage)
+                        await CheckDeviceApprovalAsync();
+                    break;
+                case "sync-recover":
+                    if (tab.IsSettingsPage)
+                        await RecoverEncryptedSyncAsync();
+                    break;
+                case "sync-recover-file":
+                    if (tab.IsSettingsPage)
+                        await RecoverEncryptedSyncFromBackupAsync();
+                    break;
+                case "sync-delete":
+                    if (tab.IsSettingsPage)
+                        await DeleteEncryptedSyncAsync();
+                    break;
+                case "device-approve":
+                    if (tab.IsSettingsPage)
+                        await ApprovePendingDeviceAsync(GetString(root, "deviceId", ""));
+                    break;
+                case "device-deny":
+                    if (tab.IsSettingsPage)
+                        await DenyPendingDeviceAsync(GetString(root, "deviceId", ""));
                     break;
                 case "import-edge":
                     await ImportFromEdgeAsync();

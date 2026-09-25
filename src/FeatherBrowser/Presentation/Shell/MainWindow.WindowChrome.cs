@@ -19,39 +19,126 @@ namespace FeatherBrowser.Presentation.Shell;
 
 public partial class MainWindow : Window
 {
+    private bool _manualFullscreen;
+    private bool _changingFullscreen;
+    private BrowserTab? _videoFullscreenTab;
+    private WindowChrome? _chromeBeforeFullscreen;
+    private WindowStyle _styleBeforeFullscreen;
+    private ResizeMode _resizeBeforeFullscreen;
+    private Rect _boundsBeforeFullscreen;
+
     private void ToggleFullscreen()
     {
-        _isFullscreen = !_isFullscreen;
-        WindowChrome? chrome = WindowChrome.GetWindowChrome(this);
-
-        if (_isFullscreen)
+        if (_videoFullscreenTab is { } videoTab)
         {
-            _stateBeforeFullscreen = WindowState;
-            TitleBar.Visibility = Visibility.Collapsed;
-            TabBar.Visibility = Visibility.Collapsed;
-            Toolbar.Visibility = Visibility.Collapsed;
-            StatusBar.Visibility = Visibility.Collapsed;
-            WorkspaceSidebar.Visibility = Visibility.Collapsed;
-            if (chrome is not null)
-            {
-                chrome.CaptionHeight = 0;
-                chrome.ResizeBorderThickness = new Thickness(0);
-            }
-            WindowState = WindowState.Maximized;
+            _manualFullscreen = false;
+            LeaveVideoFullscreen(videoTab);
+            return;
         }
-        else
+
+        _manualFullscreen = !_manualFullscreen;
+        ApplyFullscreen();
+    }
+
+    private void LeaveVideoFullscreen(BrowserTab tab)
+    {
+        if (!ReferenceEquals(_videoFullscreenTab, tab))
+            return;
+
+        _videoFullscreenTab = null;
+        ApplyFullscreen();
+        _ = ExitDocumentFullscreenAsync(tab);
+    }
+
+    private static async Task ExitDocumentFullscreenAsync(BrowserTab tab)
+    {
+        if (tab.IsClosed || !tab.IsLoaded)
+            return;
+
+        try
         {
-            TitleBar.Visibility = Visibility.Visible;
-            TabBar.Visibility = Visibility.Visible;
-            Toolbar.Visibility = Visibility.Visible;
-            StatusBar.Visibility = _store.Settings.ShowStatusBar ? Visibility.Visible : Visibility.Collapsed;
-            WorkspaceSidebar.Visibility = _store.Settings.ShowWorkspaceSidebar ? Visibility.Visible : Visibility.Collapsed;
-            if (chrome is not null)
+            if (tab.View.CoreWebView2 is { } core)
             {
-                chrome.CaptionHeight = 52;
-                chrome.ResizeBorderThickness = new Thickness(6);
+                await core.ExecuteScriptAsync(
+                    "if (document.fullscreenElement) { document.exitFullscreen().catch(() => {}); }");
             }
-            WindowState = _stateBeforeFullscreen;
+        }
+        catch (Exception ex) when (ex is COMException or InvalidOperationException)
+        {
+            Trace.TraceWarning($"Could not exit document fullscreen: {ex.Message}");
+        }
+    }
+
+    private void ApplyFullscreen()
+    {
+        if (_isClosing || _changingFullscreen)
+            return;
+
+        bool fullscreen = _manualFullscreen ||
+            (_videoFullscreenTab is { IsClosed: false, IsLoaded: true } &&
+             ReferenceEquals(_videoFullscreenTab, _activeTab));
+
+        if (_isFullscreen == fullscreen)
+            return;
+
+        _changingFullscreen = true;
+
+        try
+        {
+            if (fullscreen)
+            {
+                _stateBeforeFullscreen = WindowState;
+                _boundsBeforeFullscreen = WindowState == WindowState.Normal
+                    ? new Rect(Left, Top, ActualWidth, ActualHeight)
+                    : RestoreBounds;
+                _styleBeforeFullscreen = WindowStyle;
+                _resizeBeforeFullscreen = ResizeMode;
+                _chromeBeforeFullscreen = WindowChrome.GetWindowChrome(this);
+                _isFullscreen = true;
+
+                CloseCommandPalette();
+                TitleBar.Visibility = Visibility.Collapsed;
+                TabBar.Visibility = Visibility.Collapsed;
+                Toolbar.Visibility = Visibility.Collapsed;
+                StatusBar.Visibility = Visibility.Collapsed;
+                WorkspaceSidebar.Visibility = Visibility.Collapsed;
+                NavigationProgress.Visibility = Visibility.Collapsed;
+
+                WindowState = WindowState.Normal;
+                WindowChrome.SetWindowChrome(this, null);
+                WindowStyle = WindowStyle.None;
+                ResizeMode = ResizeMode.NoResize;
+                WindowState = WindowState.Maximized;
+            }
+            else
+            {
+                _isFullscreen = false;
+                WindowState = WindowState.Normal;
+                WindowStyle = _styleBeforeFullscreen;
+                ResizeMode = _resizeBeforeFullscreen;
+                WindowChrome.SetWindowChrome(this, _chromeBeforeFullscreen);
+
+                if (!_boundsBeforeFullscreen.IsEmpty)
+                {
+                    Left = _boundsBeforeFullscreen.Left;
+                    Top = _boundsBeforeFullscreen.Top;
+                    Width = _boundsBeforeFullscreen.Width;
+                    Height = _boundsBeforeFullscreen.Height;
+                }
+
+                TitleBar.Visibility = Visibility.Visible;
+                TabBar.Visibility = Visibility.Visible;
+                Toolbar.Visibility = Visibility.Visible;
+                StatusBar.Visibility = _store.Settings.ShowStatusBar
+                    ? Visibility.Visible : Visibility.Collapsed;
+                WorkspaceSidebar.Visibility = _store.Settings.ShowWorkspaceSidebar
+                    ? Visibility.Visible : Visibility.Collapsed;
+                WindowState = _stateBeforeFullscreen;
+            }
+        }
+        finally
+        {
+            _changingFullscreen = false;
         }
     }
 
@@ -83,6 +170,9 @@ public partial class MainWindow : Window
     private void Window_StateChanged(object sender, EventArgs e)
     {
         MaximizeButton.Content = WindowState == WindowState.Maximized ? "❐" : "□";
+
+        if (_changingFullscreen)
+            return;
 
         _nextResourceSampleUtc = DateTime.MinValue;
         if (WindowState == WindowState.Minimized)
@@ -121,6 +211,11 @@ public partial class MainWindow : Window
         if (CommandPaletteOverlay.Visibility == Visibility.Visible && e.Key == Key.Escape)
         {
             CloseCommandPalette();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Escape && _videoFullscreenTab is { } videoTab)
+        {
+            LeaveVideoFullscreen(videoTab);
             e.Handled = true;
         }
         else if (ctrl && e.Key == Key.K)
@@ -275,3 +370,4 @@ public partial class MainWindow : Window
         _ = SelectTabAsync(visibleTabs[next]);
     }
 }
+

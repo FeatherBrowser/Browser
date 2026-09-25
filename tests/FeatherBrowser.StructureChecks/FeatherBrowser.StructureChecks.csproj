@@ -5,6 +5,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+
+  <ItemGroup>
+  <ProjectReference Include="..\..\external\FeatherShield\src\FeatherShield\FeatherShield.csproj" />
+</ItemGroup>
   <ItemGroup>
     <Compile Include="../../src/FeatherBrowser/Infrastructure/Resources/AppInfo.cs" Link="AppInfo.cs" />
     <Compile Include="../../src/FeatherBrowser/Features/WebView3/*.cs" Link="WebView3/%(Filename)%(Extension)" />
