@@ -85,3 +85,11 @@ The source builds with Windows targeting. Native window controls, popup placemen
 ## License
 
 Feather's source is licensed under [MIT](LICENSE). Third-party packages and the WebView2 Runtime retain their own licenses; see [third-party notices](THIRD_PARTY_NOTICES.md).
+
+## Account & Sync
+
+Feather includes optional zero-knowledge encrypted sync with password + TOTP authentication, approved-device pairing, encrypted recovery backups, and configurable automatic sync.
+
+- [Account security model](account-security.md)
+- [Account & Sync setup](docs/ACCOUNT_SYNC_SETUP.md)
+

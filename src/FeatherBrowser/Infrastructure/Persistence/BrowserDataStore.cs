@@ -205,6 +205,13 @@ internal sealed class BrowserDataStore
             changed = true;
         }
 
+        int normalizedSyncMinutes = Math.Clamp(Settings.AutoSyncMinutes, 1, 60);
+        if (Settings.AutoSyncMinutes != normalizedSyncMinutes)
+        {
+            Settings.AutoSyncMinutes = normalizedSyncMinutes;
+            changed = true;
+        }
+
         return changed;
     }
 
@@ -466,6 +473,24 @@ internal sealed class BrowserDataStore
         }
     }
 
+    public void ReplaceBookmarks(IEnumerable<BrowserBookmark> incoming)
+    {
+        ArgumentNullException.ThrowIfNull(incoming);
+
+        lock (_sync)
+        {
+            Bookmarks = incoming
+                .Where(bookmark => !string.IsNullOrWhiteSpace(bookmark.Url))
+                .GroupBy(bookmark => bookmark.Url, StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.OrderByDescending(bookmark => bookmark.CreatedAt).First())
+                .OrderByDescending(bookmark => bookmark.CreatedAt)
+                .Take(5000)
+                .ToList();
+
+            Save(_bookmarksPath, Bookmarks);
+        }
+    }
+
     public int MergeBookmarks(IEnumerable<BrowserBookmark> incoming)
     {
         ArgumentNullException.ThrowIfNull(incoming);
@@ -541,6 +566,24 @@ internal sealed class BrowserDataStore
             }
 
             TrimHistory();
+            Save(_historyPath, History);
+        }
+    }
+
+    public void ReplaceHistory(IEnumerable<HistoryEntry> incoming)
+    {
+        ArgumentNullException.ThrowIfNull(incoming);
+
+        lock (_sync)
+        {
+            History = incoming
+                .Where(entry => IsHttpUrl(entry.Url))
+                .GroupBy(entry => entry.Url, StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.OrderByDescending(entry => entry.LastVisited).First())
+                .OrderByDescending(entry => entry.LastVisited)
+                .Take(MaxHistoryEntries)
+                .ToList();
+
             Save(_historyPath, History);
         }
     }

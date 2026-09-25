@@ -2,14 +2,21 @@ using System.Net;
 using System.Text.Json;
 using FeatherBrowser.Domain.Models;
 using FeatherBrowser.Infrastructure.Resources;
+using FeatherBrowser.Presentation.Account;
 
 namespace FeatherBrowser.Presentation.Pages;
 
 internal static class SettingsPage
 {
-    public static string Html(BrowserSettings settings, int bookmarkCount, int historyCount, int passwordCount)
+    public static string Html(
+        BrowserSettings settings,
+        int bookmarkCount,
+        int historyCount,
+        int passwordCount,
+        AccountPageState account)
     {
         string json = JsonSerializer.Serialize(settings).Replace("</", "<\\/", StringComparison.Ordinal);
+        string accountJson = JsonSerializer.Serialize(account).Replace("</", "<\\/", StringComparison.Ordinal);
         string allowlist = WebUtility.HtmlEncode(string.Join("\n", settings.AllowlistedSites ?? new List<string>()));
         string customRules = WebUtility.HtmlEncode(string.Join("\n", settings.CustomBlockRules ?? new List<string>()));
         string keepAlive = WebUtility.HtmlEncode(string.Join("\n", settings.KeepAliveSites ?? new List<string>()));
@@ -18,6 +25,7 @@ internal static class SettingsPage
 
         return template
             .Replace("__SETTINGS_JSON__", json, StringComparison.Ordinal)
+            .Replace("__ACCOUNT_JSON__", accountJson, StringComparison.Ordinal)
             .Replace("__ALLOWLIST__", allowlist, StringComparison.Ordinal)
             .Replace("__CUSTOM_RULES__", customRules, StringComparison.Ordinal)
             .Replace("__KEEP_ALIVE__", keepAlive, StringComparison.Ordinal)

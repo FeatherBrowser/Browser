@@ -55,6 +55,12 @@
       CopyToOutputDirectory="PreserveNewest"
       CopyToPublishDirectory="PreserveNewest" />
 
+      <Content
+  Include="..\..\external\FeatherFilters\subscriptions\**\*"
+  Link="FeatherFilters\subscriptions\%(RecursiveDir)%(Filename)%(Extension)"
+  CopyToOutputDirectory="PreserveNewest"
+  CopyToPublishDirectory="PreserveNewest" />
+
     <Content
       Include="..\..\external\FeatherFilters\filters\tracking-tokens.txt"
       Link="FeatherFilters\filters\tracking-tokens.txt"

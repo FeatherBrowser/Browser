@@ -444,3 +444,21 @@ button.danger:hover{background:#341b20;border-color:#71414b}
   .statgrid{grid-template-columns:1fr}
   .footer{left:88px;right:12px;min-width:0}
 }
+.hidden{display:none!important}
+.account-message{display:none;margin:0 0 14px;padding:11px 14px;border:1px solid #27425b;border-radius:10px;background:#0d1b28;color:#a9c9e5;font-size:10.5px;line-height:1.45}
+.account-message.show{display:block}
+.account-badge{display:inline-flex;align-items:center;white-space:nowrap;padding:5px 8px;border-radius:999px;border:1px solid #2b4054;background:#111d29;color:#9eb4c9;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.35px}
+.mfa-enrollment{display:grid;grid-template-columns:180px minmax(0,1fr);gap:18px;align-items:center;margin-top:14px}
+.qr-box{display:grid;place-items:center;min-height:168px;padding:10px;border-radius:12px;background:#fff}
+.qr-box img{display:block;max-width:148px;max-height:148px}
+.account-secret{display:flex;flex-direction:column;align-items:flex-start;gap:9px;min-width:0}
+.account-secret span{font-size:10px;color:#74869a}
+.account-secret code{max-width:100%;overflow-wrap:anywhere;padding:8px 10px;border:1px solid #263a4d;border-radius:8px;background:#091018;color:#b9d8f3;font:11px ui-monospace,SFMono-Regular,Consolas,monospace}
+.pairing-code{margin-top:10px;display:inline-block;padding:9px 11px;border:1px solid #2e5371;border-radius:9px;background:#09131d;color:#9fd0ff;font:700 14px ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:1.2px}
+.device-list{display:flex;flex-direction:column}
+.device-empty{padding:18px;color:#708298;font-size:10.5px}
+.device-item{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 18px;border-bottom:1px solid #192530}
+.device-item:last-child{border-bottom:0}
+.device-name{font-size:12px;font-weight:650;color:#edf2f7}
+.device-meta{margin-top:4px;color:#78899d;font-size:10px;text-transform:capitalize}
+@media(max-width:780px){.mfa-enrollment{grid-template-columns:1fr}.qr-box{justify-self:start}.device-item{align-items:flex-start;flex-direction:column}}

@@ -23,6 +23,10 @@ __PAGE_STYLES__
       <span class="navicon"><svg viewBox="0 0 24 24"><path d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/><circle cx="12" cy="12" r="4"/></svg></span>
       <span>General</span>
     </button>
+    <button data-section="account">
+      <span class="navicon"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M5 21a7 7 0 0 1 14 0"/><path d="M18 5.5h3M19.5 4v3"/></svg></span>
+      <span>Account &amp; Sync</span>
+    </button>
     <button data-section="gaming">
       <span class="navicon"><svg viewBox="0 0 24 24"><path d="M7 9h10a4 4 0 0 1 3.8 5.2l-1 3A2.5 2.5 0 0 1 15.5 18l-1.2-1.5H9.7L8.5 18a2.5 2.5 0 0 1-4.3-.8l-1-3A4 4 0 0 1 7 9Z"/><path d="M8 12v3M6.5 13.5h3M15.5 12.8h.01M18 14.2h.01"/></svg></span>
       <span>Gaming</span>
@@ -77,6 +81,53 @@ __PAGE_STYLES__
       <div class="row"><div><div class="title">Search engine</div><div class="desc">Used by the address bar and new-tab search.</div></div><select id="search"><option>Google</option><option>Bing</option><option>DuckDuckGo</option></select></div>
       <div class="row"><div><div class="title">Startup mode</div><div class="desc">Restore your workspaces, start clean, or boot directly into Gaming Mode.</div></div><select id="startup"><option value="Restore">Restore workspaces</option><option value="NewTab">New tab</option><option value="Gaming">Gaming mode</option></select></div>
       <div class="row"><div><div class="title">Crash-safe session autosave</div><div class="desc">Snapshots open tabs, workspace membership, pin state, and selected tab every few seconds.</div></div><label class="switch"><input id="crashSave" type="checkbox"><span class="slider"></span></label></div>
+    </div>
+  </section>
+
+  <section id="account" class="section" data-title="Account &amp; Sync" data-subtitle="Sign in, protect your account with 2FA, and sync encrypted browser data across Feather devices.">
+    <div class="hero-callout account-hero">
+      <div class="hero-icon">☁</div>
+      <div class="hero-copy"><strong>Zero-knowledge Feather Sync</strong><p>Your browser data is encrypted on your device before upload. The sync service does not receive your Sync Master Key.</p></div>
+      <div id="accountHeroTag" class="hero-tag">Local-only</div>
+    </div>
+
+    <div id="accountMessage" class="account-message"></div>
+
+    <div class="grid2">
+      <div class="stack">
+        <div class="card">
+          <div class="cardhead"><div><h2>Feather Account</h2><p>Account authentication is separate from encrypted-data recovery.</p></div><span id="accountStatusBadge" class="account-badge">Signed out</span></div>
+          <div class="row"><div><div class="title">Account status</div><div id="accountStatusText" class="desc">Not signed in</div></div><div id="accountSignedOutActions" class="actions"><button class="action primary" data-action="account-sign-in">Sign in</button><button class="action" data-action="account-sign-up">Create account</button></div><div id="accountSignedInActions" class="actions hidden"><button class="action" data-action="account-sign-out">Sign out</button></div></div>
+          <div id="accountIdentityRow" class="row hidden"><div><div class="title">Signed-in identity</div><div id="accountIdentity" class="desc"></div></div><span id="accountAal" class="account-badge">AAL1</span></div>
+        </div>
+
+        <div class="card">
+          <div class="cardhead"><div><h2>Two-factor authentication</h2><p>Authenticator-app verification is required for sensitive Feather Sync operations.</p></div></div>
+          <div class="row"><div><div class="title">Authenticator 2FA</div><div id="mfaStatus" class="desc">Sign in to configure 2FA.</div></div><div class="actions"><button id="mfaSetupButton" class="action primary hidden" data-action="account-setup-mfa">Set up 2FA</button><button id="mfaVerifyButton" class="action hidden" data-action="account-verify-existing-mfa">Verify 2FA</button></div></div>
+          <div id="mfaEnrollment" class="textblock hidden">
+            <div class="title">Scan with your authenticator app</div>
+            <div class="desc">Scan the QR code, then press Verify and enter the six-digit code.</div>
+            <div class="mfa-enrollment"><div class="qr-box"><img id="mfaQr" alt="Authenticator QR code"></div><div class="account-secret"><span>Manual setup secret</span><code id="mfaSecret"></code><button class="action primary" data-action="account-verify-mfa">Verify setup</button></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stack">
+        <div class="card">
+          <div class="cardhead"><div><h2>Encrypted Sync</h2><p>Bookmarks, settings, workspaces, and optional history/session data.</p></div><span id="syncStatusBadge" class="account-badge">Off</span></div>
+          <div class="row"><div><div class="title">Sync status</div><div id="syncStatusText" class="desc">Sign in to use Feather Sync.</div></div><div id="syncActions" class="actions"></div></div>
+          <div id="pairingPanel" class="textblock hidden"><div class="title">Device pairing code</div><div class="desc">Compare this complete code with the code shown on an already approved Feather device.</div><div id="pairingCode" class="pairing-code"></div></div>
+          <div class="row"><div><div class="title">Automatic sync</div><div class="desc">Periodically merge and upload encrypted changes while this device has an AAL2 session.</div></div><label class="switch"><input id="autoSync" type="checkbox"><span class="slider"></span></label></div>
+          <div class="row"><div><div class="title">Automatic sync interval</div><div class="desc">Minutes between background sync attempts.</div></div><input id="autoSyncMinutes" type="number" min="1" max="60"></div>
+          <div class="row"><div><div class="title">Sync browsing history</div><div class="desc">Off by default. When enabled, history is included inside the encrypted sync snapshot.</div></div><label class="switch"><input id="syncHistory" type="checkbox"><span class="slider"></span></label></div>
+          <div class="row"><div><div class="title">Sync open tabs</div><div class="desc">Includes the normal-window session snapshot. Private-window tabs are never synced.</div></div><label class="switch"><input id="syncOpenTabs" type="checkbox"><span class="slider"></span></label></div>
+        </div>
+
+        <div class="card">
+          <div class="cardhead"><div><h2>Devices</h2><p>Approved clients can securely authorize a new Feather installation.</p></div></div>
+          <div id="deviceList" class="device-list"><div class="device-empty">Sign in and verify 2FA to view devices.</div></div>
+        </div>
+      </div>
     </div>
   </section>
 

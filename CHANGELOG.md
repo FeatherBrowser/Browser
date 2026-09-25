@@ -1,10 +1,10 @@
 # Changelog
 
-**## 2.0.0**
+## 2.0.0
 
 Feather 2.0 is a major update focused on making the browser cleaner, faster, more reliable, easier to maintain and more polished.
 
-**### Added**
+### Added
 
 \- Added website favicons to tabs.  
 \- Added a “Search or enter address” placeholder to the address bar.  
@@ -29,7 +29,17 @@ Feather 2.0 is a major update focused on making the browser cleaner, faster, mor
 \- Added dedicated tests and build configuration for FeatherShield and FeatherImport.
 \- Added versioned external dependency tracking for Feather’s standalone repositories.
 
-**### Changed**
+\- Added optional Feather Account sign-up, sign-in and DPAPI-protected session restore.
+\- Added authenticator-app TOTP two-factor authentication with AAL2 enforcement for sensitive sync operations.
+\- Added zero-knowledge encrypted sync for bookmarks, settings, workspaces and quick links, with optional history and open-tab syncing.
+\- Added approved-device pairing so an existing Feather device can authorize a new installation without exposing the Sync Master Key to the server.
+\- Added recovery-key restore and password-protected `.feather-recovery` backup files for removable/offline storage.
+\- Added configurable automatic encrypted sync with private-window exclusion.
+\- Added Account & Sync settings UI, device approval controls, pairing fingerprints and sync status.
+\- Added Supabase migrations for encrypted sync storage, MFA-gated access, device registration, recovery registration and pending-device denial.
+\- Added account security and deployment documentation.
+
+### Changed
 
 \- Reworked the tab bar with cleaner spacing, close buttons and alignment.  
 \- Moved the new tab button next to the last tab.  
@@ -89,7 +99,7 @@ Feather 2.0 is a major update focused on making the browser cleaner, faster, mor
 \- Updated publishing so FeatherShield, FeatherImport and FeatherFilters are included with release builds.
 \- Improved separation between browser UI, WebView2 integration, blocking, filter data and external browser importing.
 
-**### Fixed**
+### Fixed
 
 \- Fixed several WebView2 tab lifecycle issues.  
 \- Fixed middle-click tab closing.  
@@ -105,12 +115,12 @@ Feather 2.0 is a major update focused on making the browser cleaner, faster, mor
 \- Fixed malformed JavaScript in quick-link rendering that prevented the New Tab script from running.  
 \- Fixed several issues introduced during the browser UI overhaul.  
 \- Fixed external library builds failing because missing XML documentation warnings were treated as compilation errors.
-\- Fixed Feather Browser directly depending on SQLite solely for Edge history importing.  
+\- Fixed Feather Browser directly depending on SQLite solely for Edge history importing.
 \- Fixed blocking and importing features being unnecessarily coupled to Feather Browser’s internal models and persistence classes.
 \- Fixed build and publish handling for Feather’s extracted external repositories.
 \- Fixed various smaller stability and code-quality issues across the project.
 
-**### Removed**
+### Removed
 
 \- Removed unnecessary sidebar filler.  
 \- Removed unused resources.  

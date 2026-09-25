@@ -78,7 +78,7 @@ public partial class MainWindow : Window
 
         if (tab.IsSettingsPage)
         {
-            tab.View.NavigateToString(SettingsPage.Html(_store.Settings, _store.Bookmarks.Count, _store.History.Count, _passwordVault.Count));
+            tab.View.NavigateToString(SettingsPage.Html(_store.Settings, _store.Bookmarks.Count, _store.History.Count, _passwordVault.Count, _accountPageState));
             return;
         }
 
@@ -96,6 +96,22 @@ public partial class MainWindow : Window
         }
 
         tab.View.CoreWebView2.Navigate(tab.LastAddress);
+    }
+
+    private async Task HandleDeferredWebMessageAsync(BrowserTab tab, string messageJson)
+    {
+        try
+        {
+            await HandleWebMessageAsync(tab, messageJson);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception exception)
+        {
+            Debug.WriteLine($"Deferred WebView message failed: {exception}");
+            StatusText.Text = "The requested action could not be completed";
+        }
     }
 
     private void ConfigureWebView(BrowserTab tab)
@@ -261,8 +277,7 @@ public partial class MainWindow : Window
                 {
                     try
                     {
-                        await core.ExecuteScriptAsync(
-                            BlockerEngine.GetCosmeticFilterScript(_store.Settings.StrictBlocking));
+                        await core.ExecuteScriptAsync(_blocker.GetCosmeticFilterScript(core.Source ?? tab.LastAddress));
                     }
                     catch (ObjectDisposedException ex)
                     {
@@ -326,7 +341,27 @@ public partial class MainWindow : Window
             await RecoverFailedTabAsync(tab, e);
         }));
 
-        core.WebMessageReceived += async (_, e) => await HandleWebMessageAsync(tab, e);
+        core.WebMessageReceived += (_, e) =>
+        {
+            string messageJson;
+
+            try
+            {
+                messageJson = e.WebMessageAsJson;
+            }
+            catch (InvalidOperationException)
+            {
+                return;
+            }
+            catch (COMException)
+            {
+                return;
+            }
+
+            Dispatcher.BeginInvoke(
+                DispatcherPriority.Background,
+                new Action(() => _ = HandleDeferredWebMessageAsync(tab, messageJson)));
+        };
 
         core.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
         core.WebResourceRequested += (_, e) =>
@@ -345,9 +380,9 @@ public partial class MainWindow : Window
 
             e.Response = _environment.CreateWebResourceResponse(
                 Stream.Null,
-                204,
-                "No Content",
-                "Cache-Control: no-store\r\n");
+                403,
+                "Blocked by Feather Shield",
+                "Content-Type: text/plain\r\nCache-Control: no-store\r\n");
 
             tab.BlockedRequests++;
             if (_activeTab == tab)

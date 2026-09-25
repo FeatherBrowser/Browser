@@ -105,7 +105,6 @@ public partial class MainWindow
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
-            // Selecting, closing or rescheduling a tab cancels its pending work.
         }
         catch (InvalidOperationException ex)
         {

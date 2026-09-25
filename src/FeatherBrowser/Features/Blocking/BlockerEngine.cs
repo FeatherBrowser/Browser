@@ -1,8 +1,9 @@
 using System.IO;
+using System.Diagnostics;
 using FeatherBrowser.Domain.Models;
 using FeatherShield;
-using FeatherShield.Cosmetic;
 using FeatherShield.Filters;
+using FeatherShield.Rules;
 using Microsoft.Web.WebView2.Core;
 
 namespace FeatherBrowser.Features.Blocking;
@@ -19,6 +20,12 @@ internal sealed class BlockerEngine
     public void Reload(IEnumerable<string>? customRules = null)
     {
         RuleSet rules = LoadBaseRules();
+
+        Debug.WriteLine(
+    $"FeatherShield 2.0 loaded: " +
+    $"{rules.NetworkRuleCount} network rules, " +
+    $"{rules.ExceptionRuleCount} exceptions, " +
+    $"{rules.CosmeticRuleCount} cosmetic rules.");
 
         string legacyRulesPath = Path.Join(
             Environment.GetFolderPath(
@@ -85,10 +92,10 @@ internal sealed class BlockerEngine
         return _engine.CleanTopLevelUrl(address);
     }
 
-    public static string GetCosmeticFilterScript(
-        bool strict)
+    public string GetCosmeticFilterScript(
+    string? pageAddress)
     {
-        return CosmeticFilterScripts.Get(strict);
+        return _engine.GetCosmeticFilterScript(pageAddress);
     }
 
     private static RuleSet LoadBaseRules()
@@ -103,7 +110,7 @@ internal sealed class BlockerEngine
     }
 
     private static ResourceType MapResourceType(
-        CoreWebView2WebResourceContext context)
+    CoreWebView2WebResourceContext context)
     {
         return context.ToString() switch
         {
