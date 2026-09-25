@@ -2,9 +2,9 @@
 
 **## 2.0.0**
 
-Feather 2.0 is a major update focused on making the browser cleaner, faster, more reliable and more polished.
+Feather 2.0 is a major update focused on making the browser cleaner, faster, more reliable, easier to maintain and more polished.
 
-### Added
+**### Added**
 
 \- Added website favicons to tabs.  
 \- Added a “Search or enter address” placeholder to the address bar.  
@@ -22,8 +22,14 @@ Feather 2.0 is a major update focused on making the browser cleaner, faster, mor
 \- Added reusable helper methods for repeated browser logic.  
 \- Added named constants to replace repeated magic values across browser systems.  
 \- Added stronger null handling and argument validation across internal services.  
+\- Added standalone **FeatherShield** library for Feather’s ad, tracker and cosmetic filtering engine.
+\- Added standalone **FeatherFilters** repository for Feather’s maintained ad, tracker, telemetry and tracking-parameter filter data.
+\- Added standalone **FeatherImport** library for Edge and Chromium browser data importing.
+\- Added external module integration so Feather Browser can use FeatherShield, FeatherFilters and FeatherImport while keeping their implementations separate from the main browser codebase.
+\- Added dedicated tests and build configuration for FeatherShield and FeatherImport.
+\- Added versioned external dependency tracking for Feather’s standalone repositories.
 
-### Changed
+**### Changed**
 
 \- Reworked the tab bar with cleaner spacing, close buttons and alignment.  
 \- Moved the new tab button next to the last tab.  
@@ -69,8 +75,21 @@ Feather 2.0 is a major update focused on making the browser cleaner, faster, mor
 \- Replaced numbered colour resources with descriptive names.  
 \- Updated structure checks to match the New Tab page’s current data bindings.  
 \- Improved general performance, UI responsiveness, reliability and stability.  
+\- Moved ad and tracker matching logic out of the main Browser project and into **FeatherShield**.
+\- Moved cosmetic filtering scripts out of the Browser project and into **FeatherShield**.
+\- Moved built-in blocking domains, tracking tokens, tracking parameters and exception data into **FeatherFilters**.
+\- Changed FeatherShield to use browser-independent request and resource types instead of depending directly on WebView2.
+\- Changed Feather Browser to use a lightweight WebView2 adapter when communicating with FeatherShield.
+\- Moved Edge and Chromium importing logic out of the Browser project and into **FeatherImport**.
+\- Changed FeatherImport to return browser-independent bookmark, history and session models instead of writing directly to Feather Browser’s data store.
+\- Changed Feather Browser to merge imported data into its own persistence layer after FeatherImport completes.
+\- Moved SQLite ownership for Chromium history importing into FeatherImport instead of the main Browser project.
+\- Changed filter lists to be shipped as external FeatherFilters data instead of being hardcoded inside the browser executable.
+\- Updated the Windows build and release workflow to restore Feather’s external repositories automatically.
+\- Updated publishing so FeatherShield, FeatherImport and FeatherFilters are included with release builds.
+\- Improved separation between browser UI, WebView2 integration, blocking, filter data and external browser importing.
 
-### Fixed
+**### Fixed**
 
 \- Fixed several WebView2 tab lifecycle issues.  
 \- Fixed middle-click tab closing.  
@@ -85,9 +104,13 @@ Feather 2.0 is a major update focused on making the browser cleaner, faster, mor
 \- Fixed broad exception handling hiding expected persistence errors.  
 \- Fixed malformed JavaScript in quick-link rendering that prevented the New Tab script from running.  
 \- Fixed several issues introduced during the browser UI overhaul.  
-\- Fixed various smaller stability and code-quality issues across the project.  
+\- Fixed external library builds failing because missing XML documentation warnings were treated as compilation errors.
+\- Fixed Feather Browser directly depending on SQLite solely for Edge history importing.  
+\- Fixed blocking and importing features being unnecessarily coupled to Feather Browser’s internal models and persistence classes.
+\- Fixed build and publish handling for Feather’s extracted external repositories.
+\- Fixed various smaller stability and code-quality issues across the project.
 
-### Removed
+**### Removed**
 
 \- Removed unnecessary sidebar filler.  
 \- Removed unused resources.  
@@ -98,6 +121,14 @@ Feather 2.0 is a major update focused on making the browser cleaner, faster, mor
 \- Removed several broad generic exception handlers.  
 \- Removed repeated hardcoded values where named constants could be used.  
 \- Removed unnecessary repeated session file reads.
+\- Removed the old embedded ad and tracker domain lists from the Browser project.
+\- Removed the old cosmetic filter scripts from the Browser project.
+\- Removed the old Browser-specific Edge importer implementation.
+\- Removed the old `EdgeImportResult` model from the Browser project.
+\- Removed the Browser project’s direct `Microsoft.Data.Sqlite` dependency.
+\- Removed direct dependencies between Feather’s importing library and `BrowserDataStore`.
+\- Removed direct dependencies between Feather’s blocking engine and `BrowserSettings` or WebView2 resource types.
+\- Removed large feature implementations from the main Browser repository where they can now be maintained independently.
 
 ## 1.0.1
 
