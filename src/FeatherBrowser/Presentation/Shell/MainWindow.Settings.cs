@@ -352,8 +352,8 @@ public partial class MainWindow : Window
                     }
                     break;
                 case "open-download-file":
-                    if (root.TryGetProperty("path", out JsonElement pathElement))
-                        OpenDownloadedFile(pathElement.GetString());
+                    if (root.TryGetProperty("id", out JsonElement downloadIdElement))
+                        OpenDownloadedFile(downloadIdElement.GetString());
                     break;
                 case "remove-bookmark":
                     if (root.TryGetProperty("url", out JsonElement bookmarkUrl))
