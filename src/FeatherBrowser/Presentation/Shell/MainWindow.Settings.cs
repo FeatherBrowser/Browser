@@ -243,9 +243,26 @@ public partial class MainWindow : Window
                     if (tab.IsSettingsPage)
                     {
                         tab.SettingsSection = SettingsPage.NormalizeSection(
-                        GetString(root, "section", tab.SettingsSection));
+                            GetString(root, "section", tab.SettingsSection));
                     }
-                break;
+                    break;
+                case "library-section-changed":
+                    if (tab.IsLibraryPage)
+                    {
+                        tab.LibrarySection = LibraryPage.NormalizeSection(
+                            GetString(root, "section", tab.LibrarySection));
+
+                        if (_activeTab == tab)
+                        {
+                            AddressBox.Text = $"feather://{tab.LibrarySection}";
+                            Title = $"{LibraryTitle(tab.LibrarySection)} — Feather";
+                            TitleText.Text = LibraryTitle(tab.LibrarySection);
+                        }
+
+                        if (_sessionTimer.IsEnabled)
+                            SaveSessionSnapshot();
+                    }
+                    break;
                 case "toggle-game":
                     ToggleGameMode();
                     if (tab.IsStartPage)
