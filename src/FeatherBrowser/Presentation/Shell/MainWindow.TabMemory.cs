@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using FeatherBrowser.Features.Navigation;
 using FeatherBrowser.Presentation.Tabs;
 
 namespace FeatherBrowser.Presentation.Shell;
@@ -23,16 +24,7 @@ public partial class MainWindow
             return false;
 
         return _store.Settings.KeepAliveSites.Any(rule =>
-        {
-            string host = rule.Trim().TrimStart('*', '.');
-            if (Uri.TryCreate(host, UriKind.Absolute, out Uri? site) &&
-                !string.IsNullOrEmpty(site.Host))
-                host = site.Host;
-            host = host.TrimEnd('/');
-            return host.Length > 0 &&
-                (page.Host.Equals(host, StringComparison.OrdinalIgnoreCase) ||
-                 page.Host.EndsWith('.' + host, StringComparison.OrdinalIgnoreCase));
-        });
+            KeepAliveSitePolicy.Matches(page.Host, rule));
     }
 
     private bool ShouldManageBackgroundTabs() =>

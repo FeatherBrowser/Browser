@@ -4,6 +4,7 @@ using System.Text.Json;
 using FeatherBrowser.Domain.Models;
 using FeatherBrowser.Features.Sync.Models;
 using FeatherBrowser.Infrastructure.Persistence;
+using FeatherBrowser.Features.Navigation;
 
 namespace FeatherBrowser.Features.Sync;
 
@@ -156,7 +157,7 @@ internal sealed class SyncSnapshotService
     {
         snapshot.Bookmarks.RemoveAll(bookmark => string.IsNullOrWhiteSpace(bookmark.Url));
         snapshot.Bookmarks = snapshot.Bookmarks
-            .GroupBy(bookmark => bookmark.Url, StringComparer.OrdinalIgnoreCase)
+            .GroupBy(bookmark => bookmark.Url, UrlIdentityComparer.Instance)
             .Select(group => group.OrderByDescending(item => item.CreatedAt).First())
             .OrderByDescending(bookmark => bookmark.CreatedAt)
             .Take(5000)
@@ -168,7 +169,7 @@ internal sealed class SyncSnapshotService
             snapshot.History = snapshot.History
                 .Where(entry => Uri.TryCreate(entry.Url, UriKind.Absolute, out Uri? uri) &&
                                 (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
-                .GroupBy(entry => entry.Url, StringComparer.OrdinalIgnoreCase)
+                .GroupBy(entry => entry.Url, UrlIdentityComparer.Instance)
                 .Select(group => group.OrderByDescending(item => item.LastVisited).First())
                 .OrderByDescending(entry => entry.LastVisited)
                 .Take(3000)
@@ -189,7 +190,7 @@ internal sealed class SyncSnapshotService
         IEnumerable<BrowserBookmark> local,
         IEnumerable<BrowserBookmark> remote)
     {
-        var byUrl = new Dictionary<string, BrowserBookmark>(StringComparer.OrdinalIgnoreCase);
+        var byUrl = new Dictionary<string, BrowserBookmark>(UrlIdentityComparer.Instance);
 
         foreach (BrowserBookmark item in local.Concat(remote))
         {
@@ -213,7 +214,7 @@ internal sealed class SyncSnapshotService
         if (local is null && remote is null)
             return null;
 
-        var byUrl = new Dictionary<string, HistoryEntry>(StringComparer.OrdinalIgnoreCase);
+        var byUrl = new Dictionary<string, HistoryEntry>(UrlIdentityComparer.Instance);
 
         foreach (HistoryEntry item in (local ?? []).Concat(remote ?? []))
         {

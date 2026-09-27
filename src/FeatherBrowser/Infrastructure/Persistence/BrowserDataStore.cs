@@ -3,6 +3,8 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Text.Json;
 using FeatherBrowser.Domain.Models;
+using FeatherBrowser.Features.Downloads;
+using FeatherBrowser.Features.Navigation;
 
 namespace FeatherBrowser.Infrastructure.Persistence;
 
@@ -77,6 +79,9 @@ internal sealed class BrowserDataStore
         Settings = Load(_settingsPath, new BrowserSettings());
         Downloads = Load(_downloadsPath, new List<DownloadEntry>());
         _favicons = LoadFavicons();
+
+        if (DownloadRecoveryPolicy.MarkOrphanedAsInterrupted(Downloads) > 0)
+            Save(_downloadsPath, Downloads);
 
         MigrateSettings();
     }
@@ -498,7 +503,7 @@ internal sealed class BrowserDataStore
         {
             Bookmarks = incoming
                 .Where(bookmark => !string.IsNullOrWhiteSpace(bookmark.Url))
-                .GroupBy(bookmark => bookmark.Url, StringComparer.OrdinalIgnoreCase)
+                .GroupBy(bookmark => bookmark.Url, UrlIdentityComparer.Instance)
                 .Select(group => group.OrderByDescending(bookmark => bookmark.CreatedAt).First())
                 .OrderByDescending(bookmark => bookmark.CreatedAt)
                 .Take(5000)
@@ -518,7 +523,7 @@ internal sealed class BrowserDataStore
                 Bookmarks
                     .Where(bookmark => !string.IsNullOrWhiteSpace(bookmark.Url))
                     .Select(bookmark => bookmark.Url),
-                StringComparer.OrdinalIgnoreCase);
+                UrlIdentityComparer.Instance);
 
             int added = 0;
 
@@ -595,7 +600,7 @@ internal sealed class BrowserDataStore
         {
             History = incoming
                 .Where(entry => IsHttpUrl(entry.Url))
-                .GroupBy(entry => entry.Url, StringComparer.OrdinalIgnoreCase)
+                .GroupBy(entry => entry.Url, UrlIdentityComparer.Instance)
                 .Select(group => group.OrderByDescending(entry => entry.LastVisited).First())
                 .OrderByDescending(entry => entry.LastVisited)
                 .Take(MaxHistoryEntries)
@@ -612,7 +617,7 @@ internal sealed class BrowserDataStore
         lock (_sync)
         {
             Dictionary<string, HistoryEntry> historyByUrl = new(
-                StringComparer.OrdinalIgnoreCase);
+                UrlIdentityComparer.Instance);
 
             foreach (HistoryEntry entry in History.Where(static entry => !string.IsNullOrWhiteSpace(entry.Url)))
             {
@@ -921,5 +926,5 @@ internal sealed class BrowserDataStore
     }
 
     private static bool UrlEquals(string? left, string? right) =>
-        string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
+        UrlIdentityComparer.Instance.Equals(left, right);
 }

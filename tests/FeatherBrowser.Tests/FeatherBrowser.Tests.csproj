@@ -23,6 +23,10 @@
     <Compile Include="../../src/FeatherBrowser/Domain/Models/QuickLink.cs" Link="QuickLink.cs" />
     <Compile Include="../../src/FeatherBrowser/Presentation/Pages/StartPage.cs" Link="StartPage.cs" />
     <Compile Include="../../src/FeatherBrowser/Features/Navigation/AddressResolver.cs" Link="AddressResolver.cs" />
+    <Compile Include="../../src/FeatherBrowser/Features/Navigation/UrlIdentityComparer.cs" Link="Navigation/UrlIdentityComparer.cs" />
+    <Compile Include="../../src/FeatherBrowser/Features/Navigation/KeepAliveSitePolicy.cs" Link="Navigation/KeepAliveSitePolicy.cs" />
+    <Compile Include="../../src/FeatherBrowser/Features/Downloads/DownloadRecoveryPolicy.cs" Link="Downloads/DownloadRecoveryPolicy.cs" />
+    <Compile Include="../../src/FeatherBrowser/Domain/Models/DownloadEntry.cs" Link="DownloadEntry.cs" />
     <Compile Include="../../src/FeatherBrowser/Infrastructure/Resources/EmbeddedAssets.cs" Link="EmbeddedAssets.cs" />
     <EmbeddedResource Include="../../src/FeatherBrowser/Assets/Pages/*;../../src/FeatherBrowser/Assets/Scripts/*">
       <LogicalName>FeatherBrowser.Assets.%(Filename)%(Extension)</LogicalName>
