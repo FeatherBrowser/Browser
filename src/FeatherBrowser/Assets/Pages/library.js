@@ -5,11 +5,12 @@ const DATA = {
 };
 
 const initialSection = __SECTION_JSON__;
+const featherToken = __FEATHER_TOKEN_JSON__;
 
 const $ = (id) => document.getElementById(id);
 
 const post = (action, extra = {}) => {
-  window.chrome.webview.postMessage({ action, ...extra });
+  window.chrome.webview.postMessage({ action, __featherToken: featherToken, ...extra });
 };
 
 const escapeText = (v) => String(v ?? "");
@@ -167,7 +168,7 @@ function renderDownloads() {
         makeButton(
           state === "Completed" ? "Open" : "Show",
           "open-download-file",
-          { path: x.FilePath },
+          { id: x.Id },
         ),
       );
     }
@@ -181,7 +182,7 @@ function renderDownloads() {
         x.FilePath
           ? () => {
               post("open-download-file", {
-                path: x.FilePath,
+                id: x.Id,
               });
             }
           : null,
