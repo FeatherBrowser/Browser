@@ -190,8 +190,7 @@ public partial class MainWindow : Window
                     !tab.IsClosed &&
                     tab.IsLoaded &&
                     tab != _activeTab &&
-                    Uri.TryCreate(tab.LastAddress, UriKind.Absolute, out Uri? candidateUri) &&
-                    KeepAliveSitePolicy.Matches(candidateUri.Host, host)))
+                    !IsProtectedTab(tab)))
                 {
                     ScheduleBackgroundLifecycle(candidate);
                 }
