@@ -25,7 +25,7 @@ public partial class MainWindow : Window
         tab.InternalPageToken = Guid.NewGuid().ToString("N");
 
         return html.Replace(
-            "__FEATHER_TOKEN_JSON__",
+            "__feather_token_json__",
             JsonSerializer.Serialize(tab.InternalPageToken),
             StringComparison.Ordinal);
     }
