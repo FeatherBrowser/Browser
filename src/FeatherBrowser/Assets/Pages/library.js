@@ -10,7 +10,7 @@ const featherToken = __FEATHER_TOKEN_JSON__;
 const $ = (id) => document.getElementById(id);
 
 const post = (action, extra = {}) => {
-  window.chrome.webview.postMessage({ action, __featherToken: featherToken, ...extra });
+  window.chrome.webview.postMessage({ action, ...extra, __featherToken: featherToken });
 };
 
 const escapeText = (v) => String(v ?? "");
