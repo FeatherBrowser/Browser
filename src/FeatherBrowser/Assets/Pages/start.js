@@ -4,7 +4,7 @@ const initialState = __HOME_STATE_JSON__;
 const bridge = window.chrome?.webview;
 const featherToken = __FEATHER_TOKEN_JSON__;
 
-const send = (action, data = {}) => bridge?.postMessage({ action, __featherToken: featherToken, ...data });
+const send = (action, data = {}) => bridge?.postMessage({ action, ...data, __featherToken: featherToken });
 
 let editing = false;
 let selected = -1;
