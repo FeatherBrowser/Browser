@@ -51,12 +51,13 @@ internal static class LibraryPage
                 StringComparison.Ordinal);
     }
 
-    private static string NormalizeSection(string? section)
-    {
-        return string.IsNullOrWhiteSpace(section)
-            ? DefaultSection
-            : section.Trim();
-    }
+    internal static string NormalizeSection(string? section) =>
+        section?.Trim().ToLowerInvariant() switch
+        {
+            "downloads" => "downloads",
+            "favorites" => "favorites",
+            _ => DefaultSection
+        };
 
     private static string SerializeForHtml<T>(T value)
     {

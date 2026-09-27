@@ -121,8 +121,8 @@ public partial class MainWindow : Window
                 {
                     SessionState session = _store.LoadSessionState();
                     List<SessionTabState> states = session.TabStates.Count > 0
-                        ? session.TabStates.Take(30).ToList()
-                        : session.Tabs.Take(30).Select(x => new SessionTabState { Address = x, Workspace = "Main" }).ToList();
+                        ? session.TabStates.ToList()
+                        : session.Tabs.Select(x => new SessionTabState { Address = x, Workspace = "Main" }).ToList();
 
                     if (states.Count > 0)
                     {
