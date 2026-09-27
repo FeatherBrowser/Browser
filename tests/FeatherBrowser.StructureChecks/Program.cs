@@ -54,6 +54,9 @@ foreach (string placeholder in new[]
         $"Start-page binding placeholder: {placeholder}");
 }
 Check(EmbeddedAssets.Load("autofill.js").Contains("__PASSWORD_JSON__"), "Autofill binding placeholder");
+string libraryScript = EmbeddedAssets.Load("library.js");
+Check(!libraryScript.Contains("x.Title") && !libraryScript.Contains("x.Url") && !libraryScript.Contains("x.FilePath"), "Library script uses camelCase serialized properties");
+Check(libraryScript.Contains("library-section-changed", StringComparison.Ordinal), "Library section changes notify the host");
 bool missingAssetRejected = false;
 try { EmbeddedAssets.Load("missing.js"); }
 catch (InvalidOperationException) { missingAssetRejected = true; }
