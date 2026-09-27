@@ -197,7 +197,7 @@ internal sealed class BrowserDataStore
         List<string> normalizedWorkspaces = (Settings.Workspaces ?? [])
             .Where(workspace => !string.IsNullOrWhiteSpace(workspace))
             .Select(workspace => workspace.Trim())
-            .Distinct(UrlIdentityComparer.Instance)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
             .Take(MaxWorkspaces)
             .ToList();
 
@@ -215,7 +215,7 @@ internal sealed class BrowserDataStore
             !string.IsNullOrWhiteSpace(Settings.ActiveWorkspace) &&
             Settings.Workspaces.Contains(
                 Settings.ActiveWorkspace,
-                UrlIdentityComparer.Instance);
+                StringComparer.OrdinalIgnoreCase);
 
         if (!activeWorkspaceIsValid)
         {
