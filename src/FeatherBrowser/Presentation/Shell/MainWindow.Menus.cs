@@ -310,7 +310,9 @@ public partial class MainWindow : Window
     {
         if (MessageBox.Show("Clear Feather's local browsing history?", "Clear history", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
-        _store.ClearHistory();
-        StatusText.Text = "Feather history cleared";
+
+        StatusText.Text = _store.ClearHistory()
+            ? "Feather history cleared"
+            : "Could not fully clear history from disk";
     }
 }
