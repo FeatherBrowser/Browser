@@ -2,7 +2,7 @@ const initial=__SETTINGS_JSON__;
 const account=__ACCOUNT_JSON__;
 const initialSection=__SETTINGS_SECTION_JSON__;
 const $=id=>document.getElementById(id);
-const featherToken=__FEATHER_TOKEN_JSON__;
+const featherToken=__feather_token_json__;
 
 const fieldKeys={
   search:'SearchEngine',
