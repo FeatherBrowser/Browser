@@ -10,7 +10,9 @@ using System.Windows.Media;
 using System.Windows.Shell;
 using System.Windows.Threading;
 using System.Windows;
+using FeatherBrowser.Features.Navigation;
 using FeatherBrowser.Features.Security;
+using FeatherBrowser.Presentation.Tabs;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.Wpf;
 using Microsoft.Win32;
@@ -146,16 +148,54 @@ public partial class MainWindow : Window
         };
         menu.Items.Add(shield);
 
-        bool keepAlive = _store.Settings.KeepAliveSites.Contains(host, StringComparer.OrdinalIgnoreCase);
-        var keepAliveItem = new MenuItem { Header = "Keep site alive in background", IsCheckable = true, IsChecked = keepAlive };
+        List<string> matchingKeepAliveRules =
+            KeepAliveSitePolicy.MatchingRules(host, _store.Settings.KeepAliveSites);
+
+        bool keepAlive = matchingKeepAliveRules.Count > 0;
+
+        var keepAliveItem = new MenuItem
+        {
+            Header = keepAlive && matchingKeepAliveRules.Any(rule =>
+                !string.Equals(
+                    KeepAliveSitePolicy.NormalizeHost(rule),
+                    KeepAliveSitePolicy.NormalizeHost(host),
+                    StringComparison.OrdinalIgnoreCase))
+                ? "Keep site alive in background · inherited"
+                : "Keep site alive in background",
+            IsCheckable = true,
+            IsChecked = keepAlive
+        };
+
         keepAliveItem.Click += (_, _) =>
         {
             if (keepAlive)
-                _store.Settings.KeepAliveSites.RemoveAll(x => string.Equals(x, host, StringComparison.OrdinalIgnoreCase));
+            {
+                _store.Settings.KeepAliveSites.RemoveAll(rule =>
+                    KeepAliveSitePolicy.Matches(host, rule));
+            }
             else
+            {
                 _store.Settings.KeepAliveSites.Add(host);
+            }
+
             _store.SaveSettings();
-            StatusText.Text = keepAlive ? $"{host} can now cold-unload" : $"{host} will stay alive in background";
+
+            StatusText.Text = keepAlive
+                ? $"{host} can now cold-unload"
+                : $"{host} will stay alive in background";
+
+            if (keepAlive)
+            {
+                foreach (BrowserTab candidate in _tabs.Where(tab =>
+                    !tab.IsClosed &&
+                    tab.IsLoaded &&
+                    tab != _activeTab &&
+                    Uri.TryCreate(tab.LastAddress, UriKind.Absolute, out Uri? candidateUri) &&
+                    KeepAliveSitePolicy.Matches(candidateUri.Host, host)))
+                {
+                    ScheduleBackgroundLifecycle(candidate);
+                }
+            }
         };
         menu.Items.Add(keepAliveItem);
 
