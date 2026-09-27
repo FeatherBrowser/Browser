@@ -182,12 +182,12 @@ public partial class MainWindow : Window
 
         core.PermissionRequested += (_, e) => Dispatcher.Invoke(() =>
         {
-            string host = SafeHost(core.Source ?? tab.LastAddress).ToLowerInvariant();
-            if (string.IsNullOrWhiteSpace(host) || host == "page")
+            if (!SitePermissionPolicy.TryNormalizeOrigin(e.Uri, out string origin))
                 return;
 
             string kind = e.PermissionKind.ToString();
-            string key = PermissionKey(host, kind);
+            string key = SitePermissionPolicy.PermissionKey(origin, kind);
+
             if (_store.Settings.SitePermissions.TryGetValue(key, out string? decision))
             {
                 e.State = decision switch
@@ -199,8 +199,11 @@ public partial class MainWindow : Window
                 return;
             }
 
-            if (_store.Settings.BlockNotificationPrompts && string.Equals(kind, "Notifications", StringComparison.OrdinalIgnoreCase))
+            if (_store.Settings.BlockNotificationPrompts &&
+                string.Equals(kind, "Notifications", StringComparison.OrdinalIgnoreCase))
+            {
                 e.State = CoreWebView2PermissionState.Deny;
+            }
         });
 
         core.DocumentTitleChanged += (_, _) => Dispatcher.Invoke(() =>
@@ -331,28 +334,37 @@ public partial class MainWindow : Window
 
         core.DownloadStarting += (_, e) => Dispatcher.Invoke(() =>
         {
-            tab.HasActiveDownload = true;
+            tab.BeginDownload();
+
             string file = Path.GetFileName(e.ResultFilePath);
             string sourceUrl = core.Source ?? tab.LastAddress;
             DownloadEntry? download = _isPrivateMode ? null : _store.AddDownload(e.ResultFilePath, sourceUrl);
             StatusText.Text = string.IsNullOrWhiteSpace(file) ? "Download started" : $"Downloading {file}";
 
+            bool completionHandled = false;
+
             e.DownloadOperation.StateChanged += (_, _) => Dispatcher.Invoke(() =>
             {
                 CoreWebView2DownloadState state = e.DownloadOperation.State;
-                if (state is CoreWebView2DownloadState.Completed or CoreWebView2DownloadState.Interrupted)
+                if (state is not (CoreWebView2DownloadState.Completed or CoreWebView2DownloadState.Interrupted) ||
+                    completionHandled)
                 {
-                    tab.HasActiveDownload = false;
-                    string label = state == CoreWebView2DownloadState.Completed ? "Completed" : "Interrupted";
-                    if (download is not null)
-                    {
-                        _store.UpdateDownload(download.Id, label, e.ResultFilePath);
-                        if (_activeTab?.IsLibraryPage == true && _activeTab.LibrarySection == "downloads")
-                            ShowLibraryPage(_activeTab, "downloads");
-                    }
-                    if (tab != _activeTab)
-                        ScheduleBackgroundLifecycle(tab);
+                    return;
                 }
+
+                completionHandled = true;
+                tab.CompleteDownload();
+
+                string label = state == CoreWebView2DownloadState.Completed ? "Completed" : "Interrupted";
+                if (download is not null)
+                {
+                    _store.UpdateDownload(download.Id, label, e.ResultFilePath);
+                    if (_activeTab?.IsLibraryPage == true && _activeTab.LibrarySection == "downloads")
+                        ShowLibraryPage(_activeTab, "downloads");
+                }
+
+                if (!tab.HasActiveDownload && tab != _activeTab)
+                    ScheduleBackgroundLifecycle(tab);
             });
         });
 

@@ -27,6 +27,7 @@ internal sealed class BrowserDataStore
     private const int SchemaVersion4 = 4;
     private const int SchemaVersion5 = 5;
     private const int SchemaVersion6 = 6;
+    private const int SchemaVersion7 = 7;
 
     private const string FaviconDataPrefix = "data:image/png;base64,";
 
@@ -104,6 +105,12 @@ internal sealed class BrowserDataStore
             changed = true;
         }
 
+        if (Settings.SettingsSchemaVersion < SchemaVersion7)
+        {
+            MigrateToSchema7();
+            changed = true;
+        }
+
         changed |= NormalizeSettings();
 
         if (changed)
@@ -146,6 +153,12 @@ internal sealed class BrowserDataStore
         Settings.FirstRunCompleted = _hadExistingSettings;
         Settings.DataBackupsEnabled = true;
         Settings.SettingsSchemaVersion = SchemaVersion6;
+    }
+
+    private void MigrateToSchema7()
+    {
+        Settings.SitePermissions = new Dictionary<string, string>();
+        Settings.SettingsSchemaVersion = SchemaVersion7;
     }
 
     private bool NormalizeSettings()
@@ -334,20 +347,24 @@ internal sealed class BrowserDataStore
         File.Move(temporaryPath, destinationPath, overwrite: true);
     }
 
-    private static void DeleteFileIfExists(string path)
+    private static bool DeleteFileIfExists(string path)
     {
         try
         {
             if (File.Exists(path))
                 File.Delete(path);
+
+            return true;
         }
         catch (IOException exception)
         {
             Debug.WriteLine($"Failed to delete file '{path}': {exception.Message}");
+            return false;
         }
         catch (UnauthorizedAccessException exception)
         {
             Debug.WriteLine($"Access denied deleting file '{path}': {exception.Message}");
+            return false;
         }
     }
 
@@ -671,16 +688,27 @@ internal sealed class BrowserDataStore
         }
     }
 
-    public void ClearHistory()
+    public bool ClearHistory()
     {
         lock (_sync)
         {
+            if (!Save(_historyPath, Array.Empty<HistoryEntry>()))
+                return false;
+
             History.Clear();
+
+            bool historyBackupRemoved =
+                DeleteFileIfExists(_historyPath + BackupSuffix);
+
             _favicons.Clear();
 
-            Save(_faviconsPath, _favicons);
-            DeleteFileIfExists(_faviconsPath + BackupSuffix);
-            Save(_historyPath, History);
+            bool faviconsSaved = Save(_faviconsPath, _favicons);
+            bool faviconBackupRemoved =
+                DeleteFileIfExists(_faviconsPath + BackupSuffix);
+
+            return historyBackupRemoved &&
+                   faviconsSaved &&
+                   faviconBackupRemoved;
         }
     }
 
