@@ -66,7 +66,11 @@ string home = FeatherBrowser.Presentation.Pages.StartPage.Html("Google", "https:
 Check(!System.Text.RegularExpressions.Regex.IsMatch(home, "__[A-Z_]+__"), "All home bindings resolved");
 Check(!home.Contains("<script>alert(1)</script>"), "Workspace name HTML encoded");
 Check(!home.Contains("</script><img"), "Shortcut JSON safely embedded");
-Check(home.Contains("Shared Alpine glass"), "Shared page theme embedded");
+string sharedTheme = EmbeddedAssets.Load("glass.css");
+
+Check(
+    home.Contains(sharedTheme, StringComparison.Ordinal),
+    "Shared page theme embedded");
 string persisted = System.Text.Json.JsonSerializer.Serialize(settings);
 var restored = System.Text.Json.JsonSerializer.Deserialize<FeatherBrowser.Domain.Models.BrowserSettings>(persisted)!;
 Check(restored.QuickLinks[0].Name == settings.QuickLinks[0].Name, "Quick link settings serialization round-trip");
