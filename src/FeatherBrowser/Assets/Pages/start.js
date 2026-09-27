@@ -2,7 +2,7 @@
 let links = __QUICK_LINKS_JSON__;
 const initialState = __HOME_STATE_JSON__;
 const bridge = window.chrome?.webview;
-const featherToken = __FEATHER_TOKEN_JSON__;
+const featherToken = __feather_token_json__;
 
 const send = (action, data = {}) => bridge?.postMessage({ action, ...data, __featherToken: featherToken });
 
