@@ -34,7 +34,7 @@ const fieldKeys={
 };
 
 function post(action,extra={}){
-  window.chrome.webview.postMessage({action,__featherToken:featherToken,...extra});
+  window.chrome.webview.postMessage({action,...extra,__featherToken:featherToken});
 }
 
 function text(id,value){
