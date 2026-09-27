@@ -5,7 +5,7 @@ const DATA = {
 };
 
 const initialSection = __SECTION_JSON__;
-const featherToken = __FEATHER_TOKEN_JSON__;
+const featherToken = __feather_token_json__;
 
 const $ = (id) => document.getElementById(id);
 
