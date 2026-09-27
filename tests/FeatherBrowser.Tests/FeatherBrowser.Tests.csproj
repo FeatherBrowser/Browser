@@ -17,6 +17,7 @@
   <ItemGroup>
     <Compile Include="../../src/FeatherBrowser/Infrastructure/Resources/AppInfo.cs" Link="AppInfo.cs" />
     <Compile Include="../../src/FeatherBrowser/Features/WebView3/*.cs" Link="WebView3/%(Filename)%(Extension)" />
+    <Compile Include="../../src/FeatherBrowser/Features/Security/InternalPageMessagePolicy.cs" Link="Security/InternalPageMessagePolicy.cs" />
     <Compile Include="../../src/FeatherBrowser/Domain/Models/BrowserSettings.cs" Link="BrowserSettings.cs" />
     <Compile Include="../../src/FeatherBrowser/Domain/Models/QuickLink.cs" Link="QuickLink.cs" />
     <Compile Include="../../src/FeatherBrowser/Presentation/Pages/StartPage.cs" Link="StartPage.cs" />

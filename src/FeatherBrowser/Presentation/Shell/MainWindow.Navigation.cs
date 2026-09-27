@@ -59,10 +59,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        tab.IsStartPage = false;
-        tab.IsSettingsPage = false;
-        tab.IsLibraryPage = false;
-        tab.IsWelcomePage = false;
+        ClearInternalPageState(tab);
 
         string target = NormalizeAddress(value);
         tab.LastAddress = target;

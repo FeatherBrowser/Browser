@@ -26,6 +26,7 @@ internal sealed class BrowserTab
     public bool IsPlayingAudio { get; set; }
     public bool HasActiveDownload { get; set; }
     public bool NeedsContentRestore { get; set; } = true;
+    public string InternalPageToken { get; set; } = string.Empty;
     public int BlockedRequests { get; set; }
     public DateTime HiddenSinceUtc { get; set; } = DateTime.UtcNow;
     public DateTime LastActivatedUtc { get; set; } = DateTime.UtcNow;
