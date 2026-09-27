@@ -12,6 +12,7 @@ using System.Windows.Threading;
 using System.Windows;
 using FeatherBrowser.Domain.Models;
 using FeatherBrowser.Features.Blocking;
+using FeatherBrowser.Features.Security;
 using FeatherBrowser.Presentation.Pages;
 using FeatherBrowser.Presentation.Tabs;
 using Microsoft.Web.WebView2.Core;
@@ -72,7 +73,7 @@ public partial class MainWindow : Window
 
         if (tab.IsWelcomePage)
         {
-            tab.View.NavigateToString(WelcomePage.Html());
+            tab.View.NavigateToString(PrepareInternalPageHtml(tab, WelcomePage.Html()));
             return;
         }
 
@@ -81,27 +82,29 @@ public partial class MainWindow : Window
             tab.SettingsSection = SettingsPage.NormalizeSection(tab.SettingsSection);
 
             tab.View.NavigateToString(
-                SettingsPage.Html(
-                    _store.Settings,
-                    _store.Bookmarks.Count,
-                    _store.History.Count,
-                    _passwordVault.Count,
-                    _accountPageState,
-                    tab.SettingsSection));
+                PrepareInternalPageHtml(
+                    tab,
+                    SettingsPage.Html(
+                        _store.Settings,
+                        _store.Bookmarks.Count,
+                        _store.History.Count,
+                        _passwordVault.Count,
+                        _accountPageState,
+                        tab.SettingsSection)));
 
             return;
         }
 
         if (tab.IsLibraryPage)
         {
-            tab.View.NavigateToString(LibraryPage.Html(_store.Bookmarks, _store.History, _store.Downloads, tab.LibrarySection));
+            tab.View.NavigateToString(PrepareInternalPageHtml(tab, LibraryPage.Html(_store.Bookmarks, _store.History, _store.Downloads, tab.LibrarySection)));
             return;
         }
 
         if (tab.IsStartPage || string.IsNullOrWhiteSpace(tab.LastAddress))
         {
             (string name, string prefix) = SearchEngineInfo();
-            tab.View.NavigateToString(StartPage.Html(name, prefix, _store.Settings));
+            tab.View.NavigateToString(PrepareInternalPageHtml(tab, StartPage.Html(name, prefix, _store.Settings)));
             return;
         }
 
@@ -251,6 +254,13 @@ public partial class MainWindow : Window
 
         core.NavigationStarting += (_, e) => Dispatcher.Invoke(() =>
         {
+            if (tab.IsInternalPage &&
+                !InternalPageMessagePolicy.IsInternalDocumentSource(e.Uri))
+            {
+                ClearInternalPageState(tab);
+                tab.LastAddress = e.Uri ?? string.Empty;
+            }
+
             if (_store.Settings.StripTrackingParameters && !tab.IsInternalPage && !string.IsNullOrWhiteSpace(e.Uri))
             {
                 string cleaned = _blocker.CleanTopLevelUrl(e.Uri);
@@ -364,6 +374,16 @@ public partial class MainWindow : Window
                 return;
             }
             catch (COMException)
+            {
+                return;
+            }
+
+            if (!InternalPageMessagePolicy.IsTrusted(
+                    tab.IsInternalPage,
+                    tab.InternalPageToken,
+                    core.Source,
+                    e.Source,
+                    messageJson))
             {
                 return;
             }
