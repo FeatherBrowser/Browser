@@ -2,8 +2,9 @@
 let links = __QUICK_LINKS_JSON__;
 const initialState = __HOME_STATE_JSON__;
 const bridge = window.chrome?.webview;
+const featherToken = __FEATHER_TOKEN_JSON__;
 
-const send = (action, data = {}) => bridge?.postMessage({ action, ...data });
+const send = (action, data = {}) => bridge?.postMessage({ action, __featherToken: featherToken, ...data });
 
 let editing = false;
 let selected = -1;
