@@ -12,6 +12,7 @@ using System.Windows.Threading;
 using System.Windows;
 using FeatherBrowser.Domain.Models;
 using FeatherBrowser.Features.Blocking;
+using FeatherBrowser.Features.Security;
 using FeatherBrowser.Presentation.Pages;
 using FeatherBrowser.Presentation.Tabs;
 using Microsoft.Web.WebView2.Core;
@@ -72,35 +73,103 @@ public partial class MainWindow : Window
 
         if (tab.IsWelcomePage)
         {
-            tab.View.NavigateToString(WelcomePage.Html());
+            tab.View.NavigateToString(PrepareInternalPageHtml(tab, WelcomePage.Html()));
             return;
         }
 
         if (tab.IsSettingsPage)
         {
-            tab.View.NavigateToString(SettingsPage.Html(_store.Settings, _store.Bookmarks.Count, _store.History.Count, _passwordVault.Count));
+            tab.SettingsSection = SettingsPage.NormalizeSection(tab.SettingsSection);
+
+            tab.View.NavigateToString(
+                PrepareInternalPageHtml(
+                    tab,
+                    SettingsPage.Html(
+                        _store.Settings,
+                        _store.Bookmarks.Count,
+                        _store.History.Count,
+                        _passwordVault.Count,
+                        _accountPageState,
+                        tab.SettingsSection)));
+
             return;
         }
 
         if (tab.IsLibraryPage)
         {
-            tab.View.NavigateToString(LibraryPage.Html(_store.Bookmarks, _store.History, _store.Downloads, tab.LibrarySection));
+            tab.View.NavigateToString(PrepareInternalPageHtml(tab, LibraryPage.Html(_store.Bookmarks, _store.History, _store.Downloads, tab.LibrarySection)));
             return;
         }
 
         if (tab.IsStartPage || string.IsNullOrWhiteSpace(tab.LastAddress))
         {
             (string name, string prefix) = SearchEngineInfo();
-            tab.View.NavigateToString(StartPage.Html(name, prefix, _store.Settings));
+            tab.View.NavigateToString(PrepareInternalPageHtml(tab, StartPage.Html(name, prefix, _store.Settings)));
             return;
         }
 
         tab.View.CoreWebView2.Navigate(tab.LastAddress);
     }
 
+    private async Task HandleDeferredWebMessageAsync(BrowserTab tab, string messageJson)
+    {
+        try
+        {
+            await HandleWebMessageAsync(tab, messageJson);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception exception)
+        {
+            Debug.WriteLine($"Deferred WebView message failed: {exception}");
+            StatusText.Text = "The requested action could not be completed";
+        }
+    }
+
     private void ConfigureWebView(BrowserTab tab)
     {
         CoreWebView2 core = tab.View.CoreWebView2;
+
+        core.ContainsFullScreenElementChanged += (_, _) =>
+        {
+            if (_isClosing || tab.IsClosed || !tab.IsLoaded ||
+                !ReferenceEquals(tab.View.CoreWebView2, core))
+                return;
+
+            if (core.ContainsFullScreenElement)
+            {
+                if (!ReferenceEquals(tab, _activeTab))
+                {
+                    _ = ExitDocumentFullscreenAsync(tab);
+                    return;
+                }
+
+                _videoFullscreenTab = tab;
+            }
+            else if (ReferenceEquals(_videoFullscreenTab, tab))
+            {
+                _videoFullscreenTab = null;
+            }
+
+            ApplyFullscreen();
+        };
+
+        core.NavigationStarting += (_, _) =>
+        {
+            if (ReferenceEquals(_videoFullscreenTab, tab))
+            {
+                _videoFullscreenTab = null;
+                ApplyFullscreen();
+            }
+        };
+
+        string assetsRoot = PrepareWebAssets();
+
+        core.SetVirtualHostNameToFolderMapping(
+            "feather-assets",
+            assetsRoot,
+            CoreWebView2HostResourceAccessKind.Allow);
         core.Settings.IsStatusBarEnabled = false;
         core.Settings.AreDevToolsEnabled = true;
         core.Settings.AreDefaultContextMenusEnabled = true;
@@ -113,12 +182,12 @@ public partial class MainWindow : Window
 
         core.PermissionRequested += (_, e) => Dispatcher.Invoke(() =>
         {
-            string host = SafeHost(core.Source ?? tab.LastAddress).ToLowerInvariant();
-            if (string.IsNullOrWhiteSpace(host) || host == "page")
+            if (!SitePermissionPolicy.TryNormalizeOrigin(e.Uri, out string origin))
                 return;
 
             string kind = e.PermissionKind.ToString();
-            string key = PermissionKey(host, kind);
+            string key = SitePermissionPolicy.PermissionKey(origin, kind);
+
             if (_store.Settings.SitePermissions.TryGetValue(key, out string? decision))
             {
                 e.State = decision switch
@@ -130,8 +199,11 @@ public partial class MainWindow : Window
                 return;
             }
 
-            if (_store.Settings.BlockNotificationPrompts && string.Equals(kind, "Notifications", StringComparison.OrdinalIgnoreCase))
+            if (_store.Settings.BlockNotificationPrompts &&
+                string.Equals(kind, "Notifications", StringComparison.OrdinalIgnoreCase))
+            {
                 e.State = CoreWebView2PermissionState.Deny;
+            }
         });
 
         core.DocumentTitleChanged += (_, _) => Dispatcher.Invoke(() =>
@@ -185,6 +257,13 @@ public partial class MainWindow : Window
 
         core.NavigationStarting += (_, e) => Dispatcher.Invoke(() =>
         {
+            if (tab.IsInternalPage &&
+                !InternalPageMessagePolicy.IsInternalDocumentSource(e.Uri))
+            {
+                ClearInternalPageState(tab);
+                tab.LastAddress = e.Uri ?? string.Empty;
+            }
+
             if (_store.Settings.StripTrackingParameters && !tab.IsInternalPage && !string.IsNullOrWhiteSpace(e.Uri))
             {
                 string cleaned = _blocker.CleanTopLevelUrl(e.Uri);
@@ -221,8 +300,7 @@ public partial class MainWindow : Window
                 {
                     try
                     {
-                        await core.ExecuteScriptAsync(
-                            BlockerEngine.GetCosmeticFilterScript(_store.Settings.StrictBlocking));
+                        await core.ExecuteScriptAsync(_blocker.GetCosmeticFilterScript(core.Source ?? tab.LastAddress));
                     }
                     catch (ObjectDisposedException ex)
                     {
@@ -256,28 +334,37 @@ public partial class MainWindow : Window
 
         core.DownloadStarting += (_, e) => Dispatcher.Invoke(() =>
         {
-            tab.HasActiveDownload = true;
+            tab.BeginDownload();
+
             string file = Path.GetFileName(e.ResultFilePath);
             string sourceUrl = core.Source ?? tab.LastAddress;
             DownloadEntry? download = _isPrivateMode ? null : _store.AddDownload(e.ResultFilePath, sourceUrl);
             StatusText.Text = string.IsNullOrWhiteSpace(file) ? "Download started" : $"Downloading {file}";
 
+            bool completionHandled = false;
+
             e.DownloadOperation.StateChanged += (_, _) => Dispatcher.Invoke(() =>
             {
                 CoreWebView2DownloadState state = e.DownloadOperation.State;
-                if (state is CoreWebView2DownloadState.Completed or CoreWebView2DownloadState.Interrupted)
+                if (state is not (CoreWebView2DownloadState.Completed or CoreWebView2DownloadState.Interrupted) ||
+                    completionHandled)
                 {
-                    tab.HasActiveDownload = false;
-                    string label = state == CoreWebView2DownloadState.Completed ? "Completed" : "Interrupted";
-                    if (download is not null)
-                    {
-                        _store.UpdateDownload(download.Id, label, e.ResultFilePath);
-                        if (_activeTab?.IsLibraryPage == true && _activeTab.LibrarySection == "downloads")
-                            ShowLibraryPage(_activeTab, "downloads");
-                    }
-                    if (tab != _activeTab)
-                        ScheduleBackgroundLifecycle(tab);
+                    return;
                 }
+
+                completionHandled = true;
+                tab.CompleteDownload();
+
+                string label = state == CoreWebView2DownloadState.Completed ? "Completed" : "Interrupted";
+                if (download is not null)
+                {
+                    _store.UpdateDownload(download.Id, label, e.ResultFilePath);
+                    if (_activeTab?.IsLibraryPage == true && _activeTab.LibrarySection == "downloads")
+                        ShowLibraryPage(_activeTab, "downloads");
+                }
+
+                if (!tab.HasActiveDownload && tab != _activeTab)
+                    ScheduleBackgroundLifecycle(tab);
             });
         });
 
@@ -286,7 +373,37 @@ public partial class MainWindow : Window
             await RecoverFailedTabAsync(tab, e);
         }));
 
-        core.WebMessageReceived += async (_, e) => await HandleWebMessageAsync(tab, e);
+        core.WebMessageReceived += (_, e) =>
+        {
+            string messageJson;
+
+            try
+            {
+                messageJson = e.WebMessageAsJson;
+            }
+            catch (InvalidOperationException)
+            {
+                return;
+            }
+            catch (COMException)
+            {
+                return;
+            }
+
+            if (!InternalPageMessagePolicy.IsTrusted(
+                    tab.IsInternalPage,
+                    tab.InternalPageToken,
+                    core.Source,
+                    e.Source,
+                    messageJson))
+            {
+                return;
+            }
+
+            Dispatcher.BeginInvoke(
+                DispatcherPriority.Background,
+                new Action(() => _ = HandleDeferredWebMessageAsync(tab, messageJson)));
+        };
 
         core.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
         core.WebResourceRequested += (_, e) =>
@@ -305,9 +422,9 @@ public partial class MainWindow : Window
 
             e.Response = _environment.CreateWebResourceResponse(
                 Stream.Null,
-                204,
-                "No Content",
-                "Cache-Control: no-store\r\n");
+                403,
+                "Blocked by Feather Shield",
+                "Content-Type: text/plain\r\nCache-Control: no-store\r\n");
 
             tab.BlockedRequests++;
             if (_activeTab == tab)
@@ -333,6 +450,12 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (ReferenceEquals(_videoFullscreenTab, tab))
+        {
+            _videoFullscreenTab = null;
+            ApplyFullscreen();
+        }
+
         bool wasActive = _activeTab == tab;
         if (!tab.IsInternalPage &&
      tab.IsLoaded &&
@@ -348,9 +471,7 @@ public partial class MainWindow : Window
             }
         }
 
-        tab.SleepCancellation?.Cancel();
-        tab.SleepCancellation?.Dispose();
-        tab.SleepCancellation = null;
+        CancelSleepSchedule(tab);
         if (tab.IsLoaded)
             BrowserHost.Children.Remove(tab.View);
         try
@@ -416,3 +537,5 @@ public partial class MainWindow : Window
         UpdateResourceText();
     }
 }
+
+

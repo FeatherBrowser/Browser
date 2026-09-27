@@ -1,0 +1,105 @@
+# trunk-ignore-all(pinact/config-error)
+name: Stable release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: feather-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Verify tag matches project version
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+
+          if ($tag -notmatch '^v(?<version>\d+\.\d+\.\d+)$') {
+            throw "Release tag must use vMAJOR.MINOR.PATCH format. Received: $tag"
+          }
+
+          [xml]$project = Get-Content "src/FeatherBrowser/FeatherBrowser.csproj" -Raw
+          $projectVersion = $project.SelectSingleNode('/Project/PropertyGroup/Version').InnerText.Trim()
+
+          if ($Matches['version'] -ne $projectVersion) {
+            throw "Tag version $($Matches['version']) does not match project version $projectVersion."
+          }
+
+      - name: Build
+        run: ./scripts/build.ps1
+        shell: pwsh
+
+      - name: Checks
+        run: ./scripts/check.ps1
+        shell: pwsh
+
+      - name: Publish Windows x64
+        run: ./scripts/publish.ps1 -Runtime win-x64 -SelfContained
+        shell: pwsh
+
+      - name: Verify FeatherFilters publish output
+        shell: pwsh
+        run: |
+          $filters = Get-ChildItem -Path "artifacts" -Recurse -Filter "metadata.json" |
+            Where-Object { $_.FullName -match "FeatherFilters" } |
+            Select-Object -First 1
+
+          if (-not $filters) {
+            throw "FeatherFilters was not included in the published application."
+          }
+
+      - name: Ensure Inno Setup is available
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}/Inno Setup 6/ISCC.exe"
+
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup --yes --no-progress
+
+            if ($LASTEXITCODE -ne 0) {
+              throw "Inno Setup installation failed."
+            }
+          }
+
+      - name: Build installer
+        run: ./scripts/installer.ps1
+        shell: pwsh
+
+      - name: Check installer
+        run: ./scripts/check-installer.ps1
+        shell: pwsh
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: FeatherBrowser-win-x64-installer
+          path: artifacts/installer/*-Setup.exe
+          if-no-files-found: error
+
+      - name: Create GitHub release
+        shell: pwsh
+        run: ./scripts/release.ps1

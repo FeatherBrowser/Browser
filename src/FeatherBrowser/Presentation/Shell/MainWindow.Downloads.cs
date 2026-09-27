@@ -10,6 +10,7 @@ using System.Windows.Media;
 using System.Windows.Shell;
 using System.Windows.Threading;
 using System.Windows;
+using FeatherBrowser.Domain.Models;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.Wpf;
 using Microsoft.Win32;
@@ -25,10 +26,21 @@ public partial class MainWindow : Window
         Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
     }
 
-    private void OpenDownloadedFile(string? path)
+    private void OpenDownloadedFile(string? downloadId)
     {
-        if (string.IsNullOrWhiteSpace(path))
+        if (string.IsNullOrWhiteSpace(downloadId))
             return;
+
+        DownloadEntry? entry = _store.Downloads.FirstOrDefault(download =>
+            string.Equals(download.Id, downloadId, StringComparison.Ordinal));
+
+        if (entry is null || string.IsNullOrWhiteSpace(entry.FilePath))
+        {
+            StatusText.Text = "Downloaded file is no longer available";
+            return;
+        }
+
+        string path = entry.FilePath;
 
         try
         {

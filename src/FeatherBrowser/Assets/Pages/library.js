@@ -5,11 +5,12 @@ const DATA = {
 };
 
 const initialSection = __SECTION_JSON__;
+const featherToken = __feather_token_json__;
 
 const $ = (id) => document.getElementById(id);
 
 const post = (action, extra = {}) => {
-  window.chrome.webview.postMessage({ action, ...extra });
+  window.chrome.webview.postMessage({ action, ...extra, __featherToken: featherToken });
 };
 
 const escapeText = (v) => String(v ?? "");
@@ -109,7 +110,7 @@ function renderHistory() {
   const root = $("historyRows");
   root.replaceChildren();
 
-  const items = DATA.history.filter((x) => matches(x.Title, x.Url));
+  const items = DATA.history.filter((x) => matches(x.title, x.url));
 
   if (!items.length) {
     root.appendChild(
@@ -124,14 +125,14 @@ function renderHistory() {
   items.slice(0, 700).forEach((x) => {
     root.appendChild(
       makeRow(
-        x.Title || x.Url,
-        `${host(x.Url)} · ${fmtDate(x.LastVisited)} · ${x.VisitCount || 1} visit${x.VisitCount === 1 ? "" : "s"}`,
+        x.title || x.url,
+        `${host(x.url)} · ${fmtDate(x.lastVisited)} · ${x.visitCount || 1} visit${x.visitCount === 1 ? "" : "s"}`,
         () => {
-          post("open-url", { url: x.Url });
+          post("open-url", { url: x.url });
         },
         [
-          makeButton("Open", "open-url", { url: x.Url }),
-          makeButton("Remove", "remove-history", { url: x.Url }, true),
+          makeButton("Open", "open-url", { url: x.url }),
+          makeButton("Remove", "remove-history", { url: x.url }, true),
         ],
       ),
     );
@@ -143,7 +144,7 @@ function renderDownloads() {
   root.replaceChildren();
 
   const items = DATA.downloads.filter((x) =>
-    matches(x.FileName, x.FilePath, x.SourceUrl, x.State),
+    matches(x.fileName, x.filePath, x.sourceUrl, x.state),
   );
 
   if (!items.length) {
@@ -159,29 +160,29 @@ function renderDownloads() {
   }
 
   items.slice(0, 500).forEach((x) => {
-    const state = x.State || "Unknown";
+    const state = x.state || "Unknown";
     const buttons = [];
 
-    if (x.FilePath) {
+    if (x.filePath) {
       buttons.push(
         makeButton(
           state === "Completed" ? "Open" : "Show",
           "open-download-file",
-          { path: x.FilePath },
+          { id: x.id },
         ),
       );
     }
 
-    buttons.push(makeButton("Remove", "remove-download", { id: x.Id }, true));
+    buttons.push(makeButton("Remove", "remove-download", { id: x.id }, true));
 
     root.appendChild(
       makeRow(
-        x.FileName || "Download",
-        `${state} · ${fmtDate(x.CompletedAt || x.StartedAt)}${x.SourceUrl ? ` · ${host(x.SourceUrl)}` : ""}`,
-        x.FilePath
+        x.fileName || "Download",
+        `${state} · ${fmtDate(x.completedAt || x.startedAt)}${x.sourceUrl ? ` · ${host(x.sourceUrl)}` : ""}`,
+        x.filePath
           ? () => {
               post("open-download-file", {
-                path: x.FilePath,
+                id: x.id,
               });
             }
           : null,
@@ -195,7 +196,7 @@ function renderFavorites() {
   const root = $("favoriteRows");
   root.replaceChildren();
 
-  const items = DATA.favorites.filter((x) => matches(x.Title, x.Url, x.Folder));
+  const items = DATA.favorites.filter((x) => matches(x.title, x.url, x.folder));
 
   if (!items.length) {
     root.appendChild(
@@ -208,21 +209,21 @@ function renderFavorites() {
   items.slice(0, 700).forEach((x) => {
     root.appendChild(
       makeRow(
-        x.Title || x.Url,
-        `${x.Folder || "Favorites"} · ${host(x.Url)}`,
+        x.title || x.url,
+        `${x.folder || "Favorites"} · ${host(x.url)}`,
         () => {
-          post("open-url", { url: x.Url });
+          post("open-url", { url: x.url });
         },
         [
-          makeButton("Open", "open-url", { url: x.Url }),
-          makeButton("Remove", "remove-bookmark", { url: x.Url }, true),
+          makeButton("Open", "open-url", { url: x.url }),
+          makeButton("Remove", "remove-bookmark", { url: x.url }, true),
         ],
       ),
     );
   });
 }
 
-function show(next) {
+function show(next, notifyHost = false) {
   section = next;
 
   document.querySelectorAll("nav button,.section").forEach((x) => {
@@ -245,6 +246,10 @@ function show(next) {
   $("hint").textContent = headings[section][1];
 
   render();
+
+  if (notifyHost) {
+    post("library-section-changed", { section });
+  }
 }
 
 function render() {
@@ -263,7 +268,7 @@ function render() {
 
 document.querySelectorAll("nav button").forEach((b) => {
   b.addEventListener("click", () => {
-    show(b.dataset.section);
+    show(b.dataset.section, true);
   });
 });
 

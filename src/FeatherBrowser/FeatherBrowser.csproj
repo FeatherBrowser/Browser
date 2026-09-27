@@ -1,30 +1,89 @@
 <Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net9.0-windows</TargetFramework>
+
     <UseWPF>true</UseWPF>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
+
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+
     <AssemblyName>FeatherBrowser</AssemblyName>
     <RootNamespace>FeatherBrowser</RootNamespace>
-    <Version>1.0.1</Version>
-    <AssemblyVersion>1.0.1.0</AssemblyVersion>
-    <FileVersion>1.0.1.0</FileVersion>
+
+    <Version>2.0.0</Version>
+    <AssemblyVersion>2.0.0.0</AssemblyVersion>
+    <FileVersion>2.0.0.0</FileVersion>
+
     <Product>Feather Browser</Product>
     <Description>A Windows browser with workspace and background-tab resource controls.</Description>
+
     <ApplicationIcon>Assets\Branding\feather.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4191.47" />
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
+    <PackageReference
+      Include="Microsoft.Web.WebView2"
+      Version="1.0.4191.47" />
   </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference
+      Include="..\..\external\FeatherShield\src\FeatherShield\FeatherShield.csproj" />
+
+    <ProjectReference
+      Include="..\..\external\FeatherImport\src\FeatherImport\FeatherImport.csproj" />
+  </ItemGroup>
+
   <ItemGroup>
     <Resource Include="Assets\Branding\feather.ico;Assets\Branding\feather.png" />
+
     <EmbeddedResource Include="Assets\Pages\*;Assets\Scripts\*">
       <LogicalName>FeatherBrowser.Assets.%(Filename)%(Extension)</LogicalName>
     </EmbeddedResource>
+
+    <EmbeddedResource Remove="Assets\Pages\feather.svg" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Content
+      Include="..\..\external\FeatherFilters\filters\network-domains.txt"
+      Link="FeatherFilters\filters\network-domains.txt"
+      CopyToOutputDirectory="PreserveNewest"
+      CopyToPublishDirectory="PreserveNewest" />
+
+      <Content
+  Include="..\..\external\FeatherFilters\subscriptions\**\*"
+  Link="FeatherFilters\subscriptions\%(RecursiveDir)%(Filename)%(Extension)"
+  CopyToOutputDirectory="PreserveNewest"
+  CopyToPublishDirectory="PreserveNewest" />
+
+    <Content
+      Include="..\..\external\FeatherFilters\filters\tracking-tokens.txt"
+      Link="FeatherFilters\filters\tracking-tokens.txt"
+      CopyToOutputDirectory="PreserveNewest"
+      CopyToPublishDirectory="PreserveNewest" />
+
+    <Content
+      Include="..\..\external\FeatherFilters\exceptions\network-domains.txt"
+      Link="FeatherFilters\exceptions\network-domains.txt"
+      CopyToOutputDirectory="PreserveNewest"
+      CopyToPublishDirectory="PreserveNewest" />
+
+    <Content
+      Include="..\..\external\FeatherFilters\tracking-parameters.txt"
+      Link="FeatherFilters\tracking-parameters.txt"
+      CopyToOutputDirectory="PreserveNewest"
+      CopyToPublishDirectory="PreserveNewest" />
+
+    <Content
+      Include="..\..\external\FeatherFilters\metadata.json"
+      Link="FeatherFilters\metadata.json"
+      CopyToOutputDirectory="PreserveNewest"
+      CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

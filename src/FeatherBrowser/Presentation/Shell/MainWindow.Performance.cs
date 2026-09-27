@@ -32,9 +32,7 @@ public partial class MainWindow : Window
 
             if (tab == _activeTab && WindowState != WindowState.Minimized)
             {
-                tab.SleepCancellation?.Cancel();
-                tab.SleepCancellation?.Dispose();
-                tab.SleepCancellation = null;
+                CancelSleepSchedule(tab);
                 if (tab.View.CoreWebView2.IsSuspended)
                     tab.View.CoreWebView2.Resume();
                 if (_store.Settings.MuteBackgroundTabs || _store.Settings.GameMode)
@@ -48,9 +46,7 @@ public partial class MainWindow : Window
                 ScheduleBackgroundLifecycle(tab);
             else
             {
-                tab.SleepCancellation?.Cancel();
-                tab.SleepCancellation?.Dispose();
-                tab.SleepCancellation = null;
+                CancelSleepSchedule(tab);
                 if (tab.View.CoreWebView2.IsSuspended)
                     tab.View.CoreWebView2.Resume();
             }
@@ -418,3 +414,4 @@ public partial class MainWindow : Window
         window.ShowDialog();
     }
 }
+

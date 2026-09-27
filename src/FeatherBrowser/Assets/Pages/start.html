@@ -1,11 +1,159 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>New Tab</title><style>__PAGE_STYLES__</style></head>
-<body><div class="landscape" aria-hidden="true">__LANDSCAPE__</div><div class="dashboard">
-<main class="home"><header class="hero"><div class="eyebrow">FEATHER BROWSER</div><h1>Browse smarter.<br><span>A brighter you.</span></h1><p>FASTER BROWSING. A LIGHTER WORLD.</p><div class="workspace">● &nbsp; __WORKSPACE_TEXT__</div></header>
-<form id="search" class="searchbox"><span aria-hidden="true">⌕</span><input id="q" aria-label="Search the web or enter an address" autocomplete="off" placeholder="Search the web, your way…"><button type="button" data-action="open-command-palette" class="key" title="Open command palette">Ctrl + K</button><button aria-label="Search" type="submit">→</button></form>
-<section aria-label="Quick links"><div class="sectionlabel"><span>YOUR EVERYDAY</span><button id="edit-links" type="button">Edit shortcuts</button></div><div id="quick-links" class="quicklinks"></div></section>
-<section class="features" aria-label="Browser tools"><button data-action="toggle-memory" class="feature"><span class="feature-icon"><svg class="line-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 3C9 3 3 7 4 15c7 4 15 0 16-12Z"/><path d="m3 21 12-12M8 16v-6m0 6h6"/></svg></span><span><strong>Memory Saver</strong><small>Keep Feather light<br>by sleeping unused tabs.</small></span><b>›</b></button><button data-action="performance-center" class="feature"><span class="feature-icon">ϟ</span><span><strong>Blazing Performance</strong><small>See your tabs, processes<br>and memory in one place.</small></span><b>›</b></button><button data-action="open-settings" class="feature"><span class="feature-icon"><svg class="line-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6Z"/></svg></span><span><strong><span id="blocked">0</span> requests blocked</strong><small>Ads and trackers blocked<br>across currently open tabs.</small></span><b>›</b></button></section>
-<aside class="journal"><div class="journal-art" aria-hidden="true">✧</div><div><small>MAKE ROOM FOR WHAT MATTERS</small><h2 id="tip-title">A lighter web. A clearer mind.</h2><p id="tip-copy">Keep work, play and research in their own workspaces.</p></div><div class="tip-controls"><button id="previous-tip" aria-label="Previous tip">‹</button><button id="next-tip" aria-label="Next tip">›</button></div></aside>
-<footer><span>Light. Faster. Yours.</span><button data-action="open-favorites-library">Bookmarks</button><button data-action="open-history-library">History</button><button data-action="open-download-library">Downloads</button></footer></main>
-<aside class="performance" aria-label="Live browser performance"><div class="panel-title"><span>ϟ &nbsp; Performance</span><button data-action="performance-center" aria-label="Open Performance Center">↗</button></div><div class="gauge"><svg viewBox="0 0 200 170" aria-hidden="true"><defs><linearGradient id="ring"><stop stop-color="#2083ff"/><stop offset="1" stop-color="#81dcff"/></linearGradient></defs><path class="track" d="M35 140 A78 78 0 1 1 165 140"/><path id="meter" d="M35 140 A78 78 0 1 1 165 140" pathLength="100"/></svg><div class="gauge-label"><span class="feather">◒</span><strong id="memory">—</strong><small id="memory-label">Measuring memory…</small></div></div><p class="meter-note">Browser + WebView2 · ring = guard threshold</p><p class="meter-note" id="cpu">Measuring CPU…</p><ul class="stats"><li><i></i><span id="loaded">—</span> loaded tabs</li><li><i></i><span id="cold">—</span> unloaded tabs</li><li><i></i><span id="sleeping">—</span> sleeping tabs</li></ul><div class="switches"><button id="memory-toggle" role="switch" aria-checked="false" data-action="toggle-memory"><span><svg class="line-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 3C9 3 3 7 4 15c7 4 15 0 16-12Z"/><path d="m3 21 12-12M8 16v-6m0 6h6"/></svg> Memory Saver</span><i></i></button><button id="shield-toggle" role="switch" aria-checked="false" data-action="toggle-shield"><span><svg class="line-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6Z"/></svg> Tracker Shield</span><i></i></button><button id="game-toggle" role="switch" aria-checked="false" data-action="toggle-game"><span><svg class="line-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10c3 0 4 2 5 9 0 4-3 3-6-1H8c-3 4-6 5-6 1 1-7 2-9 5-9Z"/><path d="M7 9v5m-2-2h5m6-1h.01m3 2h.01"/></svg> Gaming Mode</span><i></i></button></div><button class="full-settings" data-action="open-settings">Open Full Settings &nbsp; →</button><button class="trim" data-action="trim-memory">Trim background memory</button><div class="panel-foot">FEATHER WEBVIEW3 ━</div></aside></div>
-<dialog id="shortcut-dialog"><form id="shortcut-form"><h2 id="dialog-title">Add shortcut</h2><label>Name<input id="shortcut-name" maxlength="32" required autocomplete="off"></label><label>Website<input id="shortcut-url" maxlength="2048" required placeholder="https://example.com" autocomplete="off"></label><p id="shortcut-error" role="alert"></p><div class="dialog-actions"><button type="button" id="delete-link" class="danger">Delete</button><button type="button" id="cancel-link">Cancel</button><button type="submit" class="primary">Save shortcut</button></div></form></dialog><div id="toast" role="status"></div><script>__PAGE_SCRIPT__</script></body></html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>New Tab</title>
+    <style>
+      __PAGE_STYLES__
+    </style>
+  </head>
+  <body>
+    <div class="wallpaper" aria-hidden="true">
+      <div class="wallpaper-image"></div>
+      <div class="wallpaper-tint"></div>
+    </div>
+
+    <main class="newtab-shell">
+      <section class="hero" aria-labelledby="hero-title">
+        <p class="eyebrow">YOUR SPACE TO EXPLORE</p>
+        <h1 id="hero-title">A little lighter. A little clearer.</h1>
+
+        <form id="search" class="searchbox" role="search">
+          <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="11" cy="11" r="6.5"></circle>
+            <path d="m16 16 4 4"></path>
+          </svg>
+          <input
+            id="q"
+            aria-label="Search the web or enter an address"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="Search the web"
+          />
+          <button class="sr-only" type="submit">Search</button>
+        </form>
+
+        <section class="shortcut-section" aria-label="Quick links">
+          <div id="quick-links" class="quicklinks"></div>
+        </section>
+      </section>
+
+      <section class="continue-section" aria-labelledby="continue-title">
+        <div class="section-heading">
+          <h2 id="continue-title">Continue browsing</h2>
+          <button id="history-link" type="button">View history</button>
+        </div>
+        <div id="recent-grid" class="recent-grid">
+          <div class="recent-placeholder">
+            Your recent pages will show up here.
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div class="customize-wrap">
+      <div id="customize-panel" class="customize-panel" hidden>
+        <div class="customize-title">Customize Feather</div>
+        <button id="edit-links" class="customize-row" type="button">
+          <span class="customize-row-icon">＋</span><span>Edit shortcuts</span>
+        </button>
+        <button class="customize-row" type="button" data-action="open-settings">
+          <span class="customize-row-icon">⚙</span><span>Browser settings</span>
+        </button>
+        <button
+          class="customize-row"
+          type="button"
+          data-action="open-favorites-library"
+        >
+          <span class="customize-row-icon">☆</span><span>Bookmarks</span>
+        </button>
+        <div class="customize-divider"></div>
+        <button
+          id="memory-toggle"
+          class="toggle-row"
+          type="button"
+          role="switch"
+          aria-checked="false"
+          data-action="toggle-memory"
+        >
+          <span>Memory Saver</span><i></i>
+        </button>
+        <button
+          id="shield-toggle"
+          class="toggle-row"
+          type="button"
+          role="switch"
+          aria-checked="false"
+          data-action="toggle-shield"
+        >
+          <span>Tracker Shield</span><i></i>
+        </button>
+      </div>
+
+      <button
+        id="customize-button"
+        class="customize-button"
+        type="button"
+        aria-expanded="false"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            d="m4 20 4.2-1 10.6-10.6a2.2 2.2 0 0 0-3.1-3.1L5.1 15.9 4 20Z"
+          ></path>
+          <path d="m13.8 7.2 3 3"></path>
+        </svg>
+        <span>Customize</span>
+      </button>
+    </div>
+
+    <dialog id="shortcut-dialog">
+      <form id="shortcut-form">
+        <div class="dialog-heading">
+          <div>
+            <small>SHORTCUT</small>
+            <h2 id="dialog-title">Add shortcut</h2>
+          </div>
+          <button
+            type="button"
+            id="close-dialog"
+            class="dialog-close"
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
+
+        <label
+          >Name<input
+            id="shortcut-name"
+            maxlength="32"
+            required
+            autocomplete="off"
+            placeholder="GitHub"
+        /></label>
+        <label
+          >Website<input
+            id="shortcut-url"
+            maxlength="2048"
+            required
+            autocomplete="off"
+            placeholder="https://github.com"
+        /></label>
+
+        <p id="shortcut-error" role="alert"></p>
+
+        <div class="dialog-actions">
+          <button type="button" id="delete-link" class="danger">Delete</button>
+          <button type="button" id="cancel-link">Cancel</button>
+          <button type="submit" class="primary">Save shortcut</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div id="toast" role="status" aria-live="polite"></div>
+    <script>
+      __PAGE_SCRIPT__;
+    </script>
+  </body>
+</html>

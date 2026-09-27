@@ -27,10 +27,36 @@ foreach (string page in new[] { "start", "settings", "library", "welcome" })
     Check(!html.Contains("__PAGE_STYLES__") && !html.Contains("__PAGE_SCRIPT__"), $"Styles and scripts composed: {page}");
     Check(html.Contains("<style>") && html.Contains("<script>"), $"Inline assets preserved: {page}");
 }
-foreach (string script in new[] { "autofill.js", "cosmetic-filter.js", "cosmetic-filter-strict.js" })
-    Check(!string.IsNullOrWhiteSpace(EmbeddedAssets.Load(script)), $"Embedded script loads: {script}");
-Check(EmbeddedAssets.LoadPage("start").Contains("__SEARCH_PREFIX_JSON__"), "Page data placeholders remain available for safe binding");
+Check(
+    !string.IsNullOrWhiteSpace(
+        EmbeddedAssets.Load("autofill.js")),
+    "Autofill script loads");
+
+Check(
+    !string.IsNullOrWhiteSpace(
+        FeatherShield.Cosmetic.CosmeticFilterScripts.Get(false)),
+    "Normal cosmetic filter loads");
+
+Check(
+    !string.IsNullOrWhiteSpace(
+        FeatherShield.Cosmetic.CosmeticFilterScripts.Get(true)),
+    "Strict cosmetic filter loads");
+string startTemplate = EmbeddedAssets.LoadPage("start");
+
+foreach (string placeholder in new[]
+{
+    "__QUICK_LINKS_JSON__",
+    "__HOME_STATE_JSON__"
+})
+{
+    Check(
+        startTemplate.Contains(placeholder, StringComparison.Ordinal),
+        $"Start-page binding placeholder: {placeholder}");
+}
 Check(EmbeddedAssets.Load("autofill.js").Contains("__PASSWORD_JSON__"), "Autofill binding placeholder");
+string libraryScript = EmbeddedAssets.Load("library.js");
+Check(!libraryScript.Contains("x.Title") && !libraryScript.Contains("x.Url") && !libraryScript.Contains("x.FilePath"), "Library script uses camelCase serialized properties");
+Check(libraryScript.Contains("library-section-changed", StringComparison.Ordinal), "Library section changes notify the host");
 bool missingAssetRejected = false;
 try { EmbeddedAssets.Load("missing.js"); }
 catch (InvalidOperationException) { missingAssetRejected = true; }
@@ -43,7 +69,11 @@ string home = FeatherBrowser.Presentation.Pages.StartPage.Html("Google", "https:
 Check(!System.Text.RegularExpressions.Regex.IsMatch(home, "__[A-Z_]+__"), "All home bindings resolved");
 Check(!home.Contains("<script>alert(1)</script>"), "Workspace name HTML encoded");
 Check(!home.Contains("</script><img"), "Shortcut JSON safely embedded");
-Check(home.Contains("Shared Alpine glass"), "Shared page theme embedded");
+string sharedTheme = EmbeddedAssets.Load("glass.css");
+
+Check(
+    home.Contains(sharedTheme, StringComparison.Ordinal),
+    "Shared page theme embedded");
 string persisted = System.Text.Json.JsonSerializer.Serialize(settings);
 var restored = System.Text.Json.JsonSerializer.Deserialize<FeatherBrowser.Domain.Models.BrowserSettings>(persisted)!;
 Check(restored.QuickLinks[0].Name == settings.QuickLinks[0].Name, "Quick link settings serialization round-trip");

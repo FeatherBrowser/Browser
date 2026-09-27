@@ -93,16 +93,29 @@ Download FeatherBrowser-v$version-win-x64-Setup.exe below and run the installer.
         return
     }
 
-    $existingTag = @(
-        git ls-remote --tags origin "refs/tags/$tag"
-    )
+    $existingTag = @(git ls-remote --tags origin "refs/tags/$tag")
 
     if ($LASTEXITCODE -ne 0) {
         throw 'Could not check remote tags.'
     }
 
     if ($existingTag.Count -gt 0) {
-        throw "Tag $tag already exists without a release. Resolve it before publishing."
+        $tagCommit = (git rev-list -n 1 $tag).Trim()
+
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($tagCommit)) {
+            throw "Could not resolve existing tag $tag."
+        }
+
+        $workflowCommit = (git rev-parse "$($env:GITHUB_SHA)^{commit}").Trim()
+
+        if (-not [string]::Equals(
+            $tagCommit,
+            $workflowCommit,
+            [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Tag $tag does not point to the commit being released."
+        }
+
+        Write-Host "Using existing verified release tag $tag."
     }
 
     if ([string]::IsNullOrWhiteSpace($env:GITHUB_SHA)) {
@@ -130,7 +143,6 @@ Download FeatherBrowser-v$version-win-x64-Setup.exe below and run the installer.
             -Encoding utf8
 
     gh release create $tag $installer `
-        --target $env:GITHUB_SHA `
         --title "Feather Browser $version" `
         --notes-file $notesPath
 

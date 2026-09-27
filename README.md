@@ -1,6 +1,6 @@
 # Feather Browser
 
-**Version 1.0.1** · Windows · C# / WPF · MIT
+**Version 2.0.0** · Windows · C# / WPF · MIT
 
 Feather is a desktop browser built on Microsoft WebView2, with workspaces, configurable background-tab suspension/unloading, a dark interface and local browser data.
 
@@ -47,7 +47,7 @@ Then install [Inno Setup 6.3 or newer](https://jrsoftware.org/isinfo.php) and ru
 .\scripts\installer.ps1
 ```
 
-Distribute `artifacts/installer/FeatherBrowser-v1.0.1-win-x64-Setup.exe`. The installer bundles the self-contained .NET app, adds a Start menu shortcut and optional desktop shortcut, and provides an uninstaller. It installs for the current user under `%LOCALAPPDATA%\Programs\FeatherBrowser`. Browser profile data stays under `%LOCALAPPDATA%\FeatherBrowser` and is preserved during upgrades and uninstall.
+Distribute `artifacts/installer/FeatherBrowser-v2.0.0-win-x64-Setup.exe`. The installer bundles the self-contained .NET app, adds a Start menu shortcut and optional desktop shortcut, and provides an uninstaller. It installs for the current user under `%LOCALAPPDATA%\Programs\FeatherBrowser`. Browser profile data stays under `%LOCALAPPDATA%\FeatherBrowser` and is preserved during upgrades and uninstall.
 
 A Microsoft-signed WebView2 bootstrapper is bundled and runs only if the runtime is missing; in that case installation needs internet access. Packaging also needs internet to download and verify that bootstrapper. See [Microsoft's deployment documentation](https://learn.microsoft.com/microsoft-edge/webview2/concepts/distribution).
 
@@ -65,7 +65,7 @@ The RAM dashboard distinguishes private resident memory from the private-commit 
 
 ## Development
 
-Read [architecture](docs/ARCHITECTURE.md), [contribution guidance](CONTRIBUTING.md), [security reporting](SECURITY.md) and [validation](docs/VALIDATION.md).
+Read [architecture](docs/ARCHITECTURE.md), [contribution guidance](CONTRIBUTING.md), [security reporting](SECURITY.md), [changelogs](CHANGELOG.md) and [validation](docs/VALIDATION.md).
 
 Optional page interaction checks require Python 3, Node.js and Playwright:
 
@@ -85,3 +85,11 @@ The source builds with Windows targeting. Native window controls, popup placemen
 ## License
 
 Feather's source is licensed under [MIT](LICENSE). Third-party packages and the WebView2 Runtime retain their own licenses; see [third-party notices](THIRD_PARTY_NOTICES.md).
+
+## Account & Sync
+
+Feather includes optional zero-knowledge encrypted sync with password + TOTP authentication, approved-device pairing, encrypted recovery backups, and configurable automatic sync.
+
+- [Account security model](account-security.md)
+- [Account & Sync setup](docs/ACCOUNT_SYNC_SETUP.md)
+

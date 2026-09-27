@@ -10,6 +10,7 @@ using System.Windows.Media;
 using System.Windows.Shell;
 using System.Windows.Threading;
 using System.Windows;
+using FeatherBrowser.Features.Security;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.Wpf;
 using Microsoft.Win32;
@@ -18,23 +19,23 @@ namespace FeatherBrowser.Presentation.Shell;
 
 public partial class MainWindow : Window
 {
-    private static string PermissionKey(string host, string kind) => $"{host.ToLowerInvariant()}|{kind}";
-
-    private string GetSitePermission(string host, string kind)
+    private string GetSitePermission(string origin, string kind)
     {
-        string key = PermissionKey(host, kind);
+        string key = SitePermissionPolicy.PermissionKey(origin, kind);
         return _store.Settings.SitePermissions.TryGetValue(key, out string? value) ? value : "Ask";
     }
 
-    private void SetSitePermission(string host, string kind, string value)
+    private void SetSitePermission(string origin, string kind, string value)
     {
-        string key = PermissionKey(host, kind);
+        string key = SitePermissionPolicy.PermissionKey(origin, kind);
+
         if (string.Equals(value, "Ask", StringComparison.OrdinalIgnoreCase))
             _store.Settings.SitePermissions.Remove(key);
         else
             _store.Settings.SitePermissions[key] = value;
+
         _store.SaveSettings();
-        StatusText.Text = $"{kind} permission for {host}: {value}";
+        StatusText.Text = $"{kind} permission for {origin}: {value}";
     }
 
     private void ShieldButton_Click(object sender, RoutedEventArgs e)
@@ -110,12 +111,16 @@ public partial class MainWindow : Window
         }
 
         string host = SafeHost(_activeTab.LastAddress);
-        if (string.IsNullOrWhiteSpace(host) || host == "page")
+        if (string.IsNullOrWhiteSpace(host) ||
+            host == "page" ||
+            !SitePermissionPolicy.TryNormalizeOrigin(_activeTab.LastAddress, out string origin))
+        {
             return;
+        }
 
         var menu = new ContextMenu
         {
-            PlacementTarget = SiteButton,
+            PlacementTarget = AddressBorder,
             Placement = PlacementMode.Bottom,
             MinWidth = 290
         };
@@ -158,13 +163,13 @@ public partial class MainWindow : Window
         foreach (string kind in new[] { "Camera", "Microphone", "Geolocation", "Notifications" })
         {
             var kindMenu = new MenuItem { Header = kind };
-            string current = GetSitePermission(host, kind);
+            string current = GetSitePermission(origin, kind);
             foreach (string choice in new[] { "Ask", "Allow", "Block" })
             {
                 var choiceItem = new MenuItem { Header = choice, IsCheckable = true, IsChecked = string.Equals(current, choice, StringComparison.OrdinalIgnoreCase) };
                 string capturedKind = kind;
                 string capturedChoice = choice;
-                choiceItem.Click += (_, _) => SetSitePermission(host, capturedKind, capturedChoice);
+                choiceItem.Click += (_, _) => SetSitePermission(origin, capturedKind, capturedChoice);
                 kindMenu.Items.Add(choiceItem);
             }
             permissions.Items.Add(kindMenu);

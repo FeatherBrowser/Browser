@@ -1,0 +1,44 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  unit-tests:
+    name: Unit tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+      - name: Run unit tests with coverage
+        run: >-
+          dotnet test tests/FeatherBrowser.Tests/FeatherBrowser.Tests.csproj
+          --configuration Release
+          --logger "trx;LogFileName=tests.trx"
+          --collect "XPlat Code Coverage"
+          --results-directory TestResults
+      - name: Run existing smoke checks
+        run: dotnet run --project tests/FeatherBrowser.StructureChecks --configuration Release
+      - name: Upload test results and coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.os }}-${{ github.run_id }}
+          path: TestResults/
+          retention-days: 14
+          if-no-files-found: warn

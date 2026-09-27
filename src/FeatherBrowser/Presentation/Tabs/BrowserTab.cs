@@ -19,19 +19,29 @@ internal sealed class BrowserTab
     public bool IsLibraryPage { get; set; }
     public bool IsWelcomePage { get; set; }
     public string LibrarySection { get; set; } = "history";
+    public string SettingsSection { get; set; } = "performance";
     public bool IsClosed { get; set; }
     public bool IsLoaded { get; set; }
     public bool IsPinned { get; set; }
     public bool IsPlayingAudio { get; set; }
-    public bool HasActiveDownload { get; set; }
+    public int ActiveDownloadCount { get; private set; }
+    public bool HasActiveDownload => ActiveDownloadCount > 0;
     public bool NeedsContentRestore { get; set; } = true;
+    public string InternalPageToken { get; set; } = string.Empty;
     public int BlockedRequests { get; set; }
     public DateTime HiddenSinceUtc { get; set; } = DateTime.UtcNow;
     public DateTime LastActivatedUtc { get; set; } = DateTime.UtcNow;
     public string Workspace { get; set; } = "Main";
-
     public bool IsInternalPage => IsStartPage || IsSettingsPage || IsLibraryPage || IsWelcomePage;
     public bool IsCold => !IsLoaded;
+
+    public void BeginDownload() => ActiveDownloadCount++;
+
+    public void CompleteDownload()
+    {
+        if (ActiveDownloadCount > 0)
+            ActiveDownloadCount--;
+    }
 
     public void SetSelected(bool selected, Brush active, Brush inactive, Brush? accent = null)
     {

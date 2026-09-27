@@ -48,5 +48,10 @@ internal sealed class BrowserSettings
     public bool SendDoNotTrack { get; set; } = true;
     public bool FirstRunCompleted { get; set; }
     public bool DataBackupsEnabled { get; set; } = true;
+    public bool SyncEnabled { get; set; }
+    public bool AutoSyncEnabled { get; set; } = true;
+    public int AutoSyncMinutes { get; set; } = 5;
+    public bool SyncHistory { get; set; }
+    public bool SyncOpenTabs { get; set; }
     public Dictionary<string, string> SitePermissions { get; set; } = new();
 }
