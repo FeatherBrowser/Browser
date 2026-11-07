@@ -13,8 +13,6 @@ using System.Windows;
 using FeatherBrowser.Domain.Models;
 using FeatherBrowser.Presentation.Commands;
 using FeatherBrowser.Presentation.Tabs;
-using Microsoft.Web.WebView2.Core;
-using Microsoft.Web.WebView2.Wpf;
 using Microsoft.Win32;
 
 namespace FeatherBrowser.Presentation.Shell;
@@ -23,6 +21,9 @@ public partial class MainWindow : Window
 {
     private void OpenCommandPalette()
     {
+        if (_activeTab is { IsLoaded: true } active)
+            active.View.SetVisible(false, zIndex: 0);
+
         CommandPaletteOverlay.Visibility = Visibility.Visible;
         CommandPaletteBox.Text = string.Empty;
         RefreshCommandPalette();
@@ -32,8 +33,13 @@ public partial class MainWindow : Window
 
     private void CloseCommandPalette()
     {
+        bool wasOpen = CommandPaletteOverlay.Visibility == Visibility.Visible;
         CommandPaletteOverlay.Visibility = Visibility.Collapsed;
         CommandPaletteBox.Text = string.Empty;
+
+        if (wasOpen && _activeTab is { IsLoaded: true } active && WindowState != WindowState.Minimized)
+            active.View.SetVisible(true, zIndex: 10);
+
         AddressBox.Focus();
     }
 

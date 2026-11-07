@@ -10,6 +10,10 @@ updates:
       - "dependencies"
     commit-message:
       prefix: "deps"
+    groups:
+      cefsharp:
+        patterns:
+          - "CefSharp.*"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

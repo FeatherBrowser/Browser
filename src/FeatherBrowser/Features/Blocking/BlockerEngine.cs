@@ -1,130 +1,161 @@
-using System.IO;
 using System.Diagnostics;
+using System.IO;
 using FeatherBrowser.Domain.Models;
+using FeatherBrowser.Features.Engine;
 using FeatherShield;
 using FeatherShield.Filters;
 using FeatherShield.Rules;
-using Microsoft.Web.WebView2.Core;
 
 namespace FeatherBrowser.Features.Blocking;
 
-internal sealed class BlockerEngine
+internal sealed class BlockerEngine : INetworkPolicy
 {
-    private ShieldEngine _engine = new();
+    private static readonly object LoadGate = new();
+    private static Task? _loading;
+    private static int _generation;
+    private static volatile ShieldEngine _shared = new();
 
-    public BlockerEngine()
+    private const int MaxCachedCosmeticScripts = 16;
+    private static readonly object CosmeticGate = new();
+    private static readonly Dictionary<string, string> _cosmeticScripts = new(StringComparer.OrdinalIgnoreCase);
+    private static ShieldEngine? _cosmeticEngine;
+
+    private volatile PolicySnapshot _policy = PolicySnapshot.Disabled;
+
+    private sealed record PolicySnapshot(bool ShieldEnabled, bool StripTracking, bool DoNotTrack, ShieldOptions Options)
     {
-        Reload();
+        public static readonly PolicySnapshot Disabled = new(false, false, false, new ShieldOptions { Enabled = false });
     }
 
-    public void Reload(IEnumerable<string>? customRules = null)
+    public static Task WarmUpAsync(IEnumerable<string>? customRules)
     {
-        RuleSet rules = LoadBaseRules();
+        lock (LoadGate)
+        {
+            _loading ??= StartBuild(customRules);
+            return _loading;
+        }
+    }
 
-        Debug.WriteLine(
-    $"FeatherShield 2.0 loaded: " +
-    $"{rules.NetworkRuleCount} network rules, " +
-    $"{rules.ExceptionRuleCount} exceptions, " +
-    $"{rules.CosmeticRuleCount} cosmetic rules.");
+    public static Task ReloadAsync(IEnumerable<string>? customRules)
+    {
+        lock (LoadGate)
+        {
+            _loading = StartBuild(customRules);
+            return _loading;
+        }
+    }
+
+    private static Task StartBuild(IEnumerable<string>? customRules)
+    {
+        string[] rules = customRules?.ToArray() ?? [];
+        int generation = ++_generation;
+        return Task.Run(() =>
+        {
+            ShieldEngine engine = Build(rules);
+            lock (LoadGate)
+            {
+                if (generation == _generation)
+                    _shared = engine;
+            }
+        });
+    }
+
+    public void ApplySettings(BrowserSettings settings, bool shieldEnabled)
+    {
+        _policy = new PolicySnapshot(
+            shieldEnabled,
+            settings.StripTrackingParameters,
+            settings.SendDoNotTrack,
+            new ShieldOptions
+            {
+                Enabled = shieldEnabled,
+                StrictBlocking = settings.StrictBlocking,
+                BlockThirdPartyTrackers = settings.BlockThirdPartyTrackers,
+                AllowlistedSites = settings.AllowlistedSites.ToArray()
+            });
+    }
+
+    public bool SendDoNotTrack => _policy.DoNotTrack;
+
+    public bool IsSiteAllowlisted(string? host, BrowserSettings settings) =>
+        _shared.IsAllowlisted(host, settings.AllowlistedSites);
+
+    public bool ShouldBlock(Uri request, string? topLevelAddress, WebResourceKind kind)
+    {
+        PolicySnapshot policy = _policy;
+        if (!policy.ShieldEnabled)
+            return false;
+
+        Uri? document = Uri.TryCreate(topLevelAddress, UriKind.Absolute, out Uri? parsed) ? parsed : null;
+        return _shared.Evaluate(new ResourceRequest(request, document, Map(kind)), policy.Options).IsBlocked;
+    }
+
+    public string? RewriteNavigation(string address)
+    {
+        if (!_policy.StripTracking)
+            return null;
+
+        string cleaned = _shared.CleanTopLevelUrl(address);
+        return string.Equals(cleaned, address, StringComparison.Ordinal) ? null : cleaned;
+    }
+
+    public string CleanTopLevelUrl(string address) => _shared.CleanTopLevelUrl(address);
+
+    public string GetCosmeticFilterScript(string? pageAddress)
+    {
+        ShieldEngine engine = _shared;
+        string host = Uri.TryCreate(pageAddress, UriKind.Absolute, out Uri? uri) ? uri.Host : string.Empty;
+
+        lock (CosmeticGate)
+        {
+            if (!ReferenceEquals(engine, _cosmeticEngine) || _cosmeticScripts.Count >= MaxCachedCosmeticScripts)
+            {
+                _cosmeticScripts.Clear();
+                _cosmeticEngine = engine;
+            }
+
+            if (!_cosmeticScripts.TryGetValue(host, out string? script))
+            {
+                script = engine.GetCosmeticFilterScript(pageAddress);
+                _cosmeticScripts[host] = script;
+            }
+
+            return script;
+        }
+    }
+
+    private static ShieldEngine Build(string[] customRules)
+    {
+        var timer = Stopwatch.StartNew();
+        string filtersRoot = Path.Join(AppContext.BaseDirectory, "FeatherFilters");
+        RuleSet rules = Directory.Exists(filtersRoot) ? FilterListLoader.LoadDirectory(filtersRoot) : new RuleSet();
 
         string legacyRulesPath = Path.Join(
-            Environment.GetFolderPath(
-                Environment.SpecialFolder.LocalApplicationData),
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "FeatherBrowser",
             "filters.txt");
+        FilterListLoader.LoadRulesFile(legacyRulesPath, rules);
 
-        FilterListLoader.LoadRulesFile(
-            legacyRulesPath,
-            rules);
-
-        if (customRules is not null)
+        if (customRules.Length > 0)
             FilterParser.AddRules(rules, customRules);
 
-        _engine = new ShieldEngine(rules);
+        Debug.WriteLine(
+            $"FeatherShield loaded {rules.NetworkRuleCount} network rules, {rules.ExceptionRuleCount} exceptions, " +
+            $"{rules.CosmeticRuleCount} cosmetic rules in {timer.ElapsedMilliseconds} ms.");
+        return new ShieldEngine(rules);
     }
 
-    public bool IsSiteAllowlisted(
-        string? host,
-        BrowserSettings settings)
+    private static ResourceType Map(WebResourceKind kind) => kind switch
     {
-        return _engine.IsAllowlisted(
-            host,
-            settings.AllowlistedSites);
-    }
-
-    public bool ShouldBlock(
-        Uri requestUri,
-        string? topLevelAddress,
-        CoreWebView2WebResourceContext context,
-        BrowserSettings settings)
-    {
-        Uri? documentUri = null;
-
-        if (Uri.TryCreate(
-                topLevelAddress,
-                UriKind.Absolute,
-                out Uri? parsed))
-        {
-            documentUri = parsed;
-        }
-
-        var request = new ResourceRequest(
-            requestUri,
-            documentUri,
-            MapResourceType(context));
-
-        var options = new ShieldOptions
-        {
-            Enabled = settings.ShieldEnabled,
-            StrictBlocking = settings.StrictBlocking,
-            BlockThirdPartyTrackers =
-                settings.BlockThirdPartyTrackers,
-            AllowlistedSites = settings.AllowlistedSites
-        };
-
-        return _engine
-            .Evaluate(request, options)
-            .IsBlocked;
-    }
-
-    public string CleanTopLevelUrl(string address)
-    {
-        return _engine.CleanTopLevelUrl(address);
-    }
-
-    public string GetCosmeticFilterScript(
-    string? pageAddress)
-    {
-        return _engine.GetCosmeticFilterScript(pageAddress);
-    }
-
-    private static RuleSet LoadBaseRules()
-    {
-        string filtersRoot = Path.Join(
-            AppContext.BaseDirectory,
-            "FeatherFilters");
-
-        return Directory.Exists(filtersRoot)
-            ? FilterListLoader.LoadDirectory(filtersRoot)
-            : new RuleSet();
-    }
-
-    private static ResourceType MapResourceType(
-    CoreWebView2WebResourceContext context)
-    {
-        return context.ToString() switch
-        {
-            "Document" => ResourceType.Document,
-            "Script" => ResourceType.Script,
-            "Image" => ResourceType.Image,
-            "Stylesheet" => ResourceType.Stylesheet,
-            "Font" => ResourceType.Font,
-            "XmlHttpRequest" => ResourceType.XmlHttpRequest,
-            "Fetch" => ResourceType.Fetch,
-            "Ping" => ResourceType.Ping,
-            "Media" => ResourceType.Media,
-
-            _ => ResourceType.Other
-        };
-    }
+        WebResourceKind.Document => ResourceType.Document,
+        WebResourceKind.SubDocument => ResourceType.Subdocument,
+        WebResourceKind.Script => ResourceType.Script,
+        WebResourceKind.Image => ResourceType.Image,
+        WebResourceKind.Stylesheet => ResourceType.Stylesheet,
+        WebResourceKind.Font => ResourceType.Font,
+        WebResourceKind.XmlHttpRequest => ResourceType.XmlHttpRequest,
+        WebResourceKind.Ping => ResourceType.Ping,
+        WebResourceKind.Media => ResourceType.Media,
+        _ => ResourceType.Other
+    };
 }

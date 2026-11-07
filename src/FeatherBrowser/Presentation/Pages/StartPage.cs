@@ -9,7 +9,8 @@ internal static class StartPage
     public static string Html(
         string searchEngineName,
         string searchPrefix,
-        BrowserSettings settings)
+        BrowserSettings settings,
+        bool privateMode = false)
     {
         string workspaceText =
             $"{settings.ActiveWorkspace} · " +
@@ -34,7 +35,8 @@ internal static class StartPage
                         settings.LowMemoryMode,
 
                     shield = settings.ShieldEnabled,
-                    gaming = settings.GameMode
+                    gaming = settings.GameMode,
+                    privateMode
                 }),
                 StringComparison.Ordinal)
 

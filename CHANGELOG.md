@@ -2,33 +2,32 @@
 
 ## 2.0.0
 
-Feather 2.0 is a major update focused on making the browser cleaner, faster, more reliable, easier to maintain and more polished.
+Feather 2.0 is a major update focused on making the browser cleaner, faster, more reliable, easier to maintain and more polished. It replaces Microsoft WebView2 with Feather's own engine layer over open-source Chromium (CEF through CefSharp 154 / Chromium 154). No Edge or WebView2 runtime is needed, and the installer works offline without administrator rights.
 
 ### Added
 
-\- Added website favicons to tabs.  
-\- Added a “Search or enter address” placeholder to the address bar.  
-\- Added quick access to downloads from the toolbar.  
-\- Added customizable quick links to the New Tab page.  
-\- Added a Continue Browsing section using recent history.  
-\- Added New Tab customization controls.  
-\- Added cancellation checks for scheduled background-tab work.  
-\- Added protection checks for pinned tabs, active downloads, keep-alive sites and audio tabs when audio protection is enabled.  
-\- Added safer recovery from corrupted or incomplete browser data files.  
-\- Added improved backup and temporary-file handling when saving browser data.  
-\- Added validation for restored session tabs.  
-\- Added improved URL validation across bookmarks, history and favicon handling.  
-\- Added more specific error handling for JSON parsing and browser data file access.  
-\- Added reusable helper methods for repeated browser logic.  
-\- Added named constants to replace repeated magic values across browser systems.  
-\- Added stronger null handling and argument validation across internal services.  
+\- Added website favicons to tabs.  
+\- Added a “Search or enter address” placeholder to the address bar.  
+\- Added quick access to downloads from the toolbar.  
+\- Added customizable quick links to the New Tab page.  
+\- Added a Continue Browsing section using recent history.  
+\- Added New Tab customization controls.  
+\- Added cancellation checks for scheduled background-tab work.  
+\- Added protection checks for pinned tabs, active downloads, keep-alive sites and audio tabs when audio protection is enabled.  
+\- Added safer recovery from corrupted or incomplete browser data files.  
+\- Added improved backup and temporary-file handling when saving browser data.  
+\- Added validation for restored session tabs.  
+\- Added improved URL validation across bookmarks, history and favicon handling.  
+\- Added more specific error handling for JSON parsing and browser data file access.  
+\- Added reusable helper methods for repeated browser logic.  
+\- Added named constants to replace repeated magic values across browser systems.  
+\- Added stronger null handling and argument validation across internal services.  
 \- Added standalone **FeatherShield** library for Feather’s ad, tracker and cosmetic filtering engine.
 \- Added standalone **FeatherFilters** repository for Feather’s maintained ad, tracker, telemetry and tracking-parameter filter data.
 \- Added standalone **FeatherImport** library for Edge and Chromium browser data importing.
 \- Added external module integration so Feather Browser can use FeatherShield, FeatherFilters and FeatherImport while keeping their implementations separate from the main browser codebase.
 \- Added dedicated tests and build configuration for FeatherShield and FeatherImport.
 \- Added versioned external dependency tracking for Feather’s standalone repositories.
-
 \- Added optional Feather Account sign-up, sign-in and DPAPI-protected session restore.
 \- Added authenticator-app TOTP two-factor authentication with AAL2 enforcement for sensitive sync operations.
 \- Added zero-knowledge encrypted sync for bookmarks, settings, workspaces and quick links, with optional history and open-tab syncing.
@@ -38,53 +37,76 @@ Feather 2.0 is a major update focused on making the browser cleaner, faster, mor
 \- Added Account & Sync settings UI, device approval controls, pairing fingerprints and sync status.
 \- Added Supabase migrations for encrypted sync storage, MFA-gated access, device registration, recovery registration and pending-device denial.
 \- Added account security and deployment documentation.
+- Site permission bar for camera, microphone, location, notifications, screen sharing, clipboard and more, remembered per site (in memory only for private windows).
+- Site information button in the address bar: padlock for HTTPS, warning for HTTP. It opens the site menu, which was previously unreachable.
+- Find in page (Ctrl+F, F3, Shift+F3), Print (Ctrl+P), Developer tools (F12, Ctrl+Shift+I), Chrome-style zoom steps, and a zoom submenu.
+- Ctrl+1…9, Ctrl+PgUp/PgDn, Ctrl+F4, Alt+D, F6, Alt+Home, hard reload (Ctrl+Shift+R, Shift+F5), and a shortcuts reference in Settings → Appearance.
+- Page context menus in Feather's theme, with "Open link in new tab", "Copy link address", "Open image in new tab", "Search the web for…" and "Inspect".
+- Mouse back/forward buttons navigate inside pages.
+- Tab loading spinner, visible audio/mute/sleeping/unloaded/pinned markers, and click-to-mute on a tab's speaker icon.
+- Tabs opened from a page appear next to it.
+- Sign-in and payment popups open as real popup windows, so `window.opener` flows work. Unrequested popups are blocked.
+- Confirmation before a page opens an external app (`mailto:`, `zoommtg:`, …).
+- Download progress in the status bar, a warning before closing a tab with a running download, and safe, non-overwriting download file names.
+- Windows 11 rounded corners, a dark window border and dark system menus.
 
 ### Changed
 
-\- Reworked the tab bar with cleaner spacing, close buttons and alignment.  
-\- Moved the new tab button next to the last tab.  
-\- Improved tab overflow to keep the new tab button accessible.  
-\- Cleaned up active and inactive tab styling.  
-\- Made the tab bar blend into the navigation bar.  
-\- Redesigned the main navigation bar with a cleaner browser-style layout.  
-\- Reworked the address bar with a rounded design and improved spacing.  
-\- Replaced several text-based toolbar icons with vector icons.  
-\- Simplified the toolbar by moving less important controls out of the way.  
-\- Improved back, forward and reload controls.  
-\- Updated the bookmark button with active and inactive icon states.  
-\- Improved the Shield button and its placement.  
-\- Cleaned up the browser menu button and toolbar alignment.  
-\- Overhauled the New Tab page with a new design and full-page background.  
-\- Improved how internal Feather pages fit with the browser design.  
-\- Improved Library page data handling and JSON generation.  
-\- Improved command palette sizing for smaller windows.  
-\- Improved keyboard focus indicators and accessibility labels.  
-\- Improved tab switching and background tab handling.  
-\- Improved sleeping and waking tabs to reduce unnecessary memory usage.  
-\- Improved background tab muting.  
-\- Improved favicon loading on sites that update their icon after loading.  
-\- Improved favicon validation, caching and storage handling.  
-\- Improved workspace tab handling when opening, switching and closing tabs.  
-\- Improved workspace validation and normalization when loading settings.  
-\- Improved browser data storage and persistence reliability.  
-\- Improved settings migration handling with cleaner versioned migration steps.  
-\- Improved session recovery and legacy session compatibility.  
-\- Improved bookmark import and duplicate detection.  
-\- Improved history merging and duplicate URL handling.  
-\- Improved history trimming and storage limits.  
-\- Improved download history management and cleanup.  
-\- Improved ad and tracker blocking.  
-\- Improved error handling around navigation and WebView2.  
-\- Improved XAML formatting and project structure.  
-\- Split tab creation, lifecycle, header visuals and favicon handling into focused files.  
-\- Simplified workspace code by reducing repeated conditions and duplicated workspace comparisons.  
-\- Reduced repeated tab-list scans when updating the workspace sidebar.  
-\- Simplified several loops, conditions and event handlers.  
-\- Reused frozen brushes and fallback icon graphics across tabs.  
-\- Consolidated repeated styles, colours and icon geometry.  
-\- Replaced numbered colour resources with descriptive names.  
-\- Updated structure checks to match the New Tab page’s current data bindings.  
-\- Improved general performance, UI responsiveness, reliability and stability.  
+- Added `Features/Engine`, the only code that talks to Chromium. The shell uses `WebPage` and `FeatherEngine`, so the engine can be replaced in one place. See `docs/ENGINE.md`.
+- FeatherBrowser.exe now also runs Chromium's renderer, GPU and utility processes, so a self-contained publish needs no separate subprocess executable.
+- Internal pages are served from the reserved `https://feather.internal` origin, with per-page nonces, no-store, frame blocking and a bridge that only that origin can reach. Their scripts are unchanged.
+- Private windows use an in-memory Chromium profile instead of a temporary folder on disk.
+- Background tabs are now frozen with Chromium's page-lifecycle freeze (the mechanism Chrome uses) instead of being torn down. Tabs keep their state and use no CPU while sleeping.
+- Installs still on the forced one-tab, five-second unload policy move to the Balanced profile, so switching tabs no longer reloads pages. Custom settings are kept.
+- Feather Shield checks requests on Chromium's network thread instead of the UI thread.
+- Filter lists are parsed once, in the background, and shared by every window. They were previously parsed twice at startup, and again on the UI thread every time any setting changed.
+- The window appears before Chromium starts. Unloaded tabs no longer create a browser control at all.
+- Trim memory and Memory Guard also ask every Chromium process to drop rebuildable caches.
+- The Performance Center now reports real private RAM per process. It had been falling back to private commit on every system.
+\- Reworked the tab bar with cleaner spacing, close buttons and alignment.  
+\- Moved the new tab button next to the last tab.  
+\- Improved tab overflow to keep the new tab button accessible.  
+\- Cleaned up active and inactive tab styling.  
+\- Made the tab bar blend into the navigation bar.  
+\- Redesigned the main navigation bar with a cleaner browser-style layout.  
+\- Reworked the address bar with a rounded design and improved spacing.  
+\- Replaced several text-based toolbar icons with vector icons.  
+\- Simplified the toolbar by moving less important controls out of the way.  
+\- Improved back, forward and reload controls.  
+\- Updated the bookmark button with active and inactive icon states.  
+\- Improved the Shield button and its placement.  
+\- Cleaned up the browser menu button and toolbar alignment.  
+\- Overhauled the New Tab page with a new design and full-page background.  
+\- Improved how internal Feather pages fit with the browser design.  
+\- Improved Library page data handling and JSON generation.  
+\- Improved command palette sizing for smaller windows.  
+\- Improved keyboard focus indicators and accessibility labels.  
+\- Improved tab switching and background tab handling.  
+\- Improved sleeping and waking tabs to reduce unnecessary memory usage.
+\- Improved background tab muting.  
+\- Improved favicon loading on sites that update their icon after loading.  
+\- Improved favicon validation, caching and storage handling.  
+\- Improved workspace tab handling when opening, switching and closing tabs.  
+\- Improved workspace validation and normalization when loading settings.  
+\- Improved browser data storage and persistence reliability.  
+\- Improved settings migration handling with cleaner versioned migration steps.  
+\- Improved session recovery and legacy session compatibility.  
+\- Improved bookmark import and duplicate detection.  
+\- Improved history merging and duplicate URL handling.  
+\- Improved history trimming and storage limits.  
+\- Improved download history management and cleanup.  
+\- Improved ad and tracker blocking.  
+\- Improved error handling around navigation and WebView2.  
+\- Improved XAML formatting and project structure.  
+\- Split tab creation, lifecycle, header visuals and favicon handling into focused files.  
+\- Simplified workspace code by reducing repeated conditions and duplicated workspace comparisons.  
+\- Reduced repeated tab-list scans when updating the workspace sidebar.  
+\- Simplified several loops, conditions and event handlers.  
+\- Reused frozen brushes and fallback icon graphics across tabs.  
+\- Consolidated repeated styles, colours and icon geometry.  
+\- Replaced numbered colour resources with descriptive names.  
+\- Updated structure checks to match the New Tab page’s current data bindings.  
+\- Improved general performance, UI responsiveness, reliability and stability.  
 \- Moved ad and tracker matching logic out of the main Browser project and into **FeatherShield**.
 \- Moved cosmetic filtering scripts out of the Browser project and into **FeatherShield**.
 \- Moved built-in blocking domains, tracking tokens, tracking parameters and exception data into **FeatherFilters**.
@@ -98,47 +120,21 @@ Feather 2.0 is a major update focused on making the browser cleaner, faster, mor
 \- Updated the Windows build and release workflow to restore Feather’s external repositories automatically.
 \- Updated publishing so FeatherShield, FeatherImport and FeatherFilters are included with release builds.
 \- Improved separation between browser UI, WebView2 integration, blocking, filter data and external browser importing.
+- The About box shows the Chromium and CEF versions.
+- Chromium security fixes now arrive through Feather releases (Dependabot tracks CefSharp). See SECURITY.md
+- Website sign-ins and cookies from 2.x (stored in WebView2's profile) do not carry over. Favorites, history, settings, sessions and imported passwords do.
 
 ### Fixed
 
-\- Fixed several WebView2 tab lifecycle issues.  
-\- Fixed middle-click tab closing.  
-\- Fixed tab-strip sizing after tabs are closed.  
-\- Fixed missing tab suspension, unloading and memory-trimming methods.  
-\- Fixed status text overlapping resource information.  
-\- Fixed session data being unnecessarily loaded multiple times.  
-\- Fixed duplicate and invalid workspace entries being retained.  
-\- Fixed invalid or missing active workspaces after loading settings.  
-\- Fixed malformed or duplicate history entries potentially causing import failures.  
-\- Fixed unnecessary browser-data writes in several bookmark and download operations.  
-\- Fixed broad exception handling hiding expected persistence errors.  
-\- Fixed malformed JavaScript in quick-link rendering that prevented the New Tab script from running.  
-\- Fixed several issues introduced during the browser UI overhaul.  
-\- Fixed external library builds failing because missing XML documentation warnings were treated as compilation errors.
-\- Fixed Feather Browser directly depending on SQLite solely for Edge history importing.
-\- Fixed blocking and importing features being unnecessarily coupled to Feather Browser’s internal models and persistence classes.
-\- Fixed build and publish handling for Feather’s extracted external repositories.
-\- Fixed various smaller stability and code-quality issues across the project.
-
-### Removed
-
-\- Removed unnecessary sidebar filler.  
-\- Removed unused resources.  
-\- Removed redundant layout wrappers.  
-\- Removed duplicated tab and workspace logic.  
-\- Removed unnecessary asynchronous event handlers.  
-\- Removed redundant `Task.CompletedTask` calls.  
-\- Removed several broad generic exception handlers.  
-\- Removed repeated hardcoded values where named constants could be used.  
-\- Removed unnecessary repeated session file reads.
-\- Removed the old embedded ad and tracker domain lists from the Browser project.
-\- Removed the old cosmetic filter scripts from the Browser project.
-\- Removed the old Browser-specific Edge importer implementation.
-\- Removed the old `EdgeImportResult` model from the Browser project.
-\- Removed the Browser project’s direct `Microsoft.Data.Sqlite` dependency.
-\- Removed direct dependencies between Feather’s importing library and `BrowserDataStore`.
-\- Removed direct dependencies between Feather’s blocking engine and `BrowserSettings` or WebView2 resource types.
-\- Removed large feature implementations from the main Browser repository where they can now be maintained independently.
+- The Ctrl+K command palette was hidden behind the page.
+- Alt+Left / Alt+Right never worked, because WPF reports Alt combinations as a system key.
+- A tab's audio, pinned and unloaded markers were never shown.
+- Tracking-parameter stripping could cancel form submissions. It now rewrites only GET navigations.
+- A tab that crashed or unloaded during a download stayed protected from sleeping forever.
+- Reopen closed tab (Ctrl+Shift+T) now restores Settings and Library pages too.
+- Imported Edge history timestamps used local time, which put Chromium's epoch in the year 1600 in some time zones.
+- Ad iframes are classified as subdocuments, so strict blocking now applies to them.
+- The internal-page UI checks targeted widgets that no longer existed, and their render script referenced a missing asset.
 
 ## 1.0.1
 

@@ -11,8 +11,6 @@ using System.Windows.Shell;
 using System.Windows.Threading;
 using System.Windows;
 using FeatherBrowser.Domain.Models;
-using Microsoft.Web.WebView2.Core;
-using Microsoft.Web.WebView2.Wpf;
 using Microsoft.Win32;
 
 namespace FeatherBrowser.Presentation.Shell;

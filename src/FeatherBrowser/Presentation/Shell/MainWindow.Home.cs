@@ -9,16 +9,13 @@ public partial class MainWindow : Window
 {
     private void SendHomeStats(BrowserTab tab)
     {
-        if (!tab.IsLoaded || !tab.IsStartPage || tab.IsClosed ||
-            !string.Equals(
-                tab.View.CoreWebView2.Source,
-                "about:blank",
-                StringComparison.OrdinalIgnoreCase))
+        if (!tab.IsLoaded || !tab.IsStartPage || tab.IsClosed || !tab.View.IsShowingInternalPage)
             return;
 
         var open = _tabs.Where(t => !t.IsClosed).ToList();
 
         var recent = _store.History
+            .Where(_ => !_isPrivateMode)
             .Where(entry =>
                 !string.IsNullOrWhiteSpace(entry.Url) &&
                 (entry.Url.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ||
@@ -38,7 +35,7 @@ public partial class MainWindow : Window
             })
             .ToList();
 
-        tab.View.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(new
+        tab.View.PostWebMessageAsJson(JsonSerializer.Serialize(new
         {
             type = "home-stats",
             memory = _lastObservedMemoryBytes > 0
@@ -53,7 +50,7 @@ public partial class MainWindow : Window
                 (Math.Clamp(_store.Settings.MemoryGuardMb, 350, 8192) * 1024d * 1024d),
             loaded = open.Count(t => t.IsLoaded),
             cold = open.Count(t => !t.IsLoaded),
-            sleeping = open.Count(t => t.IsLoaded && t.View.CoreWebView2.IsSuspended),
+            sleeping = open.Count(t => t.IsSleeping),
             blocked = open.Sum(t => (long)t.BlockedRequests),
             memorySaver = _store.Settings.EcoMode || _store.Settings.LowMemoryMode,
             shield = _store.Settings.ShieldEnabled,
@@ -102,8 +99,7 @@ public partial class MainWindow : Window
 
         foreach (BrowserTab home in _tabs.Where(t => !t.IsClosed && t.IsLoaded && t.IsStartPage))
         {
-            if (string.Equals(home.View.CoreWebView2.Source, "about:blank", StringComparison.OrdinalIgnoreCase))
-                home.View.CoreWebView2.PostWebMessageAsJson(message);
+            home.View.PostWebMessageAsJson(message);
         }
     }
 }

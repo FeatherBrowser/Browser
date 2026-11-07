@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using FeatherBrowser.Domain.Models;
+using FeatherBrowser.Features.Engine;
 using FeatherBrowser.Presentation.Tabs;
 
 namespace FeatherBrowser.Presentation.Shell;
@@ -15,9 +16,10 @@ public partial class MainWindow
         bool select = true,
         string? workspace = null,
         bool pinned = false,
-        string? titleHint = null)
+        string? titleHint = null,
+        BrowserTab? openerTab = null)
     {
-        if (_environment is null || _isClosing)
+        if (!_engineReady || _isClosing)
             return null;
 
         (Border header, TextBlock title, TextBlock state, Button closeButton) = CreateTabHeader();
@@ -26,10 +28,11 @@ public partial class MainWindow
             string.IsNullOrWhiteSpace(address) ||
             string.Equals(address, "feather://newtab", StringComparison.OrdinalIgnoreCase);
 
+        WebPage page = CreateWebViewControl();
         var tab = new BrowserTab
         {
             Id = Guid.NewGuid(),
-            View = CreateWebViewControl(),
+            View = page,
             Header = header,
             Title = title,
             StateIndicator = state,
@@ -39,11 +42,25 @@ public partial class MainWindow
             IsPinned = pinned
         };
 
+        HookPage(tab, page);
         ConfigureInitialTabState(tab, address, titleHint);
         AttachTabHeaderEvents(tab, header, closeButton);
 
-        TabStrip.Children.Add(header);
-        _tabs.Add(tab);
+        int insertAt = _tabs.Count;
+        if (openerTab is not null && !openerTab.IsClosed && _tabs.IndexOf(openerTab) is >= 0 and int openerIndex)
+        {
+            insertAt = openerIndex + 1;
+            while (insertAt < _tabs.Count && ReferenceEquals(_tabs[insertAt].Opener, openerTab))
+                insertAt++;
+            tab.Opener = openerTab;
+        }
+
+        _tabs.Insert(insertAt, tab);
+        int headerIndex = insertAt < _tabs.Count - 1 ? TabStrip.Children.IndexOf(_tabs[insertAt + 1].Header) : -1;
+        if (headerIndex >= 0)
+            TabStrip.Children.Insert(headerIndex, header);
+        else
+            TabStrip.Children.Add(header);
         UpdateTabStripLayout();
 
         header.Visibility = IsTabInActiveWorkspace(tab)

@@ -12,8 +12,6 @@ using System.Windows.Threading;
 using System.Windows;
 using FeatherBrowser.Features.Navigation;
 using FeatherBrowser.Presentation.Tabs;
-using Microsoft.Web.WebView2.Core;
-using Microsoft.Web.WebView2.Wpf;
 using Microsoft.Win32;
 
 namespace FeatherBrowser.Presentation.Shell;
@@ -67,7 +65,7 @@ public partial class MainWindow : Window
 
         if (tab.IsLoaded)
         {
-            tab.View.CoreWebView2.Navigate(target);
+            tab.View.Navigate(target);
             tab.NeedsContentRestore = false;
         }
         else if (_activeTab == tab)
@@ -82,6 +80,41 @@ public partial class MainWindow : Window
             string.IsNullOrWhiteSpace(AddressBox.Text)
                 ? Visibility.Visible
                 : Visibility.Collapsed;
+        UpdateSiteIndicator();
+    }
+
+    private void AddressBox_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e) => UpdateSiteIndicator();
+
+    private void UpdateSiteIndicator()
+    {
+        if (AddressSearchIcon is null)
+            return;
+
+        string kind = "search";
+        string tip = "Search or enter address";
+        if (!AddressBox.IsKeyboardFocusWithin && _activeTab is { } tab)
+        {
+            if (tab.IsInternalPage && !tab.IsStartPage)
+            {
+                kind = "feather";
+                tip = "Feather page";
+            }
+            else if (Uri.TryCreate(tab.LastAddress, UriKind.Absolute, out Uri? uri))
+            {
+                (kind, tip) = uri.Scheme switch
+                {
+                    "https" => ("lock", $"Connection to {uri.Host} is encrypted · site settings"),
+                    "http" => ("warning", $"Not secure · information sent to {uri.Host} is not encrypted"),
+                    _ => ("search", "Site information")
+                };
+            }
+        }
+
+        AddressSearchIcon.Visibility = kind == "search" ? Visibility.Visible : Visibility.Collapsed;
+        AddressLockIcon.Visibility = kind == "lock" ? Visibility.Visible : Visibility.Collapsed;
+        AddressWarningIcon.Visibility = kind == "warning" ? Visibility.Visible : Visibility.Collapsed;
+        AddressFeatherIcon.Visibility = kind == "feather" ? Visibility.Visible : Visibility.Collapsed;
+        SiteButton.ToolTip = tip;
     }
 
     private string NormalizeAddress(string input) =>
@@ -134,10 +167,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        CoreWebView2 core = _activeTab.View.CoreWebView2;
-
-        BackButton.IsEnabled = core.CanGoBack;
-        ForwardNavButton.IsEnabled = core.CanGoForward;
+        BackButton.IsEnabled = _activeTab.View.CanGoBack;
+        ForwardNavButton.IsEnabled = _activeTab.View.CanGoForward;
         ReloadButton.IsEnabled = true;
     }
 
@@ -148,13 +179,11 @@ public partial class MainWindow : Window
             !_activeTab.IsInternalPage &&
             _store.IsBookmarked(_activeTab.LastAddress);
 
-        BookmarkIcon.Fill = saved
-            ? _accentBrush
-            : Brushes.Transparent;
-
-        BookmarkIcon.Stroke = saved
-            ? _accentBrush
-            : new SolidColorBrush(Color.FromRgb(154, 170, 189));
+        BookmarkIcon.Text = saved ? "" : "";
+        if (saved)
+            BookmarkIcon.SetResourceReference(TextBlock.ForegroundProperty, "AccentBrush");
+        else
+            BookmarkIcon.ClearValue(TextBlock.ForegroundProperty);
 
         BookmarkButton.ToolTip = saved
             ? "Remove from favorites (Ctrl+D)"
@@ -185,6 +214,9 @@ public partial class MainWindow : Window
 
         Navigate(_activeTab, AddressBox.Text);
         Keyboard.ClearFocus();
+        if (_activeTab.IsLoaded)
+            _activeTab.View.Focus();
+        UpdateSiteIndicator();
         e.Handled = true;
     }
 
@@ -198,20 +230,14 @@ public partial class MainWindow : Window
 
     private void BackButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_activeTab is { IsLoaded: true } &&
-            _activeTab.View.CoreWebView2.CanGoBack)
-        {
-            _activeTab.View.CoreWebView2.GoBack();
-        }
+        if (_activeTab is { IsLoaded: true })
+            _activeTab.View.GoBack();
     }
 
     private void ForwardButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_activeTab is { IsLoaded: true } &&
-            _activeTab.View.CoreWebView2.CanGoForward)
-        {
-            _activeTab.View.CoreWebView2.GoForward();
-        }
+        if (_activeTab is { IsLoaded: true })
+            _activeTab.View.GoForward();
     }
 
     private async void ReloadButton_Click(object sender, RoutedEventArgs e)
@@ -229,8 +255,12 @@ public partial class MainWindow : Window
             ShowSettingsPage(_activeTab);
         else if (_activeTab.IsStartPage)
             ShowStartPage(_activeTab);
+        else if (_activeTab.IsLibraryPage)
+            ShowLibraryPage(_activeTab, _activeTab.LibrarySection);
+        else if (_activeTab.IsWelcomePage)
+            ShowWelcomePage(_activeTab);
         else
-            _activeTab.View.CoreWebView2.Reload();
+            _activeTab.View.Reload(ignoreCache: Keyboard.Modifiers.HasFlag(ModifierKeys.Shift));
     }
 
     private void HomeButton_Click(object sender, RoutedEventArgs e)

@@ -43,6 +43,8 @@ public partial class MainWindow
         }
 
         ShowActiveTab(tab);
+        if (!tab.IsStartPage && !AddressBox.IsKeyboardFocusWithin && !FindBar.IsKeyboardFocusWithin)
+            tab.View.Focus();
 
         if (previous is not null &&
             previous != tab &&
@@ -87,8 +89,7 @@ public partial class MainWindow
         try
         {
             await EnsureTabLoadedAsync(tab);
-            HookTabFavicon(tab);
-            await UpdateTabFaviconAsync(tab);
+            _ = UpdateTabFaviconAsync(tab);
             return true;
         }
         catch (OperationCanceledException ex)
@@ -98,7 +99,7 @@ public partial class MainWindow
 
             return false;
         }
-        catch (Exception ex) when (ex is ObjectDisposedException or InvalidOperationException or COMException)
+        catch (Exception ex) when (ex is ObjectDisposedException or InvalidOperationException or COMException or TimeoutException)
         {
             if (!tab.IsClosed && !_isClosing && _activeTab == tab)
                 ReportTabWakeFailure("Tab wake failed", ex);
@@ -120,12 +121,12 @@ public partial class MainWindow
 
     private void ShowActiveTab(BrowserTab tab)
     {
-        if (tab.View.CoreWebView2.IsSuspended)
-            tab.View.CoreWebView2.Resume();
-
-        tab.View.CoreWebView2.IsMuted = false;
-        tab.View.Visibility = Visibility.Visible;
-        Panel.SetZIndex(tab.View, 10);
+        tab.View.Resume();
+        ApplyTabMute(tab);
+        tab.View.SetVisible(CommandPaletteOverlay.Visibility != Visibility.Visible, zIndex: 10);
+        RefreshPermissionBar(tab);
+        RefreshFindBar(tab);
+        tab.UpdateStateIndicator();
     }
 
     private void MoveTabToBackground(BrowserTab tab)
@@ -133,17 +134,14 @@ public partial class MainWindow
         tab.HiddenSinceUtc = DateTime.UtcNow;
         HideTab(tab);
 
-        tab.View.CoreWebView2.IsMuted =
-            _store.Settings.MuteBackgroundTabs ||
-            _store.Settings.GameMode;
+        ApplyTabMute(tab);
 
         ScheduleBackgroundLifecycle(tab);
     }
 
     private static void HideTab(BrowserTab tab)
     {
-        tab.View.Visibility = Visibility.Collapsed;
-        Panel.SetZIndex(tab.View, 0);
+        tab.View.SetVisible(false, zIndex: 0);
     }
 
     private void RefreshActiveTabUi(BrowserTab tab)
@@ -158,6 +156,7 @@ public partial class MainWindow
         UpdateNavigationButtons();
         UpdateBookmarkButton();
         UpdateFeatureButtons();
+        UpdateSiteIndicator();
     }
 
     private async Task CloseTabAsync(BrowserTab tab)
@@ -165,11 +164,22 @@ public partial class MainWindow
         if (tab.IsClosed)
             return;
 
+        if (tab.HasActiveDownload &&
+            MessageBox.Show(
+                $"A download is still running in \"{TrimLabel(tab.Title.Text, 48)}\".\n\nClosing the tab cancels it.",
+                "Close tab?",
+                MessageBoxButton.OKCancel,
+                MessageBoxImage.Warning) != MessageBoxResult.OK)
+        {
+            return;
+        }
+
         bool wasActive = _activeTab == tab;
         int workspaceIndex = GetWorkspaceTabIndex(tab);
 
-        if (!string.IsNullOrWhiteSpace(tab.LastAddress))
-            _closedTabs.Push(tab.LastAddress);
+        string reopenAddress = SessionAddress(tab);
+        if (!string.IsNullOrWhiteSpace(reopenAddress) && reopenAddress != "feather://newtab")
+            _closedTabs.Push(reopenAddress);
 
         tab.IsClosed = true;
         if (ReferenceEquals(_videoFullscreenTab, tab))
@@ -182,10 +192,18 @@ public partial class MainWindow
         TabStrip.Children.Remove(tab.Header);
         UpdateTabStripLayout();
 
-        if (tab.IsLoaded)
-            BrowserHost.Children.Remove(tab.View);
+        DismissPermissionPrompt(tab, promptId: null);
+        _findQueries.Remove(tab);
+        ForgetPageDownloads(tab, tab.View);
+        RemovePageControl(tab.View);
 
         _tabs.Remove(tab);
+        foreach (BrowserTab other in _tabs)
+        {
+            if (ReferenceEquals(other.Opener, tab))
+                other.Opener = null;
+        }
+
         tab.View.Dispose();
 
         UpdateWorkspaceSidebar();

@@ -11,8 +11,7 @@ using System.Windows.Shell;
 using System.Windows.Threading;
 using System.Windows;
 using FeatherBrowser.Presentation.Tabs;
-using Microsoft.Web.WebView2.Core;
-using Microsoft.Web.WebView2.Wpf;
+using FeatherBrowser.Features.Engine;
 using Microsoft.Win32;
 
 namespace FeatherBrowser.Presentation.Shell;
@@ -50,23 +49,11 @@ public partial class MainWindow : Window
         _ = ExitDocumentFullscreenAsync(tab);
     }
 
-    private static async Task ExitDocumentFullscreenAsync(BrowserTab tab)
+    private static Task ExitDocumentFullscreenAsync(BrowserTab tab)
     {
-        if (tab.IsClosed || !tab.IsLoaded)
-            return;
-
-        try
-        {
-            if (tab.View.CoreWebView2 is { } core)
-            {
-                await core.ExecuteScriptAsync(
-                    "if (document.fullscreenElement) { document.exitFullscreen().catch(() => {}); }");
-            }
-        }
-        catch (Exception ex) when (ex is COMException or InvalidOperationException)
-        {
-            Trace.TraceWarning($"Could not exit document fullscreen: {ex.Message}");
-        }
+        if (!tab.IsClosed && tab.IsLoaded)
+            tab.View.ExecuteScript(PageScripts.ExitFullscreen);
+        return Task.CompletedTask;
     }
 
     private void ApplyFullscreen()
@@ -103,6 +90,8 @@ public partial class MainWindow : Window
                 StatusBar.Visibility = Visibility.Collapsed;
                 WorkspaceSidebar.Visibility = Visibility.Collapsed;
                 NavigationProgress.Visibility = Visibility.Collapsed;
+                PermissionBar.Visibility = Visibility.Collapsed;
+                FindBar.Visibility = Visibility.Collapsed;
 
                 WindowState = WindowState.Normal;
                 WindowChrome.SetWindowChrome(this, null);
@@ -134,26 +123,15 @@ public partial class MainWindow : Window
                 WorkspaceSidebar.Visibility = _store.Settings.ShowWorkspaceSidebar
                     ? Visibility.Visible : Visibility.Collapsed;
                 WindowState = _stateBeforeFullscreen;
+                RefreshPermissionBar(_activeTab);
+                if (_activeTab is not null)
+                    RefreshFindBar(_activeTab);
             }
         }
         finally
         {
             _changingFullscreen = false;
         }
-    }
-
-    private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-    {
-        if (e.OriginalSource is DependencyObject source && TabBar.IsAncestorOf(source))
-            return;
-        if (e.ClickCount == 2)
-        {
-            ToggleMaximize();
-            return;
-        }
-
-        if (e.LeftButton == MouseButtonState.Pressed && WindowState == WindowState.Normal)
-            DragMove();
     }
 
     private void MinimizeButton_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
@@ -169,7 +147,16 @@ public partial class MainWindow : Window
 
     private void Window_StateChanged(object sender, EventArgs e)
     {
-        MaximizeButton.Content = WindowState == WindowState.Maximized ? "❐" : "□";
+        bool maximized = WindowState == WindowState.Maximized;
+        MaximizeButton.Content = maximized ? "" : "";
+        MaximizeButton.ToolTip = maximized ? "Restore" : "Maximize";
+        RootPanel.Margin = maximized && !_isFullscreen
+            ? new Thickness(
+                SystemParameters.WindowResizeBorderThickness.Left + 2,
+                SystemParameters.WindowResizeBorderThickness.Top + 2,
+                SystemParameters.WindowResizeBorderThickness.Right + 2,
+                SystemParameters.WindowResizeBorderThickness.Bottom + 2)
+            : new Thickness(0);
 
         if (_changingFullscreen)
             return;
@@ -181,7 +168,7 @@ public partial class MainWindow : Window
             if (_activeTab is { IsLoaded: true } active)
             {
                 active.HiddenSinceUtc = DateTime.UtcNow;
-                active.View.Visibility = Visibility.Collapsed;
+                active.View.SetVisible(false, zIndex: 0);
             }
             foreach (BrowserTab tab in _tabs.Where(t => t.IsLoaded && !t.IsClosed).ToList())
             {
@@ -194,166 +181,12 @@ public partial class MainWindow : Window
             if (active.IsLoaded)
             {
                 active.SleepCancellation?.Cancel();
-                if (active.View.CoreWebView2.IsSuspended) active.View.CoreWebView2.Resume();
-                active.View.Visibility = Visibility.Visible;
+                active.View.Resume();
+                active.View.SetVisible(true, zIndex: 10);
             }
             else _ = SelectTabAsync(active);
         }
         UpdateResourceText();
-    }
-
-    private async void Window_KeyDown(object sender, KeyEventArgs e)
-    {
-        bool ctrl = Keyboard.Modifiers.HasFlag(ModifierKeys.Control);
-        bool shift = Keyboard.Modifiers.HasFlag(ModifierKeys.Shift);
-        bool alt = Keyboard.Modifiers.HasFlag(ModifierKeys.Alt);
-
-        if (CommandPaletteOverlay.Visibility == Visibility.Visible && e.Key == Key.Escape)
-        {
-            CloseCommandPalette();
-            e.Handled = true;
-        }
-        else if (e.Key == Key.Escape && _videoFullscreenTab is { } videoTab)
-        {
-            LeaveVideoFullscreen(videoTab);
-            e.Handled = true;
-        }
-        else if (ctrl && e.Key == Key.K)
-        {
-            OpenCommandPalette();
-            e.Handled = true;
-        }
-        else if (ctrl && e.Key == Key.B)
-        {
-            _store.Settings.ShowWorkspaceSidebar = !_store.Settings.ShowWorkspaceSidebar;
-            _store.SaveSettings();
-            ApplyUiPreferences();
-            UpdateWorkspaceSidebar();
-            e.Handled = true;
-        }
-        else if (ctrl && e.Key == Key.L)
-        {
-            AddressBox.Focus();
-            AddressBox.SelectAll();
-            e.Handled = true;
-        }
-        else if (ctrl && shift && e.Key == Key.N)
-        {
-            OpenPrivateWindow();
-            e.Handled = true;
-        }
-        else if (ctrl && shift && e.Key == Key.T)
-        {
-            if (_closedTabs.Count > 0)
-                await AddTabAsync(_closedTabs.Pop());
-            e.Handled = true;
-        }
-        else if (ctrl && e.Key == Key.T)
-        {
-            await AddTabAsync();
-            e.Handled = true;
-        }
-        else if (ctrl && e.Key == Key.W && _activeTab is not null)
-        {
-            await CloseTabAsync(_activeTab);
-            e.Handled = true;
-        }
-        else if (ctrl && e.Key == Key.Tab)
-        {
-            SelectAdjacentTab(shift ? -1 : 1);
-            e.Handled = true;
-        }
-        else if (ctrl && shift && e.Key == Key.M)
-        {
-            TrimMemoryNow();
-            e.Handled = true;
-        }
-        else if (shift && e.Key == Key.Escape)
-        {
-            ShowPerformanceCenter();
-            e.Handled = true;
-        }
-        else if (ctrl && shift && e.Key == Key.G)
-        {
-            ToggleGameMode();
-            if (_activeTab?.IsStartPage == true)
-                ShowStartPage(_activeTab);
-            e.Handled = true;
-        }
-        else if (ctrl && e.Key == Key.OemComma)
-        {
-            await OpenSettingsAsync();
-            e.Handled = true;
-        }
-        else if (ctrl && shift && e.Key == Key.P)
-        {
-            await AutofillSavedPasswordAsync();
-            e.Handled = true;
-        }
-        else if (ctrl && e.Key == Key.D)
-        {
-            ToggleCurrentBookmark();
-            e.Handled = true;
-        }
-        else if (ctrl && e.Key == Key.H)
-        {
-            await OpenLibraryAsync("history");
-            e.Handled = true;
-        }
-        else if (ctrl && e.Key == Key.J)
-        {
-            await OpenLibraryAsync("downloads");
-            e.Handled = true;
-        }
-        else if (ctrl && shift && e.Key == Key.O)
-        {
-            await OpenLibraryAsync("favorites");
-            e.Handled = true;
-        }
-        else if ((ctrl && e.Key == Key.R) || e.Key == Key.F5)
-        {
-            ReloadButton_Click(sender, e);
-            e.Handled = true;
-        }
-        else if (ctrl && (e.Key == Key.OemPlus || e.Key == Key.Add))
-        {
-            ChangeZoom(0.1);
-            e.Handled = true;
-        }
-        else if (ctrl && (e.Key == Key.OemMinus || e.Key == Key.Subtract))
-        {
-            ChangeZoom(-0.1);
-            e.Handled = true;
-        }
-        else if (ctrl && e.Key == Key.D0)
-        {
-            if (_activeTab is { IsLoaded: true })
-                _activeTab.View.ZoomFactor = 1.0;
-            e.Handled = true;
-        }
-        else if (alt && e.Key == Key.Left)
-        {
-            BackButton_Click(sender, e);
-            e.Handled = true;
-        }
-        else if (alt && e.Key == Key.Right)
-        {
-            ForwardButton_Click(sender, e);
-            e.Handled = true;
-        }
-        else if (e.Key == Key.F11)
-        {
-            ToggleFullscreen();
-            e.Handled = true;
-        }
-    }
-
-    private void ChangeZoom(double delta)
-    {
-        if (_activeTab is not { IsLoaded: true })
-            return;
-        _activeTab.View.ZoomFactor = Math.Clamp(_activeTab.View.ZoomFactor + delta, 0.5, 2.5);
-        StatusText.Text = $"Zoom {Math.Round(_activeTab.View.ZoomFactor * 100)}%";
     }
 
     private void SelectAdjacentTab(int direction)
@@ -371,3 +204,42 @@ public partial class MainWindow : Window
     }
 }
 
+
+public partial class MainWindow
+{
+    private const int DwmUseImmersiveDarkMode = 20;
+    private const int DwmUseImmersiveDarkModeLegacy = 19;
+    private const int DwmWindowCornerPreference = 33;
+    private const int DwmBorderColor = 34;
+    private const int DwmCornerRound = 2;
+
+    [System.Runtime.InteropServices.DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
+
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        ApplySystemFrame();
+        FeatherBrowser.Presentation.Themes.ThemeManager.ThemeChanged += OnThemeChanged;
+    }
+
+    private void OnThemeChanged(object? sender, EventArgs e) => ApplySystemFrame();
+
+    private void ApplySystemFrame()
+    {
+        IntPtr hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+        if (hwnd == IntPtr.Zero || !OperatingSystem.IsWindows())
+            return;
+
+        int dark = FeatherBrowser.Presentation.Themes.ThemeManager.IsDark ? 1 : 0;
+        if (DwmSetWindowAttribute(hwnd, DwmUseImmersiveDarkMode, ref dark, sizeof(int)) != 0)
+            DwmSetWindowAttribute(hwnd, DwmUseImmersiveDarkModeLegacy, ref dark, sizeof(int));
+
+        int corners = DwmCornerRound;
+        DwmSetWindowAttribute(hwnd, DwmWindowCornerPreference, ref corners, sizeof(int));
+
+        Color edge = FeatherBrowser.Presentation.Themes.ThemeManager.ColorOf(_isPrivateMode ? "PrivateChromeBrush" : "BorderBrush");
+        int border = edge.R | (edge.G << 8) | (edge.B << 16);
+        DwmSetWindowAttribute(hwnd, DwmBorderColor, ref border, sizeof(int));
+    }
+}

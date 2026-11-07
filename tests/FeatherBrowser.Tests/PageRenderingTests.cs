@@ -49,6 +49,15 @@ public class PageRenderingTests
         Assert.DoesNotMatch("__[A-Z_]+__", html);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void StartPageKnowsWhetherItIsPrivate(bool privateMode)
+    {
+        var html = StartPage.Html("Google", "https://www.google.com/search?q=", new BrowserSettings(), privateMode);
+        Assert.Contains($"\"privateMode\":{(privateMode ? "true" : "false")}", html);
+    }
+
     [Fact]
     public void EmptyQuickLinksStillRenderCompletePage()
     {

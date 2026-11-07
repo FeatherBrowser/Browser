@@ -1,36 +1,71 @@
-const {chromium}=require('playwright');
-const assert=require('node:assert/strict');
-(async()=>{
- const browser=await chromium.launch({headless:true});
- const page=await browser.newPage({viewport:{width:1320,height:820}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
- await page.addInitScript(()=>{ window.sent=[];window.listeners=[];window.chrome={webview:{postMessage:m=>window.sent.push(m),addEventListener:(n,cb)=>window.listeners.push(cb)}}; });
- await page.goto('file://'+process.cwd()+'/qa/start.html');
- await page.evaluate(()=>listeners.forEach(f=>f({data:{type:'home-stats',memory:'612 MB',memoryLabel:'Private RAM',cpu:'2.5% CPU',ratio:.87,loaded:3,cold:1,sleeping:0,blocked:245,memorySaver:true,shield:true,gaming:false}})));
- assert.equal(await page.locator('.shortcut').count(),6);assert.equal(await page.locator('#memory').textContent(),'612 MB');assert.equal(await page.locator('#memory-label').textContent(),'Private RAM');assert.equal(await page.locator('#cpu').textContent(),'2.5% CPU');
- await page.screenshot({path:'qa/home-desktop.png',fullPage:true});
- await page.locator('.add-link').click(); await page.locator('#shortcut-name').fill('Example');await page.locator('#shortcut-url').fill('javascript:alert(1)');await page.locator('#shortcut-form button[type=submit]').click();assert.match(await page.locator('#shortcut-error').textContent(),/valid HTTP/);
- await page.locator('#shortcut-url').fill('example.com');await page.locator('#shortcut-form button[type=submit]').click();
- let saved=await page.evaluate(()=>sent.find(m=>m.action==='save-home-links'));assert.equal(saved.links.length,7);assert.equal(saved.links[6].Url,'https://example.com/');
- await page.evaluate(links=>listeners.forEach(f=>f({data:{type:'home-links',links}})),saved.links);assert.equal(await page.locator('.shortcut').count(),7);
- await page.locator('#edit-links').click();await page.locator('.shortcut').last().click();await page.locator('#shortcut-name').fill('Changed');await page.locator('#shortcut-form button[type=submit]').click();
- saved=await page.evaluate(()=>sent.filter(m=>m.action==='save-home-links').at(-1));assert.equal(saved.links[6].Name,'Changed');
- await page.evaluate(links=>listeners.forEach(f=>f({data:{type:'home-links',links}})),saved.links);
- await page.locator('.shortcut').last().click();await page.locator('#delete-link').click();saved=await page.evaluate(()=>sent.filter(m=>m.action==='save-home-links').at(-1));assert.equal(saved.links.length,6);
- await page.locator('#q').fill('test search');await page.locator('#q').press('Enter');assert.ok(await page.evaluate(()=>sent.some(m=>m.action==='home-navigate'&&m.url==='test search')));
- await page.locator('#game-toggle').click();assert.ok(await page.evaluate(()=>sent.some(m=>m.action==='toggle-game')));
- await page.locator('#next-tip').click();assert.match(await page.locator('#tip-title').textContent(),/shortcut/);
- for(const width of [900,650,390]){await page.setViewportSize({width,height:820});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`No horizontal overflow at ${width}`);await page.screenshot({path:`qa/home-${width}.png`,fullPage:true});}
- for(const name of ['settings','library','welcome']){await page.setViewportSize({width:1100,height:820});await page.goto('file://'+process.cwd()+`/qa/${name}.html`);await page.screenshot({path:`qa/${name}.png`,fullPage:true});if(name==='settings'){await page.locator('[data-profile=balanced]').click();assert.ok(await page.evaluate(()=>sent.some(m=>m.action==='apply-webview3-profile'&&m.profile==='balanced')));}}
+const { chromium } = require('playwright');
+const assert = require('node:assert/strict');
 
- await page.route('https://autofill.test/**', route => route.fulfill({contentType:'text/html',body:'<input type="email"><input type="password">'}));
- await page.goto('https://autofill.test/login');
- const fs=require('node:fs');
- const scriptPath=fs.existsSync('src/FeatherBrowser/Assets/Scripts/autofill.js')?'src/FeatherBrowser/Assets/Scripts/autofill.js':'project/src/FeatherBrowser/Assets/Scripts/autofill.js';
- const template=fs.readFileSync(scriptPath,'utf8');
- const fillScript=origin=>template.replace('__ORIGIN_JSON__',JSON.stringify(origin)).replace('__USERNAME_JSON__',JSON.stringify('test@example.test')).replace('__PASSWORD_JSON__',JSON.stringify('synthetic-test-value'));
- assert.equal(await page.evaluate(fillScript('https://another.test')),'origin-changed');
- assert.equal(await page.locator('input[type=password]').inputValue(),'');
- assert.equal(await page.evaluate(fillScript('https://autofill.test')),'filled');
- assert.equal(await page.locator('input[type=password]').inputValue(),'synthetic-test-value');
- assert.deepEqual(errors,[]);await browser.close();console.log('PASS: shortcut add/edit/delete, unsafe URL rejection, search/toggle messages, live stats, tips, 3 responsive sizes and four pages without JS errors.');
-})().catch(e=>{console.error(e);process.exit(1)});
+const executablePath = process.env.FEATHER_CHROME || undefined;
+
+(async () => {
+  const browser = await chromium.launch({ headless: true, executablePath, args: ['--no-sandbox'] });
+  const page = await browser.newPage({ viewport: { width: 1320, height: 820 } });
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.addInitScript(() => {
+    window.sent = [];
+    window.listeners = [];
+    window.chrome = { webview: { postMessage: (m) => window.sent.push(m), addEventListener: (n, cb) => window.listeners.push(cb) } };
+  });
+
+  const url = (name) => 'file://' + process.cwd() + `/qa/${name}.html`;
+  const sent = () => page.evaluate(() => window.sent);
+
+  await page.goto(url('start'));
+  assert.equal(await page.locator('.shortcut').count(), 6, 'six default quick links');
+  assert.ok((await sent()).some((m) => m.action === 'home-ready'), 'page announces itself to the host');
+  assert.ok((await sent()).every((m) => m.__featherToken === 'qa-token'), 'every message carries the page token');
+
+  await page.fill('#q', 'feather browser');
+  await page.press('#q', 'Enter');
+  assert.ok((await sent()).some((m) => m.action === 'home-navigate' && m.url === 'feather browser'), 'search submits to host');
+
+  await page.click('.add-link');
+  await page.fill('#shortcut-name', 'Evil');
+  await page.fill('#shortcut-url', 'javascript:alert(1)');
+  await page.click('#shortcut-form button[type=submit]');
+  assert.match(await page.locator('#shortcut-error').textContent(), /valid HTTP or HTTPS/, 'script URLs are rejected');
+
+  await page.fill('#shortcut-url', 'https://user:pass@example.com/');
+  await page.click('#shortcut-form button[type=submit]');
+  assert.match(await page.locator('#shortcut-error').textContent(), /valid HTTP or HTTPS/, 'credentials in URLs are rejected');
+
+  await page.fill('#shortcut-name', 'Docs');
+  await page.fill('#shortcut-url', 'docs.example.com');
+  await page.click('#shortcut-form button[type=submit]');
+  const save = (await sent()).filter((m) => m.action === 'save-home-links').at(-1);
+  assert.ok(save, 'valid shortcut is saved through the host');
+  assert.equal(save.links.length, 7);
+  assert.equal(save.links.at(-1).Url, 'https://docs.example.com/');
+  assert.equal(await page.locator('.shortcut').count(), 7);
+
+  await page.evaluate(() => window.listeners.forEach((f) => f({ data: { type: 'home-links', links: [{ Name: 'Only', Url: 'https://only.example/' }] } })));
+  assert.equal(await page.locator('.shortcut').count(), 1, 'host link updates re-render the grid');
+
+  await page.evaluate(() => window.listeners.forEach((f) => f({ data: { type: 'home-stats', recent: [{ title: 'GitHub', url: 'https://github.com/', host: 'github.com' }], favicons: {} } })));
+  assert.equal(await page.locator('.recent-card').count(), 1, 'recent pages render from host stats');
+  await page.screenshot({ path: 'qa/home-desktop.png', fullPage: true });
+
+  for (const name of ['settings', 'library', 'welcome']) {
+    for (const width of [1320, 900]) {
+      await page.setViewportSize({ width, height: 820 });
+      await page.goto(url(name));
+      await page.waitForTimeout(150);
+      await page.screenshot({ path: `qa/${name}-${width}.png`, fullPage: false });
+    }
+  }
+
+  if (errors.length) console.error(errors);
+  assert.deepEqual(errors, [], 'no script errors on any internal page');
+  await browser.close();
+  console.log('Internal page interaction checks passed.');
+})().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

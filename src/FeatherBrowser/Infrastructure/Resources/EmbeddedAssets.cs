@@ -52,7 +52,7 @@ internal static class EmbeddedAssets
                 StringComparison.Ordinal)
             .Replace(
                 "__PAGE_STYLES__",
-                Load($"{name}.css") + "\n" + Load("glass.css"),
+                Load("theme.css") + "\n" + Load($"{name}.css"),
                 StringComparison.Ordinal)
             .Replace(
                 "__PAGE_SCRIPT__",

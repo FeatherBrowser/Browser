@@ -26,17 +26,13 @@ internal static class AccountDialogs
                     ? "Create Feather account"
                     : "Sign in to Feather",
             Width = 430,
-            Height =
-                createAccount
-                    ? 365
-                    : 315,
+            SizeToContent = SizeToContent.Height,
             ResizeMode = ResizeMode.NoResize,
             WindowStartupLocation =
                 WindowStartupLocation.CenterOwner,
             Background =
-                new SolidColorBrush(
-                    Color.FromRgb(12, 18, 25)),
-            Foreground = Brushes.White,
+                Theme("ContentBrush"),
+            Foreground = Theme("TextPrimaryBrush"),
             ShowInTaskbar = false
         };
 
@@ -95,7 +91,7 @@ internal static class AccountDialogs
                     createAccount
                         ? "Create your Feather account"
                         : "Welcome back",
-                FontSize = 22,
+                FontSize = 15,
                 FontWeight =
                     FontWeights.SemiBold,
                 Margin =
@@ -254,19 +250,14 @@ internal static class AccountDialogs
                 Owner = owner,
                 Title = title,
                 Width = 430,
-                Height = 260,
-                ResizeMode =
-                    ResizeMode.NoResize,
+                SizeToContent = SizeToContent.Height,
+                ResizeMode = ResizeMode.NoResize,
                 WindowStartupLocation =
                     WindowStartupLocation.CenterOwner,
                 Background =
-                    new SolidColorBrush(
-                        Color.FromRgb(
-                            12,
-                            18,
-                            25)),
+                    Theme("ContentBrush"),
                 Foreground =
-                    Brushes.White,
+                    Theme("TextPrimaryBrush"),
                 ShowInTaskbar =
                     false
             };
@@ -282,7 +273,7 @@ internal static class AccountDialogs
             new TextBlock
             {
                 Text = title,
-                FontSize = 21,
+                FontSize = 15,
                 FontWeight =
                     FontWeights.SemiBold,
                 Margin =
@@ -300,11 +291,7 @@ internal static class AccountDialogs
                 TextWrapping =
                     TextWrapping.Wrap,
                 Foreground =
-                    new SolidColorBrush(
-                        Color.FromRgb(
-                            145,
-                            160,
-                            178)),
+                    Theme("TextSecondaryBrush"),
                 Margin =
                     new Thickness(
                         0,
@@ -316,28 +303,15 @@ internal static class AccountDialogs
         var input =
             new PasswordBox
             {
-                Height = 38,
-                Padding =
-                    new Thickness(
-                        10,
-                        7,
-                        10,
-                        7),
-                FontSize = 14,
+                Height = 28,
+                Padding = new Thickness(8, 3, 8, 3),
+                FontSize = 12,
                 Background =
-                    new SolidColorBrush(
-                        Color.FromRgb(
-                            8,
-                            13,
-                            19)),
+                    Theme("FieldBrush"),
                 Foreground =
-                    Brushes.White,
+                    Theme("TextPrimaryBrush"),
                 BorderBrush =
-                    new SolidColorBrush(
-                        Color.FromRgb(
-                            45,
-                            63,
-                            82))
+                    Theme("BorderBrush")
             };
 
         root.Children.Add(input);
@@ -437,19 +411,14 @@ internal static class AccountDialogs
                 Title =
                     "Feather recovery key",
                 Width = 560,
-                Height = 335,
-                ResizeMode =
-                    ResizeMode.NoResize,
+                SizeToContent = SizeToContent.Height,
+                ResizeMode = ResizeMode.NoResize,
                 WindowStartupLocation =
                     WindowStartupLocation.CenterOwner,
                 Background =
-                    new SolidColorBrush(
-                        Color.FromRgb(
-                            12,
-                            18,
-                            25)),
+                    Theme("ContentBrush"),
                 Foreground =
-                    Brushes.White,
+                    Theme("TextPrimaryBrush"),
                 ShowInTaskbar =
                     false
             };
@@ -466,7 +435,7 @@ internal static class AccountDialogs
             {
                 Text =
                     "Save your recovery key",
-                FontSize = 22,
+                FontSize = 15,
                 FontWeight =
                     FontWeights.SemiBold,
                 Margin =
@@ -485,11 +454,7 @@ internal static class AccountDialogs
                 TextWrapping =
                     TextWrapping.Wrap,
                 Foreground =
-                    new SolidColorBrush(
-                        Color.FromRgb(
-                            145,
-                            160,
-                            178)),
+                    Theme("TextSecondaryBrush"),
                 Margin =
                     new Thickness(
                         0,
@@ -508,24 +473,16 @@ internal static class AccountDialogs
                 FontFamily =
                     new FontFamily(
                         "Consolas"),
-                FontSize = 14,
+                FontSize = 12,
                 MinHeight = 78,
                 Padding =
                     new Thickness(12),
                 Background =
-                    new SolidColorBrush(
-                        Color.FromRgb(
-                            8,
-                            13,
-                            19)),
+                    Theme("FieldBrush"),
                 Foreground =
-                    Brushes.White,
+                    Theme("TextPrimaryBrush"),
                 BorderBrush =
-                    new SolidColorBrush(
-                        Color.FromRgb(
-                            45,
-                            63,
-                            82))
+                    Theme("BorderBrush")
             };
 
         root.Children.Add(key);
@@ -803,22 +760,14 @@ internal static class AccountDialogs
                 Owner = owner,
                 Title = title,
                 Width = 460,
-                Height =
-                    confirmPassword
-                        ? 330
-                        : 275,
-                ResizeMode =
-                    ResizeMode.NoResize,
+                SizeToContent = SizeToContent.Height,
+                ResizeMode = ResizeMode.NoResize,
                 WindowStartupLocation =
                     WindowStartupLocation.CenterOwner,
                 Background =
-                    new SolidColorBrush(
-                        Color.FromRgb(
-                            12,
-                            18,
-                            25)),
+                    Theme("ContentBrush"),
                 Foreground =
-                    Brushes.White,
+                    Theme("TextPrimaryBrush"),
                 ShowInTaskbar =
                     false
             };
@@ -834,7 +783,7 @@ internal static class AccountDialogs
             new TextBlock
             {
                 Text = title,
-                FontSize = 21,
+                FontSize = 15,
                 FontWeight =
                     FontWeights.SemiBold,
                 Margin =
@@ -852,11 +801,7 @@ internal static class AccountDialogs
                 TextWrapping =
                     TextWrapping.Wrap,
                 Foreground =
-                    new SolidColorBrush(
-                        Color.FromRgb(
-                            145,
-                            160,
-                            178)),
+                    Theme("TextSecondaryBrush"),
                 Margin =
                     new Thickness(
                         0,
@@ -994,28 +939,15 @@ internal static class AccountDialogs
         input =
             new TextBox
             {
-                Height = 38,
-                Padding =
-                    new Thickness(
-                        10,
-                        7,
-                        10,
-                        7),
-                FontSize = 14,
+                Height = 28,
+                Padding = new Thickness(8, 3, 8, 3),
+                FontSize = 12,
                 Background =
-                    new SolidColorBrush(
-                        Color.FromRgb(
-                            8,
-                            13,
-                            19)),
+                    Theme("FieldBrush"),
                 Foreground =
-                    Brushes.White,
+                    Theme("TextPrimaryBrush"),
                 BorderBrush =
-                    new SolidColorBrush(
-                        Color.FromRgb(
-                            45,
-                            63,
-                            82))
+                    Theme("BorderBrush")
             };
 
         panel.Children.Add(input);
@@ -1044,28 +976,15 @@ internal static class AccountDialogs
         input =
             new PasswordBox
             {
-                Height = 38,
-                Padding =
-                    new Thickness(
-                        10,
-                        7,
-                        10,
-                        7),
-                FontSize = 14,
+                Height = 28,
+                Padding = new Thickness(8, 3, 8, 3),
+                FontSize = 12,
                 Background =
-                    new SolidColorBrush(
-                        Color.FromRgb(
-                            8,
-                            13,
-                            19)),
+                    Theme("FieldBrush"),
                 Foreground =
-                    Brushes.White,
+                    Theme("TextPrimaryBrush"),
                 BorderBrush =
-                    new SolidColorBrush(
-                        Color.FromRgb(
-                            45,
-                            63,
-                            82))
+                    Theme("BorderBrush")
             };
 
         panel.Children.Add(input);
@@ -1079,11 +998,7 @@ internal static class AccountDialogs
         {
             Text = text,
             Foreground =
-                new SolidColorBrush(
-                    Color.FromRgb(
-                        180,
-                        194,
-                        210)),
+                Theme("TextSecondaryBrush"),
             Margin =
                 new Thickness(
                     0,
@@ -1098,45 +1013,13 @@ internal static class AccountDialogs
         new()
         {
             Content = text,
-            MinWidth = 96,
-            Height = 34,
-            Margin =
-                new Thickness(
-                    8,
-                    0,
-                    0,
-                    0),
-            Padding =
-                new Thickness(
-                    12,
-                    4,
-                    12,
-                    4),
-            Background =
-                new SolidColorBrush(
-                    primary
-                        ? Color.FromRgb(
-                            53,
-                            153,
-                            235)
-                        : Color.FromRgb(
-                            22,
-                            32,
-                            43)),
-            Foreground =
-                Brushes.White,
-            BorderBrush =
-                new SolidColorBrush(
-                    primary
-                        ? Color.FromRgb(
-                            85,
-                            179,
-                            255)
-                        : Color.FromRgb(
-                            52,
-                            72,
-                            92))
+            MinWidth = 88,
+            Margin = new Thickness(6, 0, 0, 0),
+            Style = (Style)Application.Current.FindResource(primary ? "PrimaryButton" : "SecondaryButton"),
+            Height = 28
         };
+
+    private static Brush Theme(string key) => Themes.ThemeManager.Brush(key);
 
     private static void ShowRecoveryError(
         Window owner,

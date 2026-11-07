@@ -3,7 +3,10 @@ using System.IO;
 using System.Text.Json;
 using System.Threading;
 using System.Windows;
+using System.Windows.Threading;
+using FeatherBrowser.Features.Engine;
 using FeatherBrowser.Presentation.Shell;
+using FeatherBrowser.Presentation.Themes;
 
 namespace FeatherBrowser;
 
@@ -26,17 +29,48 @@ public partial class App : Application
         }
 
         base.OnStartup(e);
+
         _ipcCancellation = new CancellationTokenSource();
         _ = ListenForSecondaryInstancesAsync(_ipcCancellation.Token);
 
         InstanceRequest request = ParseRequest(e.Args);
+        ThemeManager.Initialize(this);
         var window = new MainWindow(request.Address, request.PrivateMode);
         MainWindow = window;
         window.Show();
+
+        Dispatcher.BeginInvoke(DispatcherPriority.Loaded, StartEngine);
+    }
+
+    private void StartEngine()
+    {
+        try
+        {
+            FeatherEngine.Initialize(new EngineStartupOptions
+            {
+                DataRoot = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "FeatherBrowser",
+                    "Chromium"),
+                PersistSessionCookies = false,
+                BackgroundColor = ThemeManager.ColorOf("ContentBrush"),
+                ForcedDarkMode = ThemeManager.ForcedDarkMode,
+            });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                $"Feather's browser engine could not start.\n\n{ex.Message}",
+                "Feather Browser",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            Shutdown(1);
+        }
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
+        FeatherEngine.Shutdown();
         try { _ipcCancellation?.Cancel(); } catch { }
         _ipcCancellation?.Dispose();
         try { _instanceMutex?.ReleaseMutex(); } catch { }

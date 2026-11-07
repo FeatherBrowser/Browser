@@ -12,8 +12,6 @@ using System.Windows.Threading;
 using System.Windows;
 using FeatherBrowser.Presentation.Pages;
 using FeatherBrowser.Presentation.Tabs;
-using Microsoft.Web.WebView2.Core;
-using Microsoft.Web.WebView2.Wpf;
 using Microsoft.Win32;
 
 namespace FeatherBrowser.Presentation.Shell;
@@ -39,6 +37,12 @@ public partial class MainWindow : Window
         tab.InternalPageToken = string.Empty;
     }
 
+    private void ShowStartPageContent(BrowserTab tab)
+    {
+        (string name, string prefix) = SearchEngineInfo();
+        tab.View.NavigateToInternalPage("newtab", PrepareInternalPageHtml(tab, StartPage.Html(name, prefix, _store.Settings, _isPrivateMode)));
+    }
+
     private void ShowStartPage(BrowserTab tab)
     {
         tab.IsStartPage = true;
@@ -51,8 +55,7 @@ public partial class MainWindow : Window
 
         if (tab.IsLoaded)
         {
-            (string name, string prefix) = SearchEngineInfo();
-            tab.View.NavigateToString(PrepareInternalPageHtml(tab, StartPage.Html(name, prefix, _store.Settings)));
+            ShowStartPageContent(tab);
             tab.NeedsContentRestore = false;
         }
 
@@ -77,7 +80,7 @@ public partial class MainWindow : Window
 
         if (tab.IsLoaded)
         {
-            tab.View.NavigateToString(PrepareInternalPageHtml(tab, WelcomePage.Html()));
+            tab.View.NavigateToInternalPage("welcome", PrepareInternalPageHtml(tab, WelcomePage.Html()));
             tab.NeedsContentRestore = false;
         }
 
@@ -103,7 +106,7 @@ public partial class MainWindow : Window
         if (tab.IsLoaded)
         {
             tab.SettingsSection = SettingsPage.NormalizeSection(tab.SettingsSection);
-            tab.View.NavigateToString(PrepareInternalPageHtml(tab, SettingsPage.Html(_store.Settings, _store.Bookmarks.Count, _store.History.Count, _passwordVault.Count, _accountPageState, tab.SettingsSection)));
+            tab.View.NavigateToInternalPage("settings", PrepareInternalPageHtml(tab, SettingsPage.Html(_store.Settings, _store.Bookmarks.Count, _store.History.Count, _passwordVault.Count, _accountPageState, tab.SettingsSection)));
             tab.NeedsContentRestore = false;
         }
 
@@ -143,7 +146,7 @@ public partial class MainWindow : Window
 
         if (tab.IsLoaded)
         {
-            tab.View.NavigateToString(PrepareInternalPageHtml(tab, LibraryPage.Html(_store.Bookmarks, _store.History, _store.Downloads, section)));
+            tab.View.NavigateToInternalPage(section, PrepareInternalPageHtml(tab, LibraryPage.Html(_store.Bookmarks, _store.History, _store.Downloads, section)));
             tab.NeedsContentRestore = false;
         }
 

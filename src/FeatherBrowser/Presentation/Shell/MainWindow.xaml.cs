@@ -7,7 +7,8 @@ using FeatherBrowser.Features.Passwords;
 using FeatherBrowser.Infrastructure.Persistence;
 using FeatherBrowser.Presentation.Commands;
 using FeatherBrowser.Presentation.Tabs;
-using Microsoft.Web.WebView2.Core;
+using CefSharp;
+using FeatherBrowser.Features.Engine;
 using FeatherBrowser.Features.Sync;
 using FeatherBrowser.Features.Sync.Devices;
 using FeatherBrowser.Infrastructure.Supabase;
@@ -23,8 +24,6 @@ public partial class MainWindow : Window
     private readonly BlockerEngine _blocker = new();
     private readonly PasswordVault _passwordVault = new();
 
-    private readonly Brush _activeTabBrush;
-    private readonly Brush _inactiveTabBrush;
     private readonly Brush _accentBrush;
     private readonly Brush _gameAccentBrush;
     private readonly Brush _secondaryBrush;
@@ -36,7 +35,6 @@ public partial class MainWindow : Window
 
     private readonly string? _initialAddress;
     private readonly bool _isPrivateMode;
-    private readonly string? _privateDataRoot;
 
     private readonly SupabaseConfig _supabaseConfig;
     private readonly SupabaseAuthClient _supabaseAuth;
@@ -59,8 +57,12 @@ public partial class MainWindow : Window
     private AccountPageState _accountPageState = new();
     private bool _syncBusy;
 
-    private CoreWebView2Environment? _environment;
+    private bool _engineReady;
+    private IRequestContext? _privateContext;
     private BrowserTab? _activeTab;
+
+    private readonly Task _rulesLoading;
+    private readonly Task _rulesGate;
 
     private bool _ecoMode;
     private bool _shieldEnabled;
@@ -76,6 +78,8 @@ public partial class MainWindow : Window
 
     public MainWindow(string? initialAddress = null, bool privateMode = false)
     {
+        _rulesLoading = BlockerEngine.WarmUpAsync(_store.Settings.CustomBlockRules);
+        _rulesGate = _rulesLoading.ContinueWith(static _ => { }, TaskScheduler.Default);
         InitializeComponent();
 
         _initialAddress = initialAddress;
@@ -117,16 +121,7 @@ public partial class MainWindow : Window
 
         CleanupStalePrivateProfiles();
 
-        _privateDataRoot = privateMode
-            ? Path.Combine(
-                Path.GetTempPath(),
-                "FeatherBrowser",
-                "Private",
-                Guid.NewGuid().ToString("N"))
-            : null;
 
-        _activeTabBrush = (Brush)FindResource("TabActiveBackground");
-        _inactiveTabBrush = (Brush)FindResource("TabBackground");
         _accentBrush = (Brush)FindResource("Accent");
         _gameAccentBrush = (Brush)FindResource("GameAccent");
         _secondaryBrush = (Brush)FindResource("TextSecondary");
@@ -134,7 +129,9 @@ public partial class MainWindow : Window
         _ecoMode = _store.Settings.EcoMode;
         _shieldEnabled = _store.Settings.ShieldEnabled;
 
-        _blocker.Reload(_store.Settings.CustomBlockRules);
+        _appliedCustomRules = string.Join('\n', _store.Settings.CustomBlockRules);
+        _blocker.ApplySettings(_store.Settings, _shieldEnabled);
+        _store.SettingsSaved += OnSettingsSaved;
 
         NormalizeWorkspaceSettings();
         ApplyUiPreferences();
@@ -181,8 +178,13 @@ public partial class MainWindow : Window
         UpdateFeatureButtons();
     }
 
+    private void OnSettingsSaved() => _blocker.ApplySettings(_store.Settings, _shieldEnabled);
+
     protected override void OnClosed(EventArgs e)
     {
+        FeatherBrowser.Presentation.Themes.ThemeManager.ThemeChanged -= OnThemeChanged;
+        _privateContext?.Dispose();
+        _privateContext = null;
         _syncTimer.Stop();
         _syncCoordinator.Dispose();
         _supabaseDevices.Dispose();

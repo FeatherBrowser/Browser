@@ -64,7 +64,9 @@ public partial class MainWindow : Window
         foreach (BrowserTab tab in _tabs.Where(static tab => !tab.IsClosed))
         {
             tab.Header.Visibility = IsTabInActiveWorkspace(tab) ? Visibility.Visible : Visibility.Collapsed;
-            }
+        }
+
+        UpdateTabStripLayout();
     }
 
     private void UpdateWorkspaceSidebar()
@@ -90,8 +92,11 @@ public partial class MainWindow : Window
         }
 
         WorkspaceHintText.Text = _store.Settings.ColdUnloadOtherWorkspaces
-            ? "Inactive workspaces unload"
-            : "Inactive workspaces preserved";
+            ? "Others unload when inactive"
+            : "Others stay loaded";
+        WorkspaceHintText.ToolTip = _store.Settings.ColdUnloadOtherWorkspaces
+            ? "Tabs in other workspaces unload when you switch away"
+            : "Tabs in other workspaces keep their state when you switch away";
     }
 
     private static string BuildWorkspaceStatusSuffix(int tabCount, int loadedCount)
@@ -100,29 +105,41 @@ public partial class MainWindow : Window
             return string.Empty;
 
         return loadedCount > 0
-            ? $"  {tabCount} · {loadedCount} hot"
-            : $"  {tabCount}";
+            ? $"{tabCount} · {loadedCount} loaded"
+            : $"{tabCount}";
     }
 
     private Button CreateWorkspaceButton(string workspace, string suffix, bool isActive)
     {
+        var name = new TextBlock { Text = workspace, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center };
+        name.SetResourceReference(TextBlock.ForegroundProperty, isActive ? "TextPrimaryBrush" : "TextSecondaryBrush");
+        if (isActive)
+            name.FontWeight = FontWeights.SemiBold;
+
+        var count = new TextBlock { Text = suffix, FontSize = 11, Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+        count.SetResourceReference(TextBlock.ForegroundProperty, "TextMutedBrush");
+
+        var row = new Grid();
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        row.Children.Add(name);
+        Grid.SetColumn(count, 1);
+        row.Children.Add(count);
+
         var button = new Button
         {
-            Content = $"{(isActive ? "●" : "○")}  {workspace}{suffix}",
+            Content = row,
             Tag = workspace,
-            Style = (Style)FindResource("ChromeButton"),
-            HorizontalContentAlignment = HorizontalAlignment.Left,
-            FontSize = 11,
-            Padding = new Thickness(8, 7, 8, 7),
-            Margin = new Thickness(0, 1, 0, 1),
-            Foreground = isActive ? _accentBrush : (Brush)FindResource("TextPrimary"),
+            Style = (Style)FindResource("SidebarButton"),
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            Margin = new Thickness(0, 0, 0, 1),
             ToolTip = isActive
                 ? "Current workspace"
-                : "Switch workspace; inactive tabs stay cold"
+                : "Switch workspace"
         };
 
         if (isActive)
-            button.Background = (Brush)FindResource("ControlBackground");
+            button.SetResourceReference(BackgroundProperty, "TabActiveBrush");
 
         button.Click += async (_, _) => await SwitchWorkspaceAsync(workspace);
         button.PreviewMouseRightButtonUp += (_, e) =>
@@ -293,30 +310,31 @@ public partial class MainWindow : Window
         var textBox = new TextBox
         {
             Text = initialValue,
-            Margin = new Thickness(0, 8, 0, 12),
-            Padding = new Thickness(8, 6, 8, 6),
-            Background = (Brush)FindResource("ControlBackground"),
-            Foreground = (Brush)FindResource("TextPrimary"),
-            BorderBrush = _accentBrush,
-            CaretBrush = (Brush)FindResource("TextPrimary")
+            Margin = new Thickness(0, 10, 0, 14),
+            Padding = new Thickness(6, 4, 6, 4),
+            BorderThickness = new Thickness(1),
+            FontSize = 12
         };
+        textBox.SetResourceReference(BackgroundProperty, "FieldBrush");
+        textBox.SetResourceReference(ForegroundProperty, "TextPrimaryBrush");
+        textBox.SetResourceReference(BorderBrushProperty, "AccentBrush");
+        textBox.SetResourceReference(TextBox.CaretBrushProperty, "TextPrimaryBrush");
 
         var saveButton = new Button
         {
             Content = "Save",
-            Width = 80,
+            MinWidth = 72,
             IsDefault = true,
-            Style = (Style)FindResource("ChromeButton"),
-            Background = (Brush)FindResource("ControlBackground")
+            Style = (Style)FindResource("PrimaryButton")
         };
 
         var cancelButton = new Button
         {
             Content = "Cancel",
-            Width = 80,
+            MinWidth = 72,
             IsCancel = true,
-            Style = (Style)FindResource("ChromeButton"),
-            Margin = new Thickness(8, 0, 0, 0)
+            Style = (Style)FindResource("SecondaryButton"),
+            Margin = new Thickness(6, 0, 0, 0)
         };
 
         var buttonPanel = new StackPanel
@@ -327,12 +345,12 @@ public partial class MainWindow : Window
         buttonPanel.Children.Add(saveButton);
         buttonPanel.Children.Add(cancelButton);
 
-        var contentPanel = new StackPanel { Margin = new Thickness(16) };
+        var contentPanel = new StackPanel { Margin = new Thickness(16, 14, 16, 14) };
         contentPanel.Children.Add(new TextBlock
         {
             Text = title,
             Foreground = (Brush)FindResource("TextPrimary"),
-            FontSize = 16,
+            FontSize = 13,
             FontWeight = FontWeights.SemiBold
         });
         contentPanel.Children.Add(textBox);
@@ -342,10 +360,11 @@ public partial class MainWindow : Window
         {
             Owner = this,
             Title = title,
-            Width = 360,
-            Height = 160,
+            Width = 340,
+            SizeToContent = SizeToContent.Height,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             ResizeMode = ResizeMode.NoResize,
+            FontFamily = (FontFamily)FindResource("UiFont"),
             Background = (Brush)FindResource("ChromeBackground"),
             Content = contentPanel
         };

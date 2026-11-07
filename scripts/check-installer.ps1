@@ -8,7 +8,7 @@ $target = Join-Path ([IO.Path]::GetTempPath()) "FeatherInstallerCheck-$([Guid]::
 $process = Start-Process -FilePath $installer -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/DIR=`"$target`"") -Wait -PassThru
 if ($process.ExitCode -ne 0) { throw "Installer failed: $($process.ExitCode)" }
 try {
-    foreach ($file in @('FeatherBrowser.exe', 'coreclr.dll', 'Microsoft.Web.WebView2.Wpf.dll', 'unins000.exe')) {
+    foreach ($file in @('FeatherBrowser.exe', 'coreclr.dll', 'libcef.dll', 'CefSharp.Wpf.dll', 'CefSharp.Core.Runtime.dll', 'vcruntime140.dll', 'locales\en-US.pak', 'unins000.exe')) {
         if (-not (Test-Path (Join-Path $target $file))) { throw "Installed file missing: $file" }
     }
     $installedVersion = (Get-Item (Join-Path $target 'FeatherBrowser.exe')).VersionInfo.ProductVersion

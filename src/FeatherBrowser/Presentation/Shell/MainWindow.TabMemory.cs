@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using FeatherBrowser.Features.Engine;
 using FeatherBrowser.Presentation.Tabs;
 
 namespace FeatherBrowser.Presentation.Shell;
@@ -68,26 +69,20 @@ public partial class MainWindow
                 return;
 
             HideTab(tab);
-            var core = view.CoreWebView2;
-            if (core is null)
-                return;
-
-            if (!core.IsSuspended)
-                await core.TrySuspendAsync();
+            await view.TrySuspendAsync();
 
             if (!IsCurrent())
             {
                 if (!_isClosing && !tab.IsClosed && tab.IsLoaded &&
                     ReferenceEquals(tab.View, view) && tab == _activeTab &&
-                    WindowState != WindowState.Minimized && core.IsSuspended)
-                    core.Resume();
+                    WindowState != WindowState.Minimized)
+                    view.Resume();
                 return;
             }
 
             if (IsProtectedTab(tab) || !ShouldManageBackgroundTabs())
             {
-                if (core.IsSuspended)
-                    core.Resume();
+                view.Resume();
                 return;
             }
 
@@ -110,10 +105,6 @@ public partial class MainWindow
         {
             Trace.TraceWarning($"Background tab lifecycle stopped: {ex.Message}");
         }
-        catch (COMException ex)
-        {
-            Trace.TraceWarning($"Background WebView lifecycle stopped: {ex.Message}");
-        }
         finally
         {
             if (ReferenceEquals(tab.SleepCancellation, cancellation))
@@ -129,59 +120,36 @@ public partial class MainWindow
             return false;
 
         var oldView = tab.View;
-        try
+        if (!tab.IsInternalPage)
         {
-            if (!tab.IsInternalPage && oldView.CoreWebView2 is { } core)
-            {
-                string source = core.Source;
-                if (!string.IsNullOrWhiteSpace(source) &&
-                    !source.Equals("about:blank", StringComparison.OrdinalIgnoreCase) &&
-                    !source.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
-                    tab.LastAddress = source;
-            }
-        }
-        catch (InvalidOperationException ex)
-        {
-            Trace.TraceWarning($"Could not capture tab address before unloading: {ex.Message}");
-            return false;
-        }
-        catch (COMException ex)
-        {
-            Trace.TraceWarning($"Could not capture WebView address before unloading: {ex.Message}");
-            return false;
+            string source = oldView.Source;
+            if (!string.IsNullOrWhiteSpace(source) &&
+                !source.Equals("about:blank", StringComparison.OrdinalIgnoreCase) &&
+                !source.StartsWith("data:", StringComparison.OrdinalIgnoreCase) &&
+                !InternalPages.IsInternalUrl(source))
+                tab.LastAddress = source;
         }
 
-        var replacement = CreateWebViewControl();
+        var replacement = CreatePageFor(tab);
         CancelSleepSchedule(tab);
         tab.IsLoaded = false;
         tab.IsPlayingAudio = false;
         tab.NeedsContentRestore = true;
         tab.View = replacement;
-        BrowserHost.Children.Remove(oldView);
+        RemovePageControl(oldView);
+        SetTabLoading(tab, false);
+        ForgetPageDownloads(tab, oldView);
+        DismissPermissionPrompt(tab, promptId: null);
 
         if (tab.Header.Tag is TabHeaderVisuals visuals)
-        {
             visuals.FaviconRevision++;
-            visuals.FaviconCore = null;
-        }
         if (ReferenceEquals(_videoFullscreenTab, tab))
         {
             _videoFullscreenTab = null;
             ApplyFullscreen();
         }
 
-        try
-        {
-            oldView.Dispose();
-        }
-        catch (InvalidOperationException ex)
-        {
-            Trace.TraceWarning($"Tab WebView disposal failed: {ex.Message}");
-        }
-        catch (COMException ex)
-        {
-            Trace.TraceWarning($"Tab WebView COM disposal failed: {ex.Message}");
-        }
+        oldView.Dispose();
 
         tab.UpdateStateIndicator();
         return true;
@@ -193,9 +161,12 @@ public partial class MainWindow
             return;
 
         int limit = _store.Settings.GameMode ? 1 : Math.Clamp(_store.Settings.MaxLoadedTabs, 1, 8);
+        TimeSpan grace = TimeSpan.FromSeconds(_store.Settings.GameMode ? 0 : Math.Clamp(_store.Settings.UnloadAfterSeconds, 2, 300));
+        DateTime now = DateTime.UtcNow;
         int loaded = _tabs.Count(tab => !tab.IsClosed && tab.IsLoaded);
         int unloaded = 0;
-        foreach (BrowserTab tab in _tabs.Where(tab => !tab.IsClosed && tab.IsLoaded && tab != _activeTab)
+        foreach (BrowserTab tab in _tabs.Where(tab => !tab.IsClosed && tab.IsLoaded && tab != _activeTab &&
+                                                      now - tab.HiddenSinceUtc >= grace)
                      .OrderBy(tab => tab.LastActivatedUtc).ToList())
         {
             if (loaded <= limit)
@@ -223,6 +194,9 @@ public partial class MainWindow
             .OrderBy(tab => tab.LastActivatedUtc)
             .ToList()
             .Count(ColdUnloadTab);
+
+        if (_activeTab is { IsLoaded: true } active)
+            _ = active.View.TrimMemoryAsync();
 
         UpdateWorkspaceSidebar();
         UpdateResourceText();

@@ -7,9 +7,6 @@
 #ifndef OutputDirPath
   #error OutputDirPath must be supplied by scripts/installer.ps1
 #endif
-#ifndef BootstrapperPath
-  #error BootstrapperPath must be supplied by scripts/installer.ps1
-#endif
 
 [Setup]
 AppId={{E499CDA6-AE38-45D6-A005-138B808BEF2A}
@@ -40,7 +37,6 @@ Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription:
 
 [Files]
 Source: "{#PublishDir}\*"; DestDir: "{app}"; Excludes: "*.pdb"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "{#BootstrapperPath}"; Flags: dontcopy
 
 [Icons]
 Name: "{autoprograms}\Feather Browser"; Filename: "{app}\FeatherBrowser.exe"; WorkingDir: "{app}"
@@ -49,37 +45,7 @@ Name: "{autodesktop}\Feather Browser"; Filename: "{app}\FeatherBrowser.exe"; Wor
 [Run]
 Filename: "{app}\FeatherBrowser.exe"; Description: "Launch Feather Browser"; Flags: nowait postinstall skipifsilent
 
-[Code]
-function HasRuntimeAt(Root: Integer): Boolean;
-var
-  Version: String;
-begin
-  Result := RegQueryStringValue(Root,
-    'Software\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}',
-    'pv', Version) and (Version <> '') and (Version <> '0.0.0.0');
-end;
-
-function HasWebView2: Boolean;
-begin
-  Result := HasRuntimeAt(HKLM32) or HasRuntimeAt(HKCU);
-end;
-
-function PrepareToInstall(var NeedsRestart: Boolean): String;
-var
-  ResultCode: Integer;
-begin
-  Result := '';
-  if HasWebView2 then
-    Exit;
-  WizardForm.StatusLabel.Caption := 'Installing Microsoft Edge WebView2 Runtime (internet required)...';
-  ExtractTemporaryFile('MicrosoftEdgeWebView2Setup.exe');
-  if not Exec(ExpandConstant('{tmp}\MicrosoftEdgeWebView2Setup.exe'),
-    '/silent /install', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
-  begin
-    Result := 'Could not start Microsoft Edge WebView2 setup. Please retry setup.';
-    Exit;
-  end;
-  if not HasWebView2 then
-    Result := 'Microsoft Edge WebView2 Runtime could not be installed (code ' +
-      IntToStr(ResultCode) + '). Check your internet connection and retry setup.';
-end;
+[InstallDelete]
+Type: filesandordirs; Name: "{app}\locales"
+Type: files; Name: "{app}\Microsoft.Web.WebView2.*.dll"
+Type: files; Name: "{app}\WebView2Loader.dll"

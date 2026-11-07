@@ -13,8 +13,6 @@ using System.Windows;
 using FeatherBrowser.Domain.Models;
 using FeatherBrowser.Presentation.Tabs;
 using FeatherBrowser.Presentation.Pages;
-using Microsoft.Web.WebView2.Core;
-using Microsoft.Web.WebView2.Wpf;
 using Microsoft.Win32;
 
 namespace FeatherBrowser.Presentation.Shell;
@@ -138,11 +136,38 @@ public partial class MainWindow : Window
         .Take(500)
         .ToList();
 
+    private string _appliedCustomRules = string.Empty;
+
+    private void ReloadCustomRulesIfChanged()
+    {
+        string fingerprint = string.Join('\n', _store.Settings.CustomBlockRules);
+        if (fingerprint == _appliedCustomRules)
+            return;
+
+        _appliedCustomRules = fingerprint;
+        _ = ReloadRulesAsync();
+    }
+
+    private async Task ReloadRulesAsync()
+    {
+        try
+        {
+            await Features.Blocking.BlockerEngine.ReloadAsync(_store.Settings.CustomBlockRules);
+            StatusText.Text = $"Feather Shield rules updated ({_store.Settings.CustomBlockRules.Count} custom)";
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.TraceWarning($"Custom rules failed to load: {ex.Message}");
+            StatusText.Text = "Custom Shield rules could not be loaded";
+        }
+    }
+
     private void ApplyRuntimeSettings()
     {
         _ecoMode = _store.Settings.EcoMode;
         _shieldEnabled = _store.Settings.ShieldEnabled;
-        _blocker.Reload(_store.Settings.CustomBlockRules);
+        _blocker.ApplySettings(_store.Settings, _shieldEnabled);
+        ReloadCustomRulesIfChanged();
         NormalizeWorkspaceSettings();
         ApplyUiPreferences();
         UpdateWorkspaceSidebar();
@@ -154,13 +179,14 @@ public partial class MainWindow : Window
     private void ApplyUiPreferences()
     {
         bool compact = _store.Settings.CompactUi;
-        TabBar.Height = compact ? 39 : 43;
-        TabBar.Padding = compact ? new Thickness(8, 3, 8, 3) : new Thickness(9, 5, 9, 5);
-        Toolbar.Height = compact ? 46 : 54;
-        Toolbar.Padding = compact ? new Thickness(8, 5, 8, 5) : new Thickness(9, 8, 9, 8);
+        double rowHeight = compact ? 32 : 36;
+        TitleBar.Height = rowHeight;
+        AddressBorder.Height = compact ? 24 : 28;
+        if (System.Windows.Shell.WindowChrome.GetWindowChrome(this) is { IsFrozen: false } chrome)
+            chrome.CaptionHeight = rowHeight;
         StatusBar.Visibility = _store.Settings.ShowStatusBar && !_isFullscreen ? Visibility.Visible : Visibility.Collapsed;
         WorkspaceSidebar.Visibility = _store.Settings.ShowWorkspaceSidebar && !_isFullscreen ? Visibility.Visible : Visibility.Collapsed;
-        AddressBox.FontSize = compact ? 13 : 14;
+        AddressBox.FontSize = compact ? 12 : 12.5;
     }
 
     private void SetSearchEngine(string engine)

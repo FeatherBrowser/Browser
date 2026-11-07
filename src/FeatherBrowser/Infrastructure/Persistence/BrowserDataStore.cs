@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Text.Json;
+using System.Threading;
 using FeatherBrowser.Domain.Models;
 
 namespace FeatherBrowser.Infrastructure.Persistence;
@@ -28,6 +29,7 @@ internal sealed class BrowserDataStore
     private const int SchemaVersion5 = 5;
     private const int SchemaVersion6 = 6;
     private const int SchemaVersion7 = 7;
+    private const int SchemaVersion8 = 8;
 
     private const string FaviconDataPrefix = "data:image/png;base64,";
 
@@ -36,7 +38,12 @@ internal sealed class BrowserDataStore
         WriteIndented = true
     };
 
+    private static readonly TimeSpan DeferredSaveDelay = TimeSpan.FromSeconds(2);
+
     private readonly object _sync = new();
+    private readonly Timer _deferredSaveTimer;
+    private bool _historyDirty;
+    private bool _faviconsDirty;
 
     private readonly string _root;
     private readonly string _bookmarksPath;
@@ -56,6 +63,7 @@ internal sealed class BrowserDataStore
 
     public BrowserDataStore()
     {
+        _deferredSaveTimer = new Timer(_ => FlushDeferredSaves());
         _root = Path.Join(
     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
     ApplicationDirectoryName,
@@ -72,11 +80,15 @@ internal sealed class BrowserDataStore
 
         _hadExistingSettings = File.Exists(_settingsPath);
 
-        Bookmarks = Load(_bookmarksPath, new List<BrowserBookmark>());
-        History = Load(_historyPath, new List<HistoryEntry>());
+        Task<List<BrowserBookmark>> bookmarks = Task.Run(() => Load(_bookmarksPath, new List<BrowserBookmark>()));
+        Task<List<HistoryEntry>> history = Task.Run(() => Load(_historyPath, new List<HistoryEntry>()));
+        Task<List<DownloadEntry>> downloads = Task.Run(() => Load(_downloadsPath, new List<DownloadEntry>()));
         Settings = Load(_settingsPath, new BrowserSettings());
-        Downloads = Load(_downloadsPath, new List<DownloadEntry>());
         _favicons = LoadFavicons();
+
+        Bookmarks = bookmarks.GetAwaiter().GetResult();
+        History = history.GetAwaiter().GetResult();
+        Downloads = downloads.GetAwaiter().GetResult();
 
         MigrateSettings();
     }
@@ -108,6 +120,12 @@ internal sealed class BrowserDataStore
         if (Settings.SettingsSchemaVersion < SchemaVersion7)
         {
             MigrateToSchema7();
+            changed = true;
+        }
+
+        if (Settings.SettingsSchemaVersion < SchemaVersion8)
+        {
+            MigrateToSchema8();
             changed = true;
         }
 
@@ -159,6 +177,20 @@ internal sealed class BrowserDataStore
     {
         Settings.SitePermissions = new Dictionary<string, string>();
         Settings.SettingsSchemaVersion = SchemaVersion7;
+    }
+
+    private void MigrateToSchema8()
+    {
+        bool onForcedSaverPolicy =
+            Settings.MaxLoadedTabs <= 1 &&
+            Settings.UnloadAfterSeconds <= 5 &&
+            Settings.SleepAfterSeconds <= 2 &&
+            !Settings.GameMode;
+
+        if (onForcedSaverPolicy)
+            FeatherBrowser.Features.WebView3.PerformancePolicy.ApplyProfile(Settings, "balanced");
+
+        Settings.SettingsSchemaVersion = SchemaVersion8;
     }
 
     private bool NormalizeSettings()
@@ -415,8 +447,10 @@ internal sealed class BrowserDataStore
             while (_favicons.Count > MaxFavicons)
                 _favicons.Remove(_favicons.Keys.First());
 
-            Save(_faviconsPath, _favicons);
+            _faviconsDirty = true;
         }
+
+        ScheduleDeferredSave();
     }
 
     private static bool IsValidFaviconImage([NotNullWhen(true)] string? image) =>
@@ -583,7 +617,24 @@ internal sealed class BrowserDataStore
             }
 
             TrimHistory();
-            Save(_historyPath, History);
+            _historyDirty = true;
+        }
+
+        ScheduleDeferredSave();
+    }
+
+    private void ScheduleDeferredSave() =>
+        _deferredSaveTimer.Change(DeferredSaveDelay, Timeout.InfiniteTimeSpan);
+
+    public void FlushDeferredSaves()
+    {
+        lock (_sync)
+        {
+            if (_historyDirty && Save(_historyPath, History))
+                _historyDirty = false;
+
+            if (_faviconsDirty && Save(_faviconsPath, _favicons))
+                _faviconsDirty = false;
         }
     }
 
@@ -810,10 +861,13 @@ internal sealed class BrowserDataStore
         }
     }
 
+    public event Action? SettingsSaved;
+
     public void SaveSettings()
     {
         lock (_sync)
             Save(_settingsPath, Settings);
+        SettingsSaved?.Invoke();
     }
 
     public SessionState LoadSessionState()

@@ -1,0 +1,10 @@
+Feather Browser embeds the Chromium Embedded Framework (CEF) and Chromium through CefSharp.
+
+- CefSharp: BSD 3-Clause license, see CefSharp-LICENSE.txt. https://github.com/cefsharp/CefSharp
+- Chromium Embedded Framework: BSD 3-Clause license. https://bitbucket.org/chromiumembedded/cef/src/master/LICENSE.txt
+- Chromium: BSD-style license plus the licenses of its bundled third-party components.
+  The complete list ships inside the engine and is shown at chrome://credits in any Feather tab.
+  https://chromium.googlesource.com/chromium/src/+/main/LICENSE
+
+The CEF binaries are distributed by the chromiumembeddedframework.runtime NuGet packages,
+which include CEF's own LICENSE.txt. Keep these notices with every binary distribution.

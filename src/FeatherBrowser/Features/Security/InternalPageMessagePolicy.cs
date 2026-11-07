@@ -4,10 +4,15 @@ namespace FeatherBrowser.Features.Security;
 
 internal static class InternalPageMessagePolicy
 {
-    private const string InternalDocumentSource = "about:blank";
+    public const string InternalHost = "feather.internal";
 
     public static bool IsInternalDocumentSource(string? source) =>
-        string.Equals(source, InternalDocumentSource, StringComparison.OrdinalIgnoreCase);
+        Uri.TryCreate(source, UriKind.Absolute, out Uri? uri) &&
+        uri.Scheme == Uri.UriSchemeHttps &&
+        uri.IsDefaultPort &&
+        string.IsNullOrEmpty(uri.UserInfo) &&
+        string.Equals(uri.Host, InternalHost, StringComparison.OrdinalIgnoreCase) &&
+        !uri.AbsolutePath.StartsWith("/assets/", StringComparison.OrdinalIgnoreCase);
 
     public static bool IsTrusted(
         bool isInternalPage,

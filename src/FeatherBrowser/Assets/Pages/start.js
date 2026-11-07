@@ -102,6 +102,10 @@ document.querySelectorAll("[data-action]").forEach((button) => {
 });
 
 function renderState(state) {
+  if (typeof state.privateMode === "boolean") {
+    document.querySelector(".continue-section").hidden = state.privateMode;
+  }
+
   if (state.favicons && typeof state.favicons === "object") {
     const changed = JSON.stringify(favicons) !== JSON.stringify(state.favicons);
 

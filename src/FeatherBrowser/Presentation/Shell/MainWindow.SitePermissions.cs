@@ -11,8 +11,6 @@ using System.Windows.Shell;
 using System.Windows.Threading;
 using System.Windows;
 using FeatherBrowser.Features.Security;
-using Microsoft.Web.WebView2.Core;
-using Microsoft.Web.WebView2.Wpf;
 using Microsoft.Win32;
 
 namespace FeatherBrowser.Presentation.Shell;
@@ -55,7 +53,7 @@ public partial class MainWindow : Window
             _store.SaveSettings();
             UpdateFeatureButtons();
             if (_activeTab is { IsInternalPage: false, IsLoaded: true })
-                _activeTab.View.CoreWebView2.Reload();
+                _activeTab.View.Reload();
         };
         menu.Items.Add(enabled);
 
@@ -65,7 +63,7 @@ public partial class MainWindow : Window
             _store.Settings.StrictBlocking = !_store.Settings.StrictBlocking;
             _store.SaveSettings();
             if (_activeTab is { IsInternalPage: false, IsLoaded: true })
-                _activeTab.View.CoreWebView2.Reload();
+                _activeTab.View.Reload();
         };
         menu.Items.Add(strict);
 
@@ -90,7 +88,7 @@ public partial class MainWindow : Window
                     _store.Settings.AllowlistedSites.Add(currentHost);
                 _store.SaveSettings();
                 if (_activeTab is { IsLoaded: true })
-                    _activeTab.View.CoreWebView2.Reload();
+                    _activeTab.View.Reload();
             };
             menu.Items.Add(site);
         }
@@ -142,7 +140,7 @@ public partial class MainWindow : Window
             _store.SaveSettings();
             StatusText.Text = allowlisted ? $"Shield enabled for {host}" : $"Shield disabled for {host}";
             if (_activeTab is { IsLoaded: true })
-                _activeTab.View.CoreWebView2.Reload();
+                _activeTab.View.Reload();
         };
         menu.Items.Add(shield);
 
@@ -160,9 +158,9 @@ public partial class MainWindow : Window
         menu.Items.Add(keepAliveItem);
 
         var permissions = new MenuItem { Header = "Permissions" };
-        foreach (string kind in new[] { "Camera", "Microphone", "Geolocation", "Notifications" })
+        foreach (string kind in new[] { "Camera", "Microphone", "Geolocation", "Notifications", "ScreenCapture", "ClipboardRead", "MidiSystemExclusiveMessages" })
         {
-            var kindMenu = new MenuItem { Header = kind };
+            var kindMenu = new MenuItem { Header = PermissionDisplayName(kind) };
             string current = GetSitePermission(origin, kind);
             foreach (string choice in new[] { "Ask", "Allow", "Block" })
             {
@@ -205,52 +203,13 @@ public partial class MainWindow : Window
 
         try
         {
-            CoreWebView2? core = tab.View.CoreWebView2;
-
-            if (core is null)
-            {
-                StatusText.Text = "Could not clear site cookies: tab is not ready";
-                return;
-            }
-
-            var cookies = await core.CookieManager.GetCookiesAsync(tab.LastAddress);
-
-            foreach (CoreWebView2Cookie cookie in cookies)
-            {
-                core.CookieManager.DeleteCookie(cookie);
-            }
-
-            StatusText.Text =
-                $"Cleared {cookies.Count} cookie{(cookies.Count == 1 ? "" : "s")} for {SafeHost(tab.LastAddress)}";
-
+            int cleared = await tab.View.ClearCookiesAsync(tab.LastAddress);
+            StatusText.Text = $"Cleared {cleared} cookie{(cleared == 1 ? "" : "s")} for {SafeHost(tab.LastAddress)}";
             tab.View.Reload();
         }
-        catch (ObjectDisposedException ex)
+        catch (Exception ex) when (ex is ObjectDisposedException or InvalidOperationException or ArgumentException)
         {
-            System.Diagnostics.Trace.TraceWarning(
-                $"Could not clear cookies because WebView2 was disposed: {ex.Message}");
-
-            StatusText.Text = "Could not clear site cookies";
-        }
-        catch (InvalidOperationException ex)
-        {
-            System.Diagnostics.Trace.TraceWarning(
-                $"Could not clear cookies due to an invalid WebView2 state: {ex.Message}");
-
-            StatusText.Text = "Could not clear site cookies";
-        }
-        catch (ArgumentException ex)
-        {
-            System.Diagnostics.Trace.TraceWarning(
-                $"Could not clear cookies because the site address was invalid: {ex.Message}");
-
-            StatusText.Text = "Could not clear site cookies: invalid address";
-        }
-        catch (System.Runtime.InteropServices.COMException ex)
-        {
-            System.Diagnostics.Trace.TraceWarning(
-                $"Could not clear cookies due to a WebView2 runtime error: {ex.Message}");
-
+            System.Diagnostics.Trace.TraceWarning($"Could not clear cookies: {ex.Message}");
             StatusText.Text = "Could not clear site cookies";
         }
     }

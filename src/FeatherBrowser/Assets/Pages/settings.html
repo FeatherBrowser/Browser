@@ -11,10 +11,9 @@ __PAGE_STYLES__
 <body>
 <aside class="sidebar">
   <div class="brandrow">
-    <div class="brandmark" aria-hidden="true"></div>
     <div>
-      <div class="brand">Feather Browser</div>
-      <div class="version">__APP_VERSION__ · WebView3</div>
+      <div class="brand">Settings</div>
+      <div class="version">Feather __APP_VERSION__</div>
     </div>
   </div>
 
@@ -48,11 +47,6 @@ __PAGE_STYLES__
       <span>Data &amp; Recovery</span>
     </button>
   </nav>
-
-  <div class="sidefoot">
-    <strong>Lightweight. Private. Yours.</strong>
-    Feather keeps the browser shell small.
-  </div>
 </aside>
 
 <main class="content">
@@ -70,11 +64,6 @@ __PAGE_STYLES__
   <div id="searchEmpty" class="search-empty">No settings match your search.</div>
 
   <section id="general" class="section" data-title="General" data-subtitle="Choose how Feather starts, searches, and restores your browser session.">
-    <div class="hero-callout">
-      <div class="hero-icon">F</div>
-      <div class="hero-copy"><strong>Keep the browser simple.</strong><p>Core browser behaviour lives here. Performance-heavy options stay in Performance and Gaming.</p></div>
-      <div class="hero-tag">Clean defaults. Less overhead.</div>
-    </div>
 
     <div class="card">
       <div class="cardhead"><div><h2>Browser defaults</h2><p>Search, startup, and crash recovery.</p></div></div>
@@ -85,11 +74,6 @@ __PAGE_STYLES__
   </section>
 
   <section id="account" class="section" data-title="Account &amp; Sync" data-subtitle="Sign in, protect your account with 2FA, and sync encrypted browser data across Feather devices.">
-    <div class="hero-callout account-hero">
-      <div class="hero-icon">☁</div>
-      <div class="hero-copy"><strong>Zero-knowledge Feather Sync</strong><p>Your browser data is encrypted on your device before upload. The sync service does not receive your Sync Master Key.</p></div>
-      <div id="accountHeroTag" class="hero-tag">Local-only</div>
-    </div>
 
     <div id="accountMessage" class="account-message"></div>
 
@@ -132,11 +116,6 @@ __PAGE_STYLES__
   </section>
 
   <section id="gaming" class="section" data-title="Gaming" data-subtitle="Minimise browser interference while your game owns the CPU, GPU, and RAM.">
-    <div class="hero-callout">
-      <div class="hero-icon">⚡</div>
-      <div class="hero-copy"><strong>Built for alt-tab gaming.</strong><p>Keep the active tab responsive while cold-unloading background tabs and muting unnecessary activity.</p></div>
-      <div class="hero-tag">Less browser. More game.</div>
-    </div>
 
     <div class="card">
       <div class="cardhead"><div><h2>Gaming behaviour</h2><p>Controls used when Feather should stay out of your game's way.</p></div></div>
@@ -148,34 +127,29 @@ __PAGE_STYLES__
   </section>
 
   <section id="performance" class="section active" data-title="Performance" data-subtitle="Control memory usage and keep Feather fast, even with many tabs open.">
-    <div class="hero-callout">
-      <div class="hero-icon">ϟ</div>
-      <div class="hero-copy"><strong>Feather WebView3</strong><p>Smarter tab management, powered by WebView2. Choose the balance between memory use and instant tab switching.</p></div>
-      <div class="hero-tag">Control background work</div>
-    </div>
 
     <div class="card" style="margin-bottom:16px"><div class="cardhead"><div><h2>Apply a performance profile</h2><p>Applies immediately and replaces memory/timing settings below. Pin important tabs or add Keep Alive sites before using aggressive unloading.</p></div></div><div class="textblock actions"><button class="action" data-profile="balanced">Balanced</button><button class="action" data-profile="saver">Memory Saver</button><button class="action" data-profile="gaming">Gaming</button><button class="action" data-profile="responsive">Responsive</button></div></div>
     <div class="statgrid">
-      <div class="stat"><div class="staticon">▦</div><div><small>RAM Guard</small><strong id="statRam">700 MB</strong><span>Memory limit</span></div></div>
-      <div class="stat"><div class="staticon">▣</div><div><small>Loaded Tab Budget</small><strong id="statTabs">1</strong><span>Configured maximum</span></div></div>
-      <div class="stat"><div class="staticon">◷</div><div><small>Unload Delay</small><strong id="statUnload">5s</strong><span>After hiding tabs</span></div></div>
+      <div class="stat"><div><small>Memory limit</small><strong id="statRam">700 MB</strong></div></div>
+      <div class="stat"><div><small>Loaded tabs</small><strong id="statTabs">1</strong></div></div>
+      <div class="stat"><div><small>Unload after</small><strong id="statUnload">5s</strong></div></div>
     </div>
 
     <div class="grid2">
       <div class="card">
-        <div class="cardhead"><div><h2>Memory &amp; Tab Management</h2><p>Fine-tune how Feather handles background tabs and memory pressure.</p></div></div>
-        <div class="row"><div><div class="title">Low Memory Mode <span class="badge rambadge">Recommended</span></div><div class="desc">Fully disposes old background WebView2 controls instead of keeping renderer memory resident.</div></div><label class="switch"><input id="lowMemory" type="checkbox"><span class="slider"></span></label></div>
+        <div class="cardhead"><div><h2>Memory and tabs</h2><p>Fine-tune how Feather handles background tabs and memory pressure.</p></div></div>
+        <div class="row"><div><div class="title">Low memory mode <span class="badge rambadge">Recommended</span></div><div class="desc">Fully unloads the oldest background tabs instead of keeping their renderer in memory. Frozen tabs already use no CPU.</div></div><label class="switch"><input id="lowMemory" type="checkbox"><span class="slider"></span></label></div>
         <div class="row"><div><div class="title">Gaming Mode</div><div class="desc">Prioritises the active tab and reduces background activity.</div></div><label class="switch"><input id="gameMirror" type="checkbox"><span class="slider game"></span></label></div>
         <div class="row"><div><div class="title">Eco suspension</div><div class="desc">Suspends hidden warm tabs before they are completely unloaded.</div></div><label class="switch"><input id="eco" type="checkbox"><span class="slider"></span></label></div>
-        <div class="row"><div><div class="title">Adaptive Memory Mode</div><div class="desc">Tightens the loaded-tab budget as Feather approaches your RAM Guard limit.</div></div><label class="switch"><input id="adaptiveMemory" type="checkbox"><span class="slider"></span></label></div>
+        <div class="row"><div><div class="title">Adaptive memory mode</div><div class="desc">Tightens the loaded-tab budget as Feather approaches your RAM Guard limit.</div></div><label class="switch"><input id="adaptiveMemory" type="checkbox"><span class="slider"></span></label></div>
         <div class="row"><div><div class="title">Cold-unload other workspaces</div><div class="desc">Tabs in inactive workspaces can be disposed immediately to minimise their RAM cost.</div></div><label class="switch"><input id="coldWorkspaces" type="checkbox"><span class="slider"></span></label></div>
-        <div class="row"><div><div class="title">Automatic RAM Guard</div><div class="desc">Emergency-trims eligible background tabs once the total Feather/WebView2 limit is crossed.</div></div><label class="switch"><input id="autoMemory" type="checkbox"><span class="slider"></span></label></div>
+        <div class="row"><div><div class="title">Automatic memory guard</div><div class="desc">Emergency-trims eligible background tabs once Feather and its Chromium processes cross the limit.</div></div><label class="switch"><input id="autoMemory" type="checkbox"><span class="slider"></span></label></div>
       </div>
 
       <div class="stack">
         <div class="card">
           <div class="cardhead">
-            <div><h2>Limits &amp; Timing</h2><p>How aggressively Feather unloads tabs.</p></div>
+            <div><h2>Limits and timing</h2><p>How aggressively Feather unloads tabs.</p></div>
             <div class="cardactions">
               <button class="action primary" data-action="trim-memory">Trim memory now</button>
               <button class="action" id="resetPerformance">Reset defaults</button>
@@ -183,27 +157,22 @@ __PAGE_STYLES__
             </div>
           </div>
           <div class="row"><div><div class="title">Tab switching grace period</div><div class="desc">Temporarily allows extra loaded tabs to avoid reloads while switching. Gaming and emergency memory trimming bypass this delay.</div></div><input id="grace" type="number" min="0" max="60" aria-label="Tab switching grace period in seconds"></div>
-          <div class="row"><div><div class="title">Maximum Loaded Tabs</div><div class="desc">Number of tabs Feather is allowed to keep warm.</div></div><input id="maxLoaded" type="number" min="1" max="8"></div>
-          <div class="row"><div><div class="title">Unload Hidden Tabs After</div><div class="desc">Seconds before a hidden tab becomes a cold tab.</div></div><input id="unload" type="number" min="2" max="300"></div>
-          <div class="row"><div><div class="title">Suspend Tabs After</div><div class="desc">Seconds before Eco suspension pauses an inactive warm tab.</div></div><input id="sleep" type="number" min="1" max="60"></div>
-          <div class="row"><div><div class="title">Memory Limit</div><div class="desc">Private RAM threshold before background trimming. On older Windows, the labelled private-commit fallback is used.</div></div><input id="memoryLimit" type="number" min="350" max="8192" step="50"></div>
-          <div class="row"><div><div class="title">Performance Center</div><div class="desc">Inspect loaded/cold tabs and WebView2 process memory.</div></div><button class="action" data-action="performance-center">Open</button></div>
+          <div class="row"><div><div class="title">Maximum loaded tabs</div><div class="desc">Number of tabs Feather is allowed to keep warm.</div></div><input id="maxLoaded" type="number" min="1" max="8"></div>
+          <div class="row"><div><div class="title">Unload hidden tabs after</div><div class="desc">Seconds before a hidden tab becomes a cold tab.</div></div><input id="unload" type="number" min="2" max="300"></div>
+          <div class="row"><div><div class="title">Suspend tabs after</div><div class="desc">Seconds before Eco suspension pauses an inactive warm tab.</div></div><input id="sleep" type="number" min="1" max="60"></div>
+          <div class="row"><div><div class="title">Memory limit</div><div class="desc">Private RAM threshold before background trimming. On older Windows, the labelled private-commit fallback is used.</div></div><input id="memoryLimit" type="number" min="350" max="8192" step="50"></div>
+          <div class="row"><div><div class="title">Performance Center</div><div class="desc">Inspect loaded, sleeping and cold tabs, and memory per Chromium process.</div></div><button class="action" data-action="performance-center">Open</button></div>
         </div>
 
         <div class="card">
-          <div class="cardhead"><div><h2>Site Exceptions</h2><p>Keep important sites alive without weakening global memory controls.</p></div></div>
-          <div class="textblock"><div class="title">Keep Alive Sites</div><div class="desc">Never cold-unload these hostnames. One per line.</div><textarea id="keepAlive" spellcheck="false">__KEEP_ALIVE__</textarea></div>
+          <div class="cardhead"><div><h2>Site exceptions</h2><p>Keep important sites alive without weakening global memory controls.</p></div></div>
+          <div class="textblock"><div class="title">Keep-alive sites</div><div class="desc">Never cold-unload these hostnames. One per line.</div><textarea id="keepAlive" spellcheck="false">__KEEP_ALIVE__</textarea></div>
         </div>
       </div>
     </div>
   </section>
 
   <section id="privacy" class="section" data-title="Privacy & Shield" data-subtitle="Block ads and trackers without loading a heavyweight extension.">
-    <div class="hero-callout">
-      <div class="hero-icon">◇</div>
-      <div class="hero-copy"><strong>Feather Shield</strong><p>Network blocking, tracking cleanup, and cosmetic filtering are integrated directly into the browser.</p></div>
-      <div class="hero-tag">Private by default.</div>
-    </div>
 
     <div class="grid2">
       <div class="card">
@@ -229,19 +198,23 @@ __PAGE_STYLES__
       <div class="cardhead"><div><h2>Browser chrome</h2><p>Lightweight visual controls only.</p></div></div>
       <div class="row"><div><div class="title">Compact browser UI</div><div class="desc">Reduces tab and toolbar height.</div></div><label class="switch"><input id="compact" type="checkbox"><span class="slider"></span></label></div>
       <div class="row"><div><div class="title">Workspace sidebar</div><div class="desc">Shows native workspace controls plus browser shortcuts. Shortcut: Ctrl+B.</div></div><label class="switch"><input id="workspaceSidebar" type="checkbox"><span class="slider"></span></label></div>
-      <div class="row"><div><div class="title">Show resource/status bar</div><div class="desc">Shows RAM, loaded tabs, cold tabs, sleeping tabs, and WebView process count.</div></div><label class="switch"><input id="statusbar" type="checkbox"><span class="slider"></span></label></div>
+      <div class="row"><div><div class="title">Show resource/status bar</div><div class="desc">Shows RAM, loaded tabs, cold tabs, sleeping tabs, and Chromium process count.</div></div><label class="switch"><input id="statusbar" type="checkbox"><span class="slider"></span></label></div>
+    </div>
+    <div class="card">
+      <div class="cardhead"><div><h2>Keyboard shortcuts</h2><p>They work everywhere, including while a page has focus.</p></div></div>
+      <div class="shortcut-grid"><div class="shortcut"><span class="keys"><kbd>Ctrl</kbd><kbd>K</kbd></span><span>Command palette</span></div><div class="shortcut"><span class="keys"><kbd>Ctrl</kbd><kbd>T</kbd></span><span>New tab</span></div><div class="shortcut"><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>T</kbd></span><span>Reopen closed tab</span></div><div class="shortcut"><span class="keys"><kbd>Ctrl</kbd><kbd>W</kbd></span><span>Close tab</span></div><div class="shortcut"><span class="keys"><kbd>Ctrl</kbd><kbd>1–9</kbd></span><span>Jump to tab</span></div><div class="shortcut"><span class="keys"><kbd>Ctrl</kbd><kbd>Tab</kbd></span><span>Next tab</span></div><div class="shortcut"><span class="keys"><kbd>Ctrl</kbd><kbd>L</kbd></span><span>Focus address bar</span></div><div class="shortcut"><span class="keys"><kbd>Ctrl</kbd><kbd>F</kbd></span><span>Find on page</span></div><div class="shortcut"><span class="keys"><kbd>Ctrl</kbd><kbd>D</kbd></span><span>Add to favorites</span></div><div class="shortcut"><span class="keys"><kbd>Ctrl</kbd><kbd>H</kbd></span><span>History</span></div><div class="shortcut"><span class="keys"><kbd>Ctrl</kbd><kbd>J</kbd></span><span>Downloads</span></div><div class="shortcut"><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>N</kbd></span><span>Private window</span></div><div class="shortcut"><span class="keys"><kbd>Ctrl</kbd><kbd>+ / −</kbd></span><span>Zoom in / out</span></div><div class="shortcut"><span class="keys"><kbd>Ctrl</kbd><kbd>P</kbd></span><span>Print</span></div><div class="shortcut"><span class="keys"><kbd>F12</kbd></span><span>Developer tools</span></div><div class="shortcut"><span class="keys"><kbd>Shift</kbd><kbd>Esc</kbd></span><span>Performance Center</span></div><div class="shortcut"><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>M</kbd></span><span>Trim memory</span></div><div class="shortcut"><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>G</kbd></span><span>Gaming Mode</span></div></div>
     </div>
   </section>
 
   <section id="data" class="section" data-title="Data & Recovery" data-subtitle="Migrate into Feather, protect local data, or clear browser records.">
     <div class="statgrid">
-      <div class="stat"><div class="staticon">★</div><div><small>Favorites</small><strong>__BOOKMARK_COUNT__</strong><span>saved links</span></div></div>
-      <div class="stat"><div class="staticon">◷</div><div><small>History</small><strong>__HISTORY_COUNT__</strong><span>local entries</span></div></div>
-      <div class="stat"><div class="staticon">⌁</div><div><small>Passwords</small><strong>__PASSWORD_COUNT__</strong><span>protected imports</span></div></div>
+      <div class="stat"><div><small>Favorites</small><strong>__BOOKMARK_COUNT__</strong></div></div>
+      <div class="stat"><div><small>History</small><strong>__HISTORY_COUNT__</strong></div></div>
+      <div class="stat"><div><small>Passwords</small><strong>__PASSWORD_COUNT__</strong></div></div>
     </div>
 
     <div class="card">
-      <div class="cardhead"><div><h2>Migration &amp; Recovery</h2><p>Move data into Feather and manage local browser records.</p></div></div>
+      <div class="cardhead"><div><h2>Migration and recovery</h2><p>Move data into Feather and manage local browser records.</p></div></div>
       <div class="row"><div><div class="title">Microsoft Edge migration</div><div class="desc">Import favorites, browsing history, and recoverable tab URLs.</div></div><button class="action" data-action="import-edge">Import Edge data</button></div>
       <div class="row"><div><div class="title">Passwords</div><div class="desc">Import an Edge password CSV into Feather's Windows-protected vault.</div></div><div class="actions"><button class="action" data-action="open-edge-password-export">Export in Edge</button><button class="action" data-action="import-passwords">Import CSV</button></div></div>
       <div class="row"><div><div class="title">Default browser</div><div class="desc">Register Feather with Windows and open Default Apps.</div></div><button class="action primary" data-action="default-browser">Set default</button></div>
@@ -255,7 +228,7 @@ __PAGE_STYLES__
 
   <div class="footer">
     <div class="save-state">
-      <div class="save-dot">✓</div>
+      <div class="save-dot"></div>
       <div class="save-copy"><strong id="saveTitle">Ready to apply</strong><span id="saveSubtitle">Changes stay local until you press Apply.</span></div>
     </div>
     <span id="saved" class="saved">Saved</span>

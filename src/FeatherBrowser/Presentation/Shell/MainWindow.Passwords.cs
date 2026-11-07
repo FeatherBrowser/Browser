@@ -12,8 +12,6 @@ using System.Windows.Threading;
 using System.Windows;
 using FeatherBrowser.Domain.Models;
 using FeatherBrowser.Infrastructure.Resources;
-using Microsoft.Web.WebView2.Core;
-using Microsoft.Web.WebView2.Wpf;
 using Microsoft.Win32;
 
 namespace FeatherBrowser.Presentation.Shell;
@@ -33,7 +31,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        string source = _activeTab.View.CoreWebView2.Source ?? _activeTab.LastAddress;
+        string source = string.IsNullOrWhiteSpace(_activeTab.View.Source) ? _activeTab.LastAddress : _activeTab.View.Source;
         List<SavedCredential> matches = _passwordVault.FindForUrl(source);
         if (matches.Count == 0)
         {
@@ -83,7 +81,7 @@ public partial class MainWindow : Window
 
         try
         {
-            string current = _activeTab.View.CoreWebView2.Source ?? _activeTab.LastAddress;
+            string current = string.IsNullOrWhiteSpace(_activeTab.View.Source) ? _activeTab.LastAddress : _activeTab.View.Source;
             if (_passwordVault.FindForUrl(current).All(x =>
                     !string.Equals(x.Origin, credential.Origin, StringComparison.OrdinalIgnoreCase) ||
                     !string.Equals(x.Username, credential.Username, StringComparison.Ordinal)))
@@ -101,7 +99,7 @@ public partial class MainWindow : Window
                 .Replace("__USERNAME_JSON__", usernameJson, StringComparison.Ordinal)
                 .Replace("__PASSWORD_JSON__", passwordJson, StringComparison.Ordinal);
 
-            string result = await _activeTab.View.CoreWebView2.ExecuteScriptAsync(script);
+            string result = await _activeTab.View.ExecuteScriptAsync(script);
             StatusText.Text = result.Contains("filled", StringComparison.OrdinalIgnoreCase)
                 ? $"Filled saved login for {SafeHost(current)}"
                 : result.Contains("origin-changed", StringComparison.Ordinal)
@@ -124,7 +122,7 @@ public partial class MainWindow : Window
         }
 
         if (MessageBox.Show(
-                $"Forget all {_passwordVault.Count} passwords imported into Feather's migration vault?\n\nThis does not remove passwords that WebView2 has saved natively after you sign in.",
+                $"Forget all {_passwordVault.Count} passwords imported into Feather's migration vault?\n\nWebsite sign-ins and cookies are not affected.",
                 "Forget imported passwords",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Warning) != MessageBoxResult.Yes)
