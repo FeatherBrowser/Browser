@@ -20,10 +20,10 @@ internal sealed class BrowserSettings
     public bool StrictBlocking { get; set; } = true;
     public bool CosmeticBlocking { get; set; } = true;
     public bool BlockThirdPartyTrackers { get; set; } = true;
-    public int SleepAfterSeconds { get; set; } = 2;
+    public int SleepAfterSeconds { get; set; } = 10;
     public bool LowMemoryMode { get; set; } = true;
-    public int MaxLoadedTabs { get; set; } = 1;
-    public int UnloadAfterSeconds { get; set; } = 5;
+    public int MaxLoadedTabs { get; set; } = 3;
+    public int UnloadAfterSeconds { get; set; } = 60;
     public bool KeepAudioTabsLoaded { get; set; } = true;
     public bool StripTrackingParameters { get; set; } = true;
     public string SearchEngine { get; set; } = "Google";
@@ -31,7 +31,7 @@ internal sealed class BrowserSettings
     public bool CompactUi { get; set; }
     public bool ShowStatusBar { get; set; } = true;
     public bool AutoMemoryGuard { get; set; } = true;
-    public int MemoryGuardMb { get; set; } = 700;
+    public int MemoryGuardMb { get; set; } = 1200;
     public bool HibernateWhenMinimized { get; set; } = true;
     public bool CrashRecoveryAutosave { get; set; } = true;
     public int LastActiveSessionIndex { get; set; }
@@ -48,5 +48,10 @@ internal sealed class BrowserSettings
     public bool SendDoNotTrack { get; set; } = true;
     public bool FirstRunCompleted { get; set; }
     public bool DataBackupsEnabled { get; set; } = true;
+    public bool SyncEnabled { get; set; }
+    public bool AutoSyncEnabled { get; set; } = true;
+    public int AutoSyncMinutes { get; set; } = 5;
+    public bool SyncHistory { get; set; }
+    public bool SyncOpenTabs { get; set; }
     public Dictionary<string, string> SitePermissions { get; set; } = new();
 }

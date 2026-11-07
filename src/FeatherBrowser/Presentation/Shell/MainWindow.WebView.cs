@@ -1,62 +1,77 @@
-using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
-using System.Runtime.InteropServices;
-using System.Text.Json;
-using System.Windows.Controls.Primitives;
-using System.Windows.Controls;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Shell;
-using System.Windows.Threading;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Threading;
 using FeatherBrowser.Domain.Models;
-using FeatherBrowser.Features.Blocking;
+using FeatherBrowser.Features.Engine;
+using FeatherBrowser.Features.Security;
 using FeatherBrowser.Presentation.Pages;
 using FeatherBrowser.Presentation.Tabs;
-using Microsoft.Web.WebView2.Core;
-using Microsoft.Web.WebView2.Wpf;
-using Microsoft.Win32;
 
 namespace FeatherBrowser.Presentation.Shell;
 
 public partial class MainWindow : Window
 {
-    private WebView2 CreateWebViewControl() => new()
+    private readonly Dictionary<(WebPage Page, int Id), DownloadEntry?> _downloadEntries = [];
+    private string? _statusBeforeHover;
+
+    private WebPage CreateWebViewControl() => new(new WebPageOptions
     {
-        Visibility = Visibility.Collapsed,
-        DefaultBackgroundColor = System.Drawing.Color.FromArgb(255, 14, 16, 20)
-    };
+        Network = _blocker,
+        RequestContext = _privateContext,
+        IsShortcut = IsBrowserShortcut,
+        IsReservedShortcut = IsReservedBrowserShortcut,
+        DownloadFolder = DownloadPaths.DefaultFolder,
+        NavigationGate = _rulesGate,
+    });
+
+    private WebPage CreatePageFor(BrowserTab tab)
+    {
+        WebPage page = CreateWebViewControl();
+        HookPage(tab, page);
+        return page;
+    }
 
     private Task EnsureTabLoadedAsync(BrowserTab tab)
     {
-        if (tab.IsClosed || tab.IsLoaded || _environment is null) return Task.CompletedTask;
-        if (tab.LoadingTask is { IsCompleted: false }) return tab.LoadingTask;
+        if (tab.IsClosed || tab.IsLoaded || !_engineReady)
+            return Task.CompletedTask;
+        if (tab.LoadingTask is { IsCompleted: false })
+            return tab.LoadingTask;
         tab.LoadingTask = LoadTabCoreAsync(tab);
         return tab.LoadingTask;
     }
 
     private async Task LoadTabCoreAsync(BrowserTab tab)
     {
-        var view = tab.View;
-        BrowserHost.Children.Insert(Math.Max(0, BrowserHost.Children.Count - 1), view);
+        WebPage page = tab.View;
+
+        if (_activeTab == tab && CommandPaletteOverlay.Visibility != Visibility.Visible && WindowState != WindowState.Minimized)
+            page.SetVisible(true, zIndex: 10);
+
+        FrameworkElement control = page.Control;
+        if (!BrowserHost.Children.Contains(control))
+            BrowserHost.Children.Insert(Math.Max(0, BrowserHost.Children.Count - 1), control);
+
         try
         {
-            await view.EnsureCoreWebView2Async(_environment);
-            if (tab.IsClosed || _isClosing || tab.View != view) return;
+            await page.EnsureCreatedAsync();
+            if (tab.IsClosed || _isClosing || tab.View != page)
+                return;
+
             tab.IsLoaded = true;
             tab.NeedsContentRestore = false;
-            ConfigureWebView(tab);
             RestoreTabContent(tab);
             tab.UpdateStateIndicator();
         }
         catch
         {
-            BrowserHost.Children.Remove(view);
-            view.Dispose();
-            if (!tab.IsClosed && tab.View == view)
+            RemovePageControl(page);
+            page.Dispose();
+            if (!tab.IsClosed && tab.View == page)
             {
-                tab.View = CreateWebViewControl();
+                tab.View = CreatePageFor(tab);
                 tab.IsLoaded = false;
                 tab.NeedsContentRestore = true;
                 tab.UpdateStateIndicator();
@@ -72,302 +87,487 @@ public partial class MainWindow : Window
 
         if (tab.IsWelcomePage)
         {
-            tab.View.NavigateToString(WelcomePage.Html());
+            tab.View.NavigateToInternalPage("welcome", PrepareInternalPageHtml(tab, WelcomePage.Html()));
             return;
         }
 
         if (tab.IsSettingsPage)
         {
-            tab.View.NavigateToString(SettingsPage.Html(_store.Settings, _store.Bookmarks.Count, _store.History.Count, _passwordVault.Count));
+            tab.SettingsSection = SettingsPage.NormalizeSection(tab.SettingsSection);
+            tab.View.NavigateToInternalPage(
+                "settings",
+                PrepareInternalPageHtml(
+                    tab,
+                    SettingsPage.Html(
+                        _store.Settings,
+                        _store.Bookmarks.Count,
+                        _store.History.Count,
+                        _passwordVault.Count,
+                        _accountPageState,
+                        tab.SettingsSection)));
             return;
         }
 
         if (tab.IsLibraryPage)
         {
-            tab.View.NavigateToString(LibraryPage.Html(_store.Bookmarks, _store.History, _store.Downloads, tab.LibrarySection));
+            tab.View.NavigateToInternalPage(
+                tab.LibrarySection,
+                PrepareInternalPageHtml(tab, LibraryPage.Html(_store.Bookmarks, _store.History, _store.Downloads, tab.LibrarySection)));
             return;
         }
 
         if (tab.IsStartPage || string.IsNullOrWhiteSpace(tab.LastAddress))
         {
-            (string name, string prefix) = SearchEngineInfo();
-            tab.View.NavigateToString(StartPage.Html(name, prefix, _store.Settings));
+            ShowStartPageContent(tab);
             return;
         }
 
-        tab.View.CoreWebView2.Navigate(tab.LastAddress);
+        tab.View.Navigate(tab.LastAddress);
     }
 
-    private void ConfigureWebView(BrowserTab tab)
+    private async Task HandleDeferredWebMessageAsync(BrowserTab tab, string messageJson)
     {
-        CoreWebView2 core = tab.View.CoreWebView2;
-        core.Settings.IsStatusBarEnabled = false;
-        core.Settings.AreDevToolsEnabled = true;
-        core.Settings.AreDefaultContextMenusEnabled = true;
-        core.Settings.AreBrowserAcceleratorKeysEnabled = true;
-        core.Settings.IsZoomControlEnabled = true;
-        core.Settings.IsBuiltInErrorPageEnabled = true;
-        core.Settings.IsWebMessageEnabled = true;
-        core.Profile.IsGeneralAutofillEnabled = !_isPrivateMode;
-        core.Profile.IsPasswordAutosaveEnabled = !_isPrivateMode;
-
-        core.PermissionRequested += (_, e) => Dispatcher.Invoke(() =>
+        try
         {
-            string host = SafeHost(core.Source ?? tab.LastAddress).ToLowerInvariant();
-            if (string.IsNullOrWhiteSpace(host) || host == "page")
+            await HandleWebMessageAsync(tab, messageJson);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception exception)
+        {
+            Debug.WriteLine($"Deferred page message failed: {exception}");
+            StatusText.Text = "The requested action could not be completed";
+        }
+    }
+
+    private void ForgetPageDownloads(BrowserTab tab, WebPage page)
+    {
+        foreach (var key in _downloadEntries.Keys.Where(key => ReferenceEquals(key.Page, page)).ToList())
+        {
+            if (_downloadEntries[key] is { } entry)
+                _store.UpdateDownload(entry.Id, "Interrupted", entry.FilePath);
+            _downloadEntries.Remove(key);
+        }
+
+        tab.ResetDownloads();
+    }
+
+    private void RemovePageControl(WebPage page)
+    {
+        if (page.HasControl)
+            BrowserHost.Children.Remove(page.Control);
+    }
+
+    private bool IsCurrent(BrowserTab tab, WebPage page) =>
+        !_isClosing && !tab.IsClosed && ReferenceEquals(tab.View, page);
+
+    private void HookPage(BrowserTab tab, WebPage page)
+    {
+        page.FullscreenChanged += (_, fullscreen) =>
+        {
+            if (!IsCurrent(tab, page) || !tab.IsLoaded)
                 return;
 
-            string kind = e.PermissionKind.ToString();
-            string key = PermissionKey(host, kind);
-            if (_store.Settings.SitePermissions.TryGetValue(key, out string? decision))
+            if (fullscreen)
             {
-                e.State = decision switch
+                if (!ReferenceEquals(tab, _activeTab))
                 {
-                    "Allow" => CoreWebView2PermissionState.Allow,
-                    "Block" => CoreWebView2PermissionState.Deny,
-                    _ => CoreWebView2PermissionState.Default
-                };
-                return;
+                    _ = ExitDocumentFullscreenAsync(tab);
+                    return;
+                }
+
+                _videoFullscreenTab = tab;
+            }
+            else if (ReferenceEquals(_videoFullscreenTab, tab))
+            {
+                _videoFullscreenTab = null;
             }
 
-            if (_store.Settings.BlockNotificationPrompts && string.Equals(kind, "Notifications", StringComparison.OrdinalIgnoreCase))
-                e.State = CoreWebView2PermissionState.Deny;
-        });
+            ApplyFullscreen();
+        };
 
-        core.DocumentTitleChanged += (_, _) => Dispatcher.Invoke(() =>
+        page.NavigationStarting += (_, url) =>
         {
-            if (tab.IsClosed)
+            if (!IsCurrent(tab, page))
                 return;
 
-            string value = core.DocumentTitle;
-            tab.Title.Text = string.IsNullOrWhiteSpace(value) ? "New Tab" : value;
+            if (ReferenceEquals(_videoFullscreenTab, tab))
+            {
+                _videoFullscreenTab = null;
+                ApplyFullscreen();
+            }
+
+            bool internalDocument = InternalPageMessagePolicy.IsInternalDocumentSource(url);
+            if (tab.IsInternalPage && !internalDocument)
+            {
+                ClearInternalPageState(tab);
+                tab.LastAddress = url;
+            }
+
+            if (!internalDocument)
+                tab.BlockedRequests = 0;
+
+            ResetFaviconIfHostChanged(tab, url);
+            SetTabLoading(tab, !internalDocument);
+
+            if (_activeTab == tab)
+            {
+                StatusText.Text = internalDocument ? "Opening Feather page…" : $"Loading {SafeHost(url)}…";
+                NavigationProgress.Value = 0.08;
+                NavigationProgress.Visibility = Visibility.Visible;
+                UpdateFeatureButtons();
+            }
+        };
+
+        page.LoadingProgressChanged += (_, progress) =>
+        {
+            if (!IsCurrent(tab, page) || _activeTab != tab)
+                return;
+
+            NavigationProgress.Value = Math.Max(NavigationProgress.Value, progress);
+            NavigationProgress.Visibility = progress >= 1 ? Visibility.Collapsed : Visibility.Visible;
+        };
+
+        page.TitleChanged += (_, value) =>
+        {
+            if (!IsCurrent(tab, page) || tab.IsInternalPage)
+                return;
+
+            tab.Title.Text = string.IsNullOrWhiteSpace(value) || InternalPages.IsInternalUrl(value) ? SafeHost(tab.LastAddress) : value;
             if (_activeTab == tab)
             {
                 Title = $"{tab.Title.Text} — Feather";
                 TitleText.Text = tab.Title.Text;
                 UpdateBookmarkButton();
             }
-        });
+        };
 
-        core.SourceChanged += (_, _) => Dispatcher.Invoke(() =>
+        page.SourceChanged += (_, source) =>
         {
-            if (tab.IsClosed)
+            if (!IsCurrent(tab, page))
                 return;
 
-            string source = core.Source ?? string.Empty;
             if (!tab.IsInternalPage)
             {
-                tab.LastAddress = source.StartsWith("data:", StringComparison.OrdinalIgnoreCase) || source == "about:blank"
-                    ? string.Empty
-                    : source;
+                tab.LastAddress =
+                    source.StartsWith("data:", StringComparison.OrdinalIgnoreCase) ||
+                    source == "about:blank" ||
+                    InternalPages.IsInternalUrl(source)
+                        ? string.Empty
+                        : source;
             }
 
-            if (_activeTab == tab)
+            if (_activeTab == tab && !AddressBox.IsKeyboardFocusWithin)
             {
                 AddressBox.Text = DisplayAddress(tab);
                 UpdateBookmarkButton();
             }
-        });
+        };
 
-        core.HistoryChanged += (_, _) => Dispatcher.Invoke(UpdateNavigationButtons);
-
-        core.IsDocumentPlayingAudioChanged += (_, _) => Dispatcher.Invoke(() =>
+        page.HistoryChanged += (_, _) =>
         {
-            if (tab.IsClosed || !tab.IsLoaded)
+            if (!IsCurrent(tab, page))
                 return;
-            tab.IsPlayingAudio = core.IsDocumentPlayingAudio;
-            tab.UpdateStateIndicator();
-            if (!tab.IsPlayingAudio && tab != _activeTab)
-            {
-                ScheduleBackgroundLifecycle(tab);
-            }
-        });
 
-        core.NavigationStarting += (_, e) => Dispatcher.Invoke(() =>
-        {
-            if (_store.Settings.StripTrackingParameters && !tab.IsInternalPage && !string.IsNullOrWhiteSpace(e.Uri))
-            {
-                string cleaned = _blocker.CleanTopLevelUrl(e.Uri);
-                if (!string.Equals(cleaned, e.Uri, StringComparison.Ordinal))
-                {
-                    e.Cancel = true;
-                    tab.LastAddress = cleaned;
-                    core.Navigate(cleaned);
-                    return;
-                }
-            }
-
+            SetTabLoading(tab, page.IsLoading && !tab.IsInternalPage);
             if (_activeTab == tab)
-            {
-                StatusText.Text = $"Loading {SafeHost(e.Uri)}…";
-                NavigationProgress.Visibility = Visibility.Visible;
-            }
-        });
+                UpdateNavigationButtons();
+        };
 
-        core.NavigationCompleted += async (_, e) =>
+        page.AudioPlayingChanged += (_, playing) =>
         {
+            if (!IsCurrent(tab, page) || !tab.IsLoaded)
+                return;
+
+            tab.IsPlayingAudio = playing;
+            tab.UpdateStateIndicator();
+            if (!playing && tab != _activeTab)
+                ScheduleBackgroundLifecycle(tab);
+        };
+
+        page.DocumentCreated += (_, url) =>
+        {
+            if (IsCurrent(tab, page))
+                InjectCosmeticFilters(tab, url);
+        };
+
+        page.NavigationCompleted += (_, e) =>
+        {
+            if (!IsCurrent(tab, page))
+                return;
+
+            SetTabLoading(tab, page.IsLoading && !tab.IsInternalPage);
+
             if (e.IsSuccess && !tab.IsInternalPage)
             {
-                string source = core.Source ?? tab.LastAddress;
+                string source = string.IsNullOrWhiteSpace(page.Source) ? tab.LastAddress : page.Source;
                 tab.LastAddress = source;
-                if (!_isPrivateMode)
+                if (!_isPrivateMode && !InternalPages.IsInternalUrl(source))
                 {
-                    _store.AddHistory(core.DocumentTitle, source);
+                    _store.AddHistory(page.DocumentTitle, source);
                     if (_sessionTimer.IsEnabled)
                         SaveSessionSnapshot();
                 }
 
-                if (_shieldEnabled && _store.Settings.CosmeticBlocking && !_blocker.IsSiteAllowlisted(SafeHost(source), _store.Settings))
-                {
-                    try
-                    {
-                        await core.ExecuteScriptAsync(
-                            BlockerEngine.GetCosmeticFilterScript(_store.Settings.StrictBlocking));
-                    }
-                    catch (ObjectDisposedException ex)
-                    {
-                        System.Diagnostics.Trace.TraceWarning(
-                            $"Cosmetic filtering skipped: WebView was disposed. {ex.Message}");
-                    }
-                    catch (InvalidOperationException ex)
-                    {
-                        System.Diagnostics.Trace.TraceWarning(
-                            $"Cosmetic filtering failed: WebView is unavailable. {ex.Message}");
-                    }
-                }
+                _ = UpdateTabFaviconAsync(tab, []);
             }
 
             if (_activeTab == tab)
             {
                 NavigationProgress.Visibility = Visibility.Collapsed;
-                StatusText.Text = e.IsSuccess ? "Done" : $"Navigation error: {e.WebErrorStatus}";
-                AddressBox.Text = DisplayAddress(tab);
+                StatusText.Text = e.IsSuccess
+                    ? e.HttpStatusCode >= 400 ? $"Loaded with HTTP {e.HttpStatusCode}" : "Done"
+                    : $"Could not load page: {e.ErrorText}";
+                if (!AddressBox.IsKeyboardFocusWithin)
+                    AddressBox.Text = DisplayAddress(tab);
                 UpdateNavigationButtons();
                 UpdateBookmarkButton();
                 UpdateFeatureButtons();
+                UpdateSiteIndicator();
             }
         };
 
-        core.NewWindowRequested += async (_, e) =>
+        page.NewWindowRequested += async (_, e) =>
         {
-            e.Handled = true;
-            await AddTabAsync(e.Uri);
+            if (IsCurrent(tab, page))
+                await AddTabAsync(e.Url, select: !e.InBackground, workspace: tab.Workspace, openerTab: tab);
         };
 
-        core.DownloadStarting += (_, e) => Dispatcher.Invoke(() =>
+        page.DownloadStarting += (_, e) =>
         {
-            tab.HasActiveDownload = true;
-            string file = Path.GetFileName(e.ResultFilePath);
-            string sourceUrl = core.Source ?? tab.LastAddress;
-            DownloadEntry? download = _isPrivateMode ? null : _store.AddDownload(e.ResultFilePath, sourceUrl);
+            if (_isClosing)
+                return;
+
+            tab.BeginDownload();
+            string sourceUrl = string.IsNullOrWhiteSpace(page.Source) ? tab.LastAddress : page.Source;
+            _downloadEntries[(page, e.Id)] = _isPrivateMode ? null : _store.AddDownload(e.FilePath, sourceUrl);
+
+            string file = Path.GetFileName(e.FilePath);
             StatusText.Text = string.IsNullOrWhiteSpace(file) ? "Download started" : $"Downloading {file}";
+        };
 
-            e.DownloadOperation.StateChanged += (_, _) => Dispatcher.Invoke(() =>
-            {
-                CoreWebView2DownloadState state = e.DownloadOperation.State;
-                if (state is CoreWebView2DownloadState.Completed or CoreWebView2DownloadState.Interrupted)
-                {
-                    tab.HasActiveDownload = false;
-                    string label = state == CoreWebView2DownloadState.Completed ? "Completed" : "Interrupted";
-                    if (download is not null)
-                    {
-                        _store.UpdateDownload(download.Id, label, e.ResultFilePath);
-                        if (_activeTab?.IsLibraryPage == true && _activeTab.LibrarySection == "downloads")
-                            ShowLibraryPage(_activeTab, "downloads");
-                    }
-                    if (tab != _activeTab)
-                        ScheduleBackgroundLifecycle(tab);
-                }
-            });
-        });
-
-        core.ProcessFailed += (_, e) => Dispatcher.BeginInvoke(new Action(async () =>
+        page.DownloadUpdated += (_, e) =>
         {
-            await RecoverFailedTabAsync(tab, e);
-        }));
+            if (_isClosing || !_downloadEntries.TryGetValue((page, e.Id), out DownloadEntry? download))
+                return;
 
-        core.WebMessageReceived += async (_, e) => await HandleWebMessageAsync(tab, e);
-
-        core.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
-        core.WebResourceRequested += (_, e) =>
-        {
-            if (_store.Settings.SendDoNotTrack)
+            string file = Path.GetFileName(e.FilePath);
+            if (e.State == DownloadState.InProgress)
             {
-                e.Request.Headers.SetHeader("DNT", "1");
+                if (_activeTab == tab)
+                    StatusText.Text = e.TotalBytes > 0 ? $"Downloading {file} · {e.PercentComplete}%" : $"Downloading {file} · {FormatBytes(e.ReceivedBytes)}";
+                return;
             }
 
-            if (!_shieldEnabled || _environment is null)
+            _downloadEntries.Remove((page, e.Id));
+            tab.CompleteDownload();
+
+            string label = e.State switch
+            {
+                DownloadState.Completed => "Completed",
+                DownloadState.Cancelled => "Cancelled",
+                _ => "Interrupted"
+            };
+
+            StatusText.Text = e.State == DownloadState.Completed ? $"Downloaded {file}" : $"Download {label.ToLowerInvariant()}: {file}";
+
+            if (download is not null)
+            {
+                _store.UpdateDownload(download.Id, label, string.IsNullOrWhiteSpace(e.FilePath) ? download.FilePath : e.FilePath);
+                if (_activeTab?.IsLibraryPage == true && _activeTab.LibrarySection == "downloads")
+                    ShowLibraryPage(_activeTab, "downloads");
+            }
+
+            if (!tab.HasActiveDownload && tab != _activeTab)
+                ScheduleBackgroundLifecycle(tab);
+        };
+
+        page.PermissionRequested += (_, request) =>
+        {
+            if (IsCurrent(tab, page))
+                HandlePermissionRequest(tab, request);
+            else
+                request.Respond(null);
+        };
+
+        page.PermissionPromptDismissed += (_, promptId) => DismissPermissionPrompt(tab, promptId);
+
+        page.ProcessFailed += async (_, reason) =>
+        {
+            if (IsCurrent(tab, page))
+                await RecoverFailedTabAsync(tab, reason);
+        };
+
+        page.WebMessageReceived += (_, e) =>
+        {
+            if (!IsCurrent(tab, page) || !e.IsMainFrame)
                 return;
 
-            if (!Uri.TryCreate(e.Request.Uri, UriKind.Absolute, out Uri? uri) ||
-                !_blocker.ShouldBlock(uri, core.Source ?? tab.LastAddress, e.ResourceContext, _store.Settings))
+            if (!InternalPageMessagePolicy.IsTrusted(
+                    tab.IsInternalPage,
+                    tab.InternalPageToken,
+                    page.Source,
+                    e.FrameUrl,
+                    e.MessageJson))
+            {
+                return;
+            }
+
+            string messageJson = e.MessageJson;
+            Dispatcher.BeginInvoke(
+                DispatcherPriority.Background,
+                new Action(() => _ = HandleDeferredWebMessageAsync(tab, messageJson)));
+        };
+
+        page.FaviconUrlsChanged += async (_, urls) =>
+        {
+            if (IsCurrent(tab, page))
+                await UpdateTabFaviconAsync(tab, urls);
+        };
+
+        page.InternalPageRequested += (_, kind) =>
+        {
+            if (IsCurrent(tab, page))
+                Navigate(tab, InternalPages.FeatherAddressFor(kind));
+        };
+
+        page.ShortcutPressed += async (_, e) =>
+        {
+            if (IsCurrent(tab, page))
+                await HandleShortcutAsync(e.Key, e.Modifiers);
+        };
+
+        page.StatusMessageChanged += (_, text) =>
+        {
+            if (!IsCurrent(tab, page) || _activeTab != tab)
                 return;
 
-            e.Response = _environment.CreateWebResourceResponse(
-                Stream.Null,
-                204,
-                "No Content",
-                "Cache-Control: no-store\r\n");
+            if (string.IsNullOrEmpty(text))
+            {
+                if (_statusBeforeHover is not null)
+                    StatusText.Text = _statusBeforeHover;
+                _statusBeforeHover = null;
+                return;
+            }
 
-            tab.BlockedRequests++;
+            _statusBeforeHover ??= StatusText.Text;
+            StatusText.Text = text;
+        };
+
+        page.RequestsBlocked += (_, count) =>
+        {
+            if (!IsCurrent(tab, page))
+                return;
+
+            tab.BlockedRequests += count;
             if (_activeTab == tab)
-                Dispatcher.BeginInvoke(new Action(UpdateFeatureButtons));
+                UpdateFeatureButtons();
+        };
+
+        page.ExternalProtocolRequested += (_, url) =>
+        {
+            if (IsCurrent(tab, page))
+                OpenExternalProtocol(tab, url);
+        };
+
+        page.SearchRequested += async (_, text) =>
+        {
+            if (!IsCurrent(tab, page) || string.IsNullOrWhiteSpace(text))
+                return;
+
+            (_, string prefix) = SearchEngineInfo();
+            await AddTabAsync(prefix + Uri.EscapeDataString(text), select: true, workspace: tab.Workspace, openerTab: tab);
+        };
+
+        page.FindResultChanged += (_, e) =>
+        {
+            if (IsCurrent(tab, page) && _activeTab == tab)
+                UpdateFindResult(e);
+        };
+
+        page.CloseRequested += async (_, _) =>
+        {
+            if (IsCurrent(tab, page))
+                await CloseTabAsync(tab);
         };
     }
 
-    private async Task RecoverFailedTabAsync(BrowserTab tab, CoreWebView2ProcessFailedEventArgs args)
+    private void InjectCosmeticFilters(BrowserTab tab, string url)
+    {
+        if (!_shieldEnabled || !_store.Settings.CosmeticBlocking || tab.IsInternalPage ||
+            !Uri.TryCreate(url, UriKind.Absolute, out Uri? uri) || uri.Scheme is not ("http" or "https") ||
+            _blocker.IsSiteAllowlisted(uri.Host, _store.Settings))
+        {
+            return;
+        }
+
+        string script = _blocker.GetCosmeticFilterScript(url);
+        tab.View.ExecuteScript(
+            "(() => { const run = () => {" + script + "}; " +
+            "if (document.documentElement) run(); else document.addEventListener('DOMContentLoaded', run, { once: true }); })();");
+    }
+
+    private void OpenExternalProtocol(BrowserTab tab, string url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out Uri? uri) ||
+            uri.Scheme is "javascript" or "file" or "vbscript" or "data" or "ms-msdt" or "search-ms")
+        {
+            StatusText.Text = "Blocked an unsafe external link";
+            return;
+        }
+
+        string site = SafeHost(tab.LastAddress);
+        if (MessageBox.Show(
+                $"{site} wants to open a \"{uri.Scheme}:\" link in another app.\n\n{TrimLabel(url, 120)}",
+                "Open external app?",
+                MessageBoxButton.OKCancel,
+                MessageBoxImage.Question) != MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true });
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            StatusText.Text = $"No app is installed for {uri.Scheme}: links";
+        }
+    }
+
+    private async Task RecoverFailedTabAsync(BrowserTab tab, string reason)
     {
         if (tab.IsClosed || _isClosing)
             return;
 
-        string kind = args.ProcessFailedKind.ToString();
-        bool rendererFailure = kind.Contains("Render", StringComparison.OrdinalIgnoreCase) ||
-                               kind.Contains("Frame", StringComparison.OrdinalIgnoreCase);
-        if (!rendererFailure)
+        if (ReferenceEquals(_videoFullscreenTab, tab))
         {
-            if (_activeTab == tab)
-            {
-                NavigationProgress.Visibility = Visibility.Collapsed;
-                StatusText.Text = $"WebView2 process issue: {kind}";
-            }
-            return;
+            _videoFullscreenTab = null;
+            ApplyFullscreen();
         }
 
         bool wasActive = _activeTab == tab;
-        if (!tab.IsInternalPage &&
-     tab.IsLoaded &&
-     tab.View.CoreWebView2 is { } core)
+        if (!tab.IsInternalPage && tab.IsLoaded)
         {
-            string source = core.Source ?? string.Empty;
-
+            string source = tab.View.Source;
             if (!string.IsNullOrWhiteSpace(source) &&
                 !source.Equals("about:blank", StringComparison.OrdinalIgnoreCase) &&
-                !source.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+                !source.StartsWith("data:", StringComparison.OrdinalIgnoreCase) &&
+                !InternalPages.IsInternalUrl(source))
             {
                 tab.LastAddress = source;
             }
         }
 
-        tab.SleepCancellation?.Cancel();
-        tab.SleepCancellation?.Dispose();
-        tab.SleepCancellation = null;
-        if (tab.IsLoaded)
-            BrowserHost.Children.Remove(tab.View);
-        try
-        {
-            tab.View.Dispose();
-        }
-        catch (ObjectDisposedException ex)
-        {
-            System.Diagnostics.Trace.TraceWarning(
-                $"WebView2 was already disposed: {ex.Message}");
-        }
-        catch (InvalidOperationException ex)
-        {
-            System.Diagnostics.Trace.TraceWarning(
-                $"WebView2 disposal failed: {ex.Message}");
-        }
-        tab.View = CreateWebViewControl();
+        CancelSleepSchedule(tab);
+        DismissPermissionPrompt(tab, promptId: null);
+        SetTabLoading(tab, false);
+        ForgetPageDownloads(tab, tab.View);
+        RemovePageControl(tab.View);
+        tab.View.Dispose();
+        tab.View = CreatePageFor(tab);
         tab.IsLoaded = false;
         tab.IsPlayingAudio = false;
         tab.NeedsContentRestore = true;
@@ -380,39 +580,29 @@ public partial class MainWindow : Window
         }
 
         NavigationProgress.Visibility = Visibility.Collapsed;
-        StatusText.Text = "Tab renderer crashed · recovering…";
+        StatusText.Text = $"Tab renderer stopped ({reason}) · recovering…";
         try
         {
             await EnsureTabLoadedAsync(tab);
-            tab.View.Visibility = Visibility.Visible;
-            Panel.SetZIndex(tab.View, 10);
-            AddressBox.Text = DisplayAddress(tab);
+            if (tab.IsClosed || _isClosing)
+                return;
+
+            if (_activeTab == tab)
+            {
+                tab.View.SetVisible(
+                    CommandPaletteOverlay.Visibility != Visibility.Visible && WindowState != WindowState.Minimized,
+                    zIndex: 10);
+                AddressBox.Text = DisplayAddress(tab);
+            }
+
             StatusText.Text = "Tab recovered";
         }
-        catch (OperationCanceledException ex)
+        catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException or InvalidOperationException or TimeoutException)
         {
-            System.Diagnostics.Trace.TraceWarning(
-                $"Tab recovery was cancelled: {ex.Message}");
-            StatusText.Text = "Tab recovery cancelled · press Ctrl+R to retry";
-        }
-        catch (ObjectDisposedException ex)
-        {
-            System.Diagnostics.Trace.TraceWarning(
-                $"Tab recovery failed because the WebView was disposed: {ex.Message}");
+            Trace.TraceWarning($"Tab recovery failed: {ex.Message}");
             StatusText.Text = "Tab recovery failed · press Ctrl+R to retry";
         }
-        catch (InvalidOperationException ex)
-        {
-            System.Diagnostics.Trace.TraceWarning(
-                $"Tab recovery failed due to an invalid WebView state: {ex.Message}");
-            StatusText.Text = "Tab recovery failed · press Ctrl+R to retry";
-        }
-        catch (System.Runtime.InteropServices.COMException ex)
-        {
-            System.Diagnostics.Trace.TraceWarning(
-                $"Tab recovery failed due to a WebView2 COM error: {ex.Message}");
-            StatusText.Text = "Tab recovery failed · press Ctrl+R to retry";
-        }
+
         UpdateResourceText();
     }
 }

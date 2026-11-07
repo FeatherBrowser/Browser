@@ -1,0 +1,9 @@
+[submodule "external/FeatherShield"]
+	path = external/FeatherShield
+	url = https://github.com/FeatherBrowser/FeatherShield.git
+[submodule "external/FeatherFilters"]
+	path = external/FeatherFilters
+	url = https://github.com/FeatherBrowser/FeatherFilters.git
+[submodule "external/FeatherImport"]
+	path = external/FeatherImport
+	url = https://github.com/FeatherBrowser/FeatherImport.git

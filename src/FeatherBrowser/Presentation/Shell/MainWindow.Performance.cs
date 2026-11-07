@@ -11,8 +11,7 @@ using System.Windows.Shell;
 using System.Windows.Threading;
 using System.Windows;
 using FeatherBrowser.Presentation.Tabs;
-using Microsoft.Web.WebView2.Core;
-using Microsoft.Web.WebView2.Wpf;
+using FeatherBrowser.Features.Engine;
 using Microsoft.Win32;
 
 namespace FeatherBrowser.Presentation.Shell;
@@ -32,28 +31,23 @@ public partial class MainWindow : Window
 
             if (tab == _activeTab && WindowState != WindowState.Minimized)
             {
-                tab.SleepCancellation?.Cancel();
-                tab.SleepCancellation?.Dispose();
-                tab.SleepCancellation = null;
-                if (tab.View.CoreWebView2.IsSuspended)
-                    tab.View.CoreWebView2.Resume();
-                if (_store.Settings.MuteBackgroundTabs || _store.Settings.GameMode)
-                    tab.View.CoreWebView2.IsMuted = false;
+                CancelSleepSchedule(tab);
+                tab.View.Resume();
+                ApplyTabMute(tab);
                 continue;
             }
 
-            tab.View.CoreWebView2.IsMuted = _store.Settings.MuteBackgroundTabs || _store.Settings.GameMode;
+            ApplyTabMute(tab);
 
             if (shouldManage && !IsProtectedTab(tab))
                 ScheduleBackgroundLifecycle(tab);
             else
             {
-                tab.SleepCancellation?.Cancel();
-                tab.SleepCancellation?.Dispose();
-                tab.SleepCancellation = null;
-                if (tab.View.CoreWebView2.IsSuspended)
-                    tab.View.CoreWebView2.Resume();
+                CancelSleepSchedule(tab);
+                tab.View.Resume();
             }
+
+            tab.UpdateStateIndicator();
         }
 
         EnforceLoadedTabBudget();
@@ -82,7 +76,7 @@ public partial class MainWindow : Window
 
     private async void UpdateResourceText()
     {
-        if (_environment is null ||
+        if (!_engineReady ||
             System.Threading.Volatile.Read(ref _isClosing) ||
             _samplingResources)
         {
@@ -98,16 +92,8 @@ public partial class MainWindow : Window
 
         try
         {
-            var ids = new Dictionary<int, string>
-            {
-                [Environment.ProcessId] = "Feather UI"
-            };
-
-            foreach (CoreWebView2ProcessInfo info in _environment.GetProcessInfos())
-                ids.TryAdd(info.ProcessId, info.Kind.ToString());
-
             _resourceSnapshot = await Task.Run(
-                () => _resourceSampler.Sample(ids));
+                () => _resourceSampler.Sample(EngineProcesses.Snapshot()));
 
             if (System.Threading.Volatile.Read(ref _isClosing))
                 return;
@@ -123,13 +109,6 @@ public partial class MainWindow : Window
             }
 
             EnforceLoadedTabBudget();
-        }
-        catch (COMException ex)
-        {
-            System.Diagnostics.Trace.TraceWarning(
-                $"Resource sampling failed due to a WebView2 COM error: {ex.Message}");
-
-            StatusText.Text = "Resource sample unavailable; browser remains active";
         }
         catch (InvalidOperationException ex)
         {
@@ -200,9 +179,10 @@ public partial class MainWindow : Window
                      .ToList())
         {
             if (ColdUnloadTab(tab))
+            {
                 unloaded++;
-            if (_tabs.Count(t => !t.IsClosed && t.IsLoaded) <= 1)
                 break;
+            }
         }
 
         if (unloaded > 0)
@@ -224,8 +204,10 @@ public partial class MainWindow : Window
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             WindowStyle = WindowStyle.None,
             ResizeMode = ResizeMode.CanResize,
-            Background = new SolidColorBrush(Color.FromRgb(10, 20, 34)),
-            Foreground = (Brush)FindResource("TextPrimary")
+            Background = (Brush)FindResource("ContentBrush"),
+            Foreground = (Brush)FindResource("TextPrimary"),
+            FontFamily = (FontFamily)FindResource("UiFont"),
+            FontSize = 12
         };
         WindowChrome.SetWindowChrome(window, new WindowChrome
         {
@@ -238,56 +220,49 @@ public partial class MainWindow : Window
 
         var frame = new Border
         {
-            Background = new SolidColorBrush(Color.FromRgb(10, 20, 34)),
-            BorderBrush = new SolidColorBrush(Color.FromRgb(62, 87, 112)),
+            Background = (Brush)FindResource("ContentBrush"),
+            BorderBrush = (Brush)FindResource("BorderBrush"),
             BorderThickness = new Thickness(1)
         };
         var root = new Grid();
-        root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(38) });
+        root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(32) });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         frame.Child = root;
 
-        var titleBar = new Border { Background = new SolidColorBrush(Color.FromRgb(16, 32, 51)) };
+        var titleBar = new Border
+        {
+            Background = (Brush)FindResource("ChromeBrush"),
+            BorderBrush = (Brush)FindResource("DividerBrush"),
+            BorderThickness = new Thickness(0, 0, 0, 1)
+        };
         titleBar.MouseLeftButtonDown += (_, e) =>
         {
             if (e.ChangedButton == MouseButton.Left)
                 window.DragMove();
         };
-        var titleGrid = new Grid { Margin = new Thickness(12, 0, 4, 0) };
-        titleGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var titleGrid = new Grid { Margin = new Thickness(12, 0, 0, 0) };
         titleGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         titleGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var mark = new Border
-        {
-            Width = 22,
-            Height = 22,
-            CornerRadius = new CornerRadius(7),
-            Background = new SolidColorBrush(Color.FromRgb(23, 59, 92)),
-            VerticalAlignment = VerticalAlignment.Center
-        };
-        mark.Child = new TextBlock { Text = "F", Foreground = new SolidColorBrush(Color.FromRgb(168, 212, 255)), FontWeight = FontWeights.Bold, FontSize = 11, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
-        titleGrid.Children.Add(mark);
-        var title = new TextBlock { Text = "Performance Center", Foreground = (Brush)FindResource("TextPrimary"), FontSize = 12, FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(9, 0, 0, 0) };
-        Grid.SetColumn(title, 1);
+        var title = new TextBlock { Text = "Performance", Foreground = (Brush)FindResource("TextSecondary"), VerticalAlignment = VerticalAlignment.Center };
         titleGrid.Children.Add(title);
-        var titleClose = new Button { Content = "×", Style = (Style)FindResource("IconButton"), Width = 34, Height = 30, FontSize = 15 };
+        var titleClose = new Button { Content = "", Style = (Style)FindResource("CaptionCloseButton"), Height = 31 };
         titleClose.Click += (_, _) => window.Close();
-        Grid.SetColumn(titleClose, 2);
+        Grid.SetColumn(titleClose, 1);
         titleGrid.Children.Add(titleClose);
         titleBar.Child = titleGrid;
         root.Children.Add(titleBar);
 
-        var header = new StackPanel { Margin = new Thickness(22, 20, 22, 16) };
+        var header = new StackPanel { Margin = new Thickness(16, 14, 16, 12) };
         Grid.SetRow(header, 1);
-        var heading = new TextBlock { Text = "Memory & processes", FontSize = 25, FontWeight = FontWeights.SemiBold };
-        var summary = new TextBlock { Foreground = _secondaryBrush, Margin = new Thickness(0, 6, 0, 0), FontSize = 11.5 };
+        var heading = new TextBlock { Text = "Memory and processes", FontSize = 15, FontWeight = FontWeights.SemiBold };
+        var summary = new TextBlock { Foreground = _secondaryBrush, Margin = new Thickness(0, 4, 0, 0), FontSize = 11.5 };
         header.Children.Add(heading);
         header.Children.Add(summary);
         root.Children.Add(header);
 
-        var columns = new Grid { Margin = new Thickness(22, 0, 22, 0) };
+        var columns = new Grid { Margin = new Thickness(16, 0, 16, 0) };
         columns.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.25, GridUnitType.Star) });
         columns.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(0.75, GridUnitType.Star) });
         Grid.SetRow(columns, 2);
@@ -297,16 +272,17 @@ public partial class MainWindow : Window
         {
             return new ListBox
             {
-                Background = new SolidColorBrush(Color.FromRgb(23, 44, 66)),
+                Background = (Brush)FindResource("ChromeBrush"),
                 Foreground = (Brush)FindResource("TextPrimary"),
-                BorderBrush = new SolidColorBrush(Color.FromRgb(62, 87, 112)),
+                BorderBrush = (Brush)FindResource("DividerBrush"),
                 BorderThickness = new Thickness(1),
-                Padding = new Thickness(4)
+                Padding = new Thickness(3),
+                ItemContainerStyle = (Style)FindResource("PlainListItemStyle")
             };
         }
 
         var tabsPanel = new DockPanel { Margin = new Thickness(0, 0, 7, 0) };
-        var tabsTitle = new TextBlock { Text = "TABS", Foreground = new SolidColorBrush(Color.FromRgb(111, 128, 149)), FontWeight = FontWeights.Bold, FontSize = 9.5, Margin = new Thickness(5, 0, 0, 8) };
+        var tabsTitle = new TextBlock { Text = "Tabs", Foreground = (Brush)FindResource("TextMuted"), FontWeight = FontWeights.SemiBold, FontSize = 11, Margin = new Thickness(2, 0, 0, 6) };
         DockPanel.SetDock(tabsTitle, Dock.Top);
         tabsPanel.Children.Add(tabsTitle);
         var tabList = MakeList();
@@ -315,14 +291,14 @@ public partial class MainWindow : Window
 
         var processPanel = new DockPanel { Margin = new Thickness(7, 0, 0, 0) };
         Grid.SetColumn(processPanel, 1);
-        var processTitle = new TextBlock { Text = "WEBVIEW2 PROCESSES", Foreground = new SolidColorBrush(Color.FromRgb(111, 128, 149)), FontWeight = FontWeights.Bold, FontSize = 9.5, Margin = new Thickness(5, 0, 0, 8) };
+        var processTitle = new TextBlock { Text = "Chromium processes", Foreground = (Brush)FindResource("TextMuted"), FontWeight = FontWeights.SemiBold, FontSize = 11, Margin = new Thickness(2, 0, 0, 6) };
         DockPanel.SetDock(processTitle, Dock.Top);
         processPanel.Children.Add(processTitle);
         var processList = MakeList();
         processPanel.Children.Add(processList);
         columns.Children.Add(processPanel);
 
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(22, 16, 22, 20) };
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(16, 12, 16, 14) };
         Grid.SetRow(buttons, 3);
         root.Children.Add(buttons);
 
@@ -331,12 +307,8 @@ public partial class MainWindow : Window
             return new Button
             {
                 Content = text,
-                Style = (Style)FindResource("ChromeButton"),
-                Padding = new Thickness(12, 7, 12, 7),
-                Margin = new Thickness(6, 0, 0, 0),
-                Background = new SolidColorBrush(accent ? Color.FromRgb(20, 52, 81) : Color.FromRgb(16, 23, 32)),
-                Foreground = accent ? new SolidColorBrush(Color.FromRgb(159, 208, 255)) : (Brush)FindResource("TextPrimary"),
-                Cursor = Cursors.Hand
+                Style = (Style)FindResource(accent ? "PrimaryButton" : "SecondaryButton"),
+                Margin = new Thickness(6, 0, 0, 0)
             };
         }
 
@@ -352,16 +324,14 @@ public partial class MainWindow : Window
                     state = "COLD";
                 else
                 {
-                    try { state = tab.View.CoreWebView2.IsSuspended ? "SLEEP" : "HOT"; }
-                    catch { state = "HOT"; }
+                    state = tab.View.IsSuspended ? "SLEEP" : "HOT";
                 }
                 string markers = (tab.IsPinned ? " · pinned" : "") + (tab.IsPlayingAudio ? " · audio" : "");
                 tabList.Items.Add(new ListBoxItem
                 {
                     Content = $"{state,-6}  {TrimLabel(tab.Title.Text, 42)}\n          {tab.Workspace}{markers}",
                     Tag = tab,
-                    Padding = new Thickness(8, 7, 8, 7),
-                    Background = Brushes.Transparent,
+                    Padding = new Thickness(8, 5, 8, 5),
                     Foreground = (Brush)FindResource("TextPrimary")
                 });
             }
@@ -418,3 +388,4 @@ public partial class MainWindow : Window
         window.ShowDialog();
     }
 }
+

@@ -15,7 +15,7 @@ about: Report a reproducible problem using synthetic or redacted data
 **Environment**
 - Feather version:
 - Windows version:
-- WebView2 Runtime version:
+- Feather and Chromium version (Menu → About Feather):
 - Performance profile (if relevant):
 
 **Redacted logs/screenshots**

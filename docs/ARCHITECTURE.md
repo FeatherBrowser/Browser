@@ -5,19 +5,21 @@ without introducing extra assemblies or a dependency-injection framework.
 
 ## Code ownership
 
-- **Domain/Models** contains data records only. Keep these free of WPF, WebView2
+- **Domain/Models** contains data records only. Keep these free of WPF, the engine
   and disk access. Serialized property names are part of the existing profile format.
-- **Features** contains browser behaviour. `AddressResolver` is independent of
+- **Features** contains browser behaviour. `Features/Engine` is Feather's engine
+  layer over Chromium (see [ENGINE.md](ENGINE.md)) and the only code that may
+  reference CefSharp. `AddressResolver` is independent of
   WPF. `BlockerEngine` evaluates requests; `EdgeImporter` reads Edge profiles;
   `PasswordVault` manages imported credentials and delegates protection to DPAPI.
 - **Infrastructure** owns persistence, resource loading and Windows integration.
   `WindowsDpapi` and `DefaultBrowserRegistrar` isolate platform APIs.
-- **Presentation** owns controls, dialogs, WebView2 lifecycle and user input.
-  `BrowserTab` belongs here because it holds WPF/WebView2 controls, not just data.
+- **Presentation** owns controls, dialogs, tab lifecycle and user input.
+  `BrowserTab` belongs here because it holds its `WebPage` and WPF header, not just data.
 
 The application is not fully MVVM. MainWindow's partial files still share window
 state. They are deliberately grouped by responsibility so event handlers and
-WebView2 operations remain on their existing dispatcher and retain their existing
+page operations remain on their existing dispatcher and retain their existing
 lifetime. A partial file is organizational, not an independent service.
 
 ## Shell map
@@ -27,7 +29,9 @@ lifetime. A partial file is organizational, not an independent service.
 | `xaml.cs` | Shared window fields and constructor wiring |
 | `Lifecycle` | Startup, private-profile cleanup, shutdown and session snapshots |
 | `Tabs` / `TabLifecycle` | Tab creation, selection, closing, suspension and unloading |
-| `WebView` | WebView2 creation, events, permissions/download wiring and recovery |
+| `WebView` | Page creation, engine event wiring, downloads, external links and crash recovery |
+| `PageBars` | Permission prompt bar and find-in-page bar |
+| `Shortcuts` | Keyboard shortcut map (shared with the engine's key forwarding), zoom steps |
 | `Workspaces` | Workspace sidebar and workspace actions |
 | `Navigation` | Navigation controls and delegation to AddressResolver |
 | `InternalPages` | Display and refresh built-in pages |
@@ -38,7 +42,7 @@ lifetime. A partial file is organizational, not an independent service.
 | `Downloads` | Download-list actions and opening files |
 | `Importing` / `Passwords` | Import dialogs, default-browser action and autofill UI |
 | `CommandPalette` | Command list, filtering and execution |
-| `WindowChrome` | Window controls, fullscreen and keyboard shortcuts |
+| `WindowChrome` | Window controls, fullscreen, DWM dark mode and rounded corners |
 
 ## Internal-page resources
 
@@ -47,7 +51,8 @@ Each internal page has an HTML template, CSS file and JavaScript file in
 loads and caches immutable asset text. `LoadPage` inserts CSS and JavaScript into
 the HTML; page classes then replace data placeholders with the existing escaped
 HTML or serialized JSON values. Templates stay bundled in the executable, so
-navigation-to-string continues to work without loose-file paths or a local server.
+pages are served from `https://feather.internal` by an in-process handler, without
+loose-file paths or a local server.
 
 Scripts injected into external pages live in `Assets/Scripts`. Never put a
 credential or rendered page containing user data into the static resource cache.

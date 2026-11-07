@@ -12,8 +12,6 @@ using System.Windows.Threading;
 using System.Windows;
 using FeatherBrowser.Domain.Models;
 using FeatherBrowser.Presentation.Tabs;
-using Microsoft.Web.WebView2.Core;
-using Microsoft.Web.WebView2.Wpf;
 using Microsoft.Win32;
 
 namespace FeatherBrowser.Presentation.Shell;
@@ -46,6 +44,34 @@ public partial class MainWindow : Window
         var privateWindow = new MenuItem { Header = "New private window", InputGestureText = "Ctrl+Shift+N" };
         privateWindow.Click += (_, _) => OpenPrivateWindow();
         menu.Items.Add(privateWindow);
+
+        menu.Items.Add(new Separator());
+        bool pageTools = _activeTab is { IsLoaded: true, IsInternalPage: false };
+
+        var zoom = new MenuItem { Header = $"Zoom · {Math.Round((_activeTab is { IsLoaded: true } ? _activeTab.View.ZoomFactor : 1.0) * 100)}%", IsEnabled = pageTools };
+        var zoomIn = new MenuItem { Header = "Zoom in", InputGestureText = "Ctrl+=" };
+        zoomIn.Click += (_, _) => ChangeZoom(+1);
+        var zoomOut = new MenuItem { Header = "Zoom out", InputGestureText = "Ctrl+-" };
+        zoomOut.Click += (_, _) => ChangeZoom(-1);
+        var zoomReset = new MenuItem { Header = "Reset to 100%", InputGestureText = "Ctrl+0" };
+        zoomReset.Click += (_, _) => ChangeZoom(0);
+        zoom.Items.Add(zoomIn);
+        zoom.Items.Add(zoomOut);
+        zoom.Items.Add(zoomReset);
+        menu.Items.Add(zoom);
+
+        var find = new MenuItem { Header = "Find on page…", InputGestureText = "Ctrl+F", IsEnabled = pageTools };
+        find.Click += (_, _) => OpenFindBar();
+        menu.Items.Add(find);
+
+        var print = new MenuItem { Header = "Print…", InputGestureText = "Ctrl+P", IsEnabled = pageTools };
+        print.Click += (_, _) => _activeTab?.View.Print();
+        menu.Items.Add(print);
+
+        var devTools = new MenuItem { Header = "Developer tools", InputGestureText = "F12", IsEnabled = _activeTab is { IsLoaded: true } };
+        devTools.Click += (_, _) => _activeTab?.View.ShowDevTools();
+        menu.Items.Add(devTools);
+        menu.Items.Add(new Separator());
 
         var workspaces = new MenuItem { Header = $"Workspaces · {_store.Settings.ActiveWorkspace}" };
         foreach (string workspace in _store.Settings.Workspaces)
@@ -155,7 +181,7 @@ public partial class MainWindow : Window
 
         var about = new MenuItem { Header = "About Feather" };
         about.Click += (_, _) => MessageBox.Show(
-            $"{FeatherBrowser.Infrastructure.Resources.AppInfo.DisplayName}\n\nA Windows browser built with WPF and Microsoft WebView2.\n\nFeather WebView3 is our resource-management layer over WebView2. It is not a separate rendering engine.\n\nFeather source is available under the MIT License. Third-party components retain their own terms.",
+            $"{FeatherBrowser.Infrastructure.Resources.AppInfo.DisplayName}\n{FeatherBrowser.Features.Engine.FeatherEngine.ChromiumVersion}\n\nA Windows browser built with WPF on Feather's own engine layer, which embeds open-source Chromium through CEF and CefSharp. No Microsoft Edge or WebView2 runtime is required.\n\nFeather WebView3 is Feather's tab resource manager: background tabs are frozen like Chrome's, then unloaded when memory is tight.\n\nFeather source is available under the MIT License. Chromium, CEF and CefSharp are BSD-licensed; third-party components retain their own terms.",
             "About Feather",
             MessageBoxButton.OK,
             MessageBoxImage.Information);
@@ -310,7 +336,9 @@ public partial class MainWindow : Window
     {
         if (MessageBox.Show("Clear Feather's local browsing history?", "Clear history", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
-        _store.ClearHistory();
-        StatusText.Text = "Feather history cleared";
+
+        StatusText.Text = _store.ClearHistory()
+            ? "Feather history cleared"
+            : "Could not fully clear history from disk";
     }
 }

@@ -12,8 +12,7 @@ using System.Windows.Threading;
 using System.Windows;
 using FeatherBrowser.Domain.Models;
 using FeatherBrowser.Presentation.Tabs;
-using Microsoft.Web.WebView2.Core;
-using Microsoft.Web.WebView2.Wpf;
+using FeatherBrowser.Presentation.Pages;
 using Microsoft.Win32;
 
 namespace FeatherBrowser.Presentation.Shell;
@@ -100,6 +99,10 @@ public partial class MainWindow : Window
         settings.BlockNotificationPrompts = GetBool(element, "BlockNotificationPrompts", settings.BlockNotificationPrompts);
         settings.SendDoNotTrack = GetBool(element, "SendDoNotTrack", settings.SendDoNotTrack);
         settings.DataBackupsEnabled = GetBool(element, "DataBackupsEnabled", settings.DataBackupsEnabled);
+        settings.AutoSyncEnabled = GetBool(element, "AutoSyncEnabled", settings.AutoSyncEnabled);
+        settings.AutoSyncMinutes = Math.Clamp(GetInt(element, "AutoSyncMinutes", settings.AutoSyncMinutes), 1, 60);
+        settings.SyncHistory = GetBool(element, "SyncHistory", settings.SyncHistory);
+        settings.SyncOpenTabs = GetBool(element, "SyncOpenTabs", settings.SyncOpenTabs);
 
         if (settings.GameMode)
         {
@@ -109,6 +112,7 @@ public partial class MainWindow : Window
 
         _store.SaveSettings();
         ApplyRuntimeSettings();
+        ConfigureAutomaticSync();
         StatusText.Text = settings.GameMode ? "Settings saved · Gaming Mode active" : "Settings saved";
     }
 
@@ -132,11 +136,38 @@ public partial class MainWindow : Window
         .Take(500)
         .ToList();
 
+    private string _appliedCustomRules = string.Empty;
+
+    private void ReloadCustomRulesIfChanged()
+    {
+        string fingerprint = string.Join('\n', _store.Settings.CustomBlockRules);
+        if (fingerprint == _appliedCustomRules)
+            return;
+
+        _appliedCustomRules = fingerprint;
+        _ = ReloadRulesAsync();
+    }
+
+    private async Task ReloadRulesAsync()
+    {
+        try
+        {
+            await Features.Blocking.BlockerEngine.ReloadAsync(_store.Settings.CustomBlockRules);
+            StatusText.Text = $"Feather Shield rules updated ({_store.Settings.CustomBlockRules.Count} custom)";
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.TraceWarning($"Custom rules failed to load: {ex.Message}");
+            StatusText.Text = "Custom Shield rules could not be loaded";
+        }
+    }
+
     private void ApplyRuntimeSettings()
     {
         _ecoMode = _store.Settings.EcoMode;
         _shieldEnabled = _store.Settings.ShieldEnabled;
-        _blocker.Reload(_store.Settings.CustomBlockRules);
+        _blocker.ApplySettings(_store.Settings, _shieldEnabled);
+        ReloadCustomRulesIfChanged();
         NormalizeWorkspaceSettings();
         ApplyUiPreferences();
         UpdateWorkspaceSidebar();
@@ -148,13 +179,14 @@ public partial class MainWindow : Window
     private void ApplyUiPreferences()
     {
         bool compact = _store.Settings.CompactUi;
-        TabBar.Height = compact ? 39 : 43;
-        TabBar.Padding = compact ? new Thickness(8, 3, 8, 3) : new Thickness(9, 5, 9, 5);
-        Toolbar.Height = compact ? 46 : 54;
-        Toolbar.Padding = compact ? new Thickness(8, 5, 8, 5) : new Thickness(9, 8, 9, 8);
+        double rowHeight = compact ? 32 : 36;
+        TitleBar.Height = rowHeight;
+        AddressBorder.Height = compact ? 24 : 28;
+        if (System.Windows.Shell.WindowChrome.GetWindowChrome(this) is { IsFrozen: false } chrome)
+            chrome.CaptionHeight = rowHeight;
         StatusBar.Visibility = _store.Settings.ShowStatusBar && !_isFullscreen ? Visibility.Visible : Visibility.Collapsed;
         WorkspaceSidebar.Visibility = _store.Settings.ShowWorkspaceSidebar && !_isFullscreen ? Visibility.Visible : Visibility.Collapsed;
-        AddressBox.FontSize = compact ? 13 : 14;
+        AddressBox.FontSize = compact ? 12 : 12.5;
     }
 
     private void SetSearchEngine(string engine)
@@ -166,14 +198,12 @@ public partial class MainWindow : Window
             ShowStartPage(_activeTab);
     }
 
-    private async Task HandleWebMessageAsync(BrowserTab tab, CoreWebView2WebMessageReceivedEventArgs e)
+    private async Task HandleWebMessageAsync(BrowserTab tab, string messageJson)
     {
-        // Only our top-level NavigateToString pages may invoke privileged commands.
-        if (!tab.IsInternalPage || !string.Equals(e.Source, "about:blank", StringComparison.OrdinalIgnoreCase))
-            return;
+        if (!tab.IsInternalPage) return;
         try
         {
-            using JsonDocument document = JsonDocument.Parse(e.WebMessageAsJson);
+            using JsonDocument document = JsonDocument.Parse(messageJson);
             JsonElement root = document.RootElement;
             if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty("action", out JsonElement actionElement)
                 || actionElement.ValueKind != JsonValueKind.String)
@@ -235,6 +265,30 @@ public partial class MainWindow : Window
                 case "open-command-palette":
                     OpenCommandPalette();
                     break;
+                case "settings-section-changed":
+                    if (tab.IsSettingsPage)
+                    {
+                        tab.SettingsSection = SettingsPage.NormalizeSection(
+                            GetString(root, "section", tab.SettingsSection));
+                    }
+                    break;
+                case "library-section-changed":
+                    if (tab.IsLibraryPage)
+                    {
+                        tab.LibrarySection = LibraryPage.NormalizeSection(
+                            GetString(root, "section", tab.LibrarySection));
+
+                        if (_activeTab == tab)
+                        {
+                            AddressBox.Text = $"feather://{tab.LibrarySection}";
+                            Title = $"{LibraryTitle(tab.LibrarySection)} — Feather";
+                            TitleText.Text = LibraryTitle(tab.LibrarySection);
+                        }
+
+                        if (_sessionTimer.IsEnabled)
+                            SaveSessionSnapshot();
+                    }
+                    break;
                 case "toggle-game":
                     ToggleGameMode();
                     if (tab.IsStartPage)
@@ -243,6 +297,66 @@ public partial class MainWindow : Window
                 case "save-settings":
                     if (root.TryGetProperty("settings", out JsonElement settingsElement))
                         SaveSettingsFromMessage(settingsElement);
+                    break;
+                case "account-sign-up":
+                    if (tab.IsSettingsPage)
+                        await SignUpAccountAsync();
+                    break;
+                case "account-sign-in":
+                    if (tab.IsSettingsPage)
+                        await SignInAccountAsync();
+                    break;
+                case "account-sign-out":
+                    if (tab.IsSettingsPage)
+                        await SignOutAccountAsync();
+                    break;
+                case "account-setup-mfa":
+                    if (tab.IsSettingsPage)
+                        await StartTotpEnrollmentAsync();
+                    break;
+                case "account-verify-mfa":
+                    if (tab.IsSettingsPage)
+                        await VerifyTotpEnrollmentAsync();
+                    break;
+                case "account-verify-existing-mfa":
+                    if (tab.IsSettingsPage)
+                        await VerifyExistingMfaAsync();
+                    break;
+                case "sync-enable":
+                    if (tab.IsSettingsPage)
+                        await EnableEncryptedSyncAsync();
+                    break;
+                case "sync-now":
+                    if (tab.IsSettingsPage)
+                        await SyncNowAsync();
+                    break;
+                case "sync-request-approval":
+                    if (tab.IsSettingsPage)
+                        await RequestDeviceApprovalAsync();
+                    break;
+                case "sync-check-approval":
+                    if (tab.IsSettingsPage)
+                        await CheckDeviceApprovalAsync();
+                    break;
+                case "sync-recover":
+                    if (tab.IsSettingsPage)
+                        await RecoverEncryptedSyncAsync();
+                    break;
+                case "sync-recover-file":
+                    if (tab.IsSettingsPage)
+                        await RecoverEncryptedSyncFromBackupAsync();
+                    break;
+                case "sync-delete":
+                    if (tab.IsSettingsPage)
+                        await DeleteEncryptedSyncAsync();
+                    break;
+                case "device-approve":
+                    if (tab.IsSettingsPage)
+                        await ApprovePendingDeviceAsync(GetString(root, "deviceId", ""));
+                    break;
+                case "device-deny":
+                    if (tab.IsSettingsPage)
+                        await DenyPendingDeviceAsync(GetString(root, "deviceId", ""));
                     break;
                 case "import-edge":
                     await ImportFromEdgeAsync();
@@ -281,8 +395,8 @@ public partial class MainWindow : Window
                     }
                     break;
                 case "open-download-file":
-                    if (root.TryGetProperty("path", out JsonElement pathElement))
-                        OpenDownloadedFile(pathElement.GetString());
+                    if (root.TryGetProperty("id", out JsonElement downloadIdElement))
+                        OpenDownloadedFile(downloadIdElement.GetString());
                     break;
                 case "remove-bookmark":
                     if (root.TryGetProperty("url", out JsonElement bookmarkUrl))

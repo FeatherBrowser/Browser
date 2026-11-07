@@ -12,8 +12,8 @@ using System.Windows.Threading;
 using System.Windows;
 using FeatherBrowser.Domain.Models;
 using FeatherBrowser.Presentation.Tabs;
-using Microsoft.Web.WebView2.Core;
-using Microsoft.Web.WebView2.Wpf;
+using FeatherBrowser.Presentation.Themes;
+using FeatherBrowser.Features.Engine;
 using Microsoft.Win32;
 
 namespace FeatherBrowser.Presentation.Shell;
@@ -25,10 +25,10 @@ public partial class MainWindow : Window
         if (string.IsNullOrWhiteSpace(address))
             return;
 
-        for (int attempt = 0; attempt < 100 && _environment is null && !_isClosing; attempt++)
+        for (int attempt = 0; attempt < 200 && !_engineReady && !_isClosing; attempt++)
             await Task.Delay(50);
 
-        if (_environment is not null && !_isClosing)
+        if (_engineReady && !_isClosing)
             await AddTabAsync(address);
     }
 
@@ -59,30 +59,35 @@ public partial class MainWindow : Window
         if (!_isPrivateMode)
             return;
 
-        ModeBadge.Visibility = Visibility.Visible;
-        TitleBar.Background = new SolidColorBrush(Color.FromRgb(24, 17, 34));
-        Title = "Private — Feather Browser";
+        Resources["ChromeBrush"] = ThemeManager.Brush("PrivateChromeBrush");
+        Resources["TabActiveBrush"] = ThemeManager.Brush("PrivateTabActiveBrush");
+        Title = "Private — Feather";
         TitleText.Text = "Private browsing";
+    }
+
+    private async Task ReportRuleLoadFailureAsync()
+    {
+        try
+        {
+            await _rulesLoading;
+        }
+        catch (Exception ex)
+        {
+            Trace.TraceWarning($"Feather Shield rules failed to load: {ex.Message}");
+            StatusText.Text = "Feather Shield filter lists could not be loaded";
+        }
     }
 
     private async Task InitializeBrowserAsync()
     {
         try
         {
-            string dataRoot = _isPrivateMode
-                ? _privateDataRoot!
-                : Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "FeatherBrowser",
-                    "WebView2");
-            Directory.CreateDirectory(dataRoot);
+            await FeatherEngine.WhenReady;
+            if (_isPrivateMode)
+                _privateContext = FeatherEngine.CreatePrivateRequestContext();
 
-            var options = new CoreWebView2EnvironmentOptions
-            {
-                AreBrowserExtensionsEnabled = false
-            };
-
-            _environment = await CoreWebView2Environment.CreateAsync(null, dataRoot, options);
+            _ = ReportRuleLoadFailureAsync();
+            _engineReady = true;
 
             if (!string.IsNullOrWhiteSpace(_initialAddress))
             {
@@ -120,8 +125,8 @@ public partial class MainWindow : Window
                 {
                     SessionState session = _store.LoadSessionState();
                     List<SessionTabState> states = session.TabStates.Count > 0
-                        ? session.TabStates.Take(30).ToList()
-                        : session.Tabs.Take(30).Select(x => new SessionTabState { Address = x, Workspace = "Main" }).ToList();
+                        ? session.TabStates.ToList()
+                        : session.Tabs.Select(x => new SessionTabState { Address = x, Workspace = "Main" }).ToList();
 
                     if (states.Count > 0)
                     {
@@ -165,9 +170,9 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             LoadingOverlay.Visibility = Visibility.Visible;
-            StatusText.Text = "WebView2 failed to start";
+            StatusText.Text = "The browser engine failed to start";
             MessageBox.Show(
-                $"Feather could not start WebView2.\n\n{ex.Message}\n\nInstall or repair the Microsoft Edge WebView2 Runtime and try again.",
+                $"Feather's browser engine could not start.\n\n{ex.Message}\n\nTry reinstalling Feather. If it keeps happening, delete the Chromium folder under %LOCALAPPDATA%\\FeatherBrowser.",
                 "Feather Browser",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
@@ -184,17 +189,12 @@ public partial class MainWindow : Window
 
         foreach (BrowserTab tab in _tabs.ToArray())
         {
-            tab.SleepCancellation?.Cancel();
-            tab.SleepCancellation?.Dispose();
+            CancelSleepSchedule(tab);
             tab.View.Dispose();
         }
         _tabs.Clear();
-
-        if (_isPrivateMode && !string.IsNullOrWhiteSpace(_privateDataRoot))
-        {
-            try { Directory.Delete(_privateDataRoot, true); }
-            catch { }
-        }
+        _store.SettingsSaved -= OnSettingsSaved;
+        _store.FlushDeferredSaves();
     }
 
     private string SessionAddress(BrowserTab tab) =>
@@ -230,3 +230,4 @@ public partial class MainWindow : Window
             _lastSessionSnapshot = fingerprint;
     }
 }
+
