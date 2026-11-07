@@ -30,9 +30,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference
-      Include="CefSharp.Wpf.NETCore"
-      Version="154.0.340" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4314.35" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
   </ItemGroup>
 
   <ItemGroup>
