@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.1
+
+Feather 2.0.1
+### Fixed
+- few fixes and fix importer
+
 ## 2.0.0
 
 Feather 2.0 is a major update focused on making the browser cleaner, faster, more reliable, easier to maintain and more polished. It replaces Microsoft WebView2 with Feather's own engine layer over open-source Chromium (CEF through CefSharp 154 / Chromium 154). No Edge or WebView2 runtime is needed, and the installer works offline without administrator rights.
