@@ -2,9 +2,29 @@
 
 ## 2.0.1
 
-Feather 2.0.1
+Feather 2.0.1 strengthens FeatherShield with redirect and scriptlet filter support and anti-adblock protection, removes the bottom status bar, and fixes sync, importing and settings navigation.
+
+### Added
+
+- FeatherShield now supports `$redirect` / `$redirect-rule` filters. Instead of being cancelled outright, blocked requests can be answered with a harmless local stub (empty script, transparent image, empty JSON, …), so pages that depend on a blocked script keep working.
+- FeatherShield now supports scriptlet filters (`##+js(...)`). Scriptlets are injected into matching frames to neutralise anti-adblock walls and similar page scripts, are skipped on allowlisted sites, and are cached per host.
+- FeatherFilters adds anti-adblock detection rules and a scheduled workflow that keeps the bundled filter lists up to date automatically.
+- FeatherFilters adds more tracking and telemetry endpoints to `network-domains.txt`, and re-enables the Outbrain iframe rule.
+- Third-party notices now list the bundled EasyList, EasyPrivacy, uBlock filters and uBlock Quick fixes snapshots and their licenses.
+- New tests for FeatherShield's anti-adblock, redirect and scriptlet handling.
+
+### Changed
+
+- Removed the bottom resource/status bar and its "Show resource/status bar" setting. Memory and process details remain available in the Performance center.
+- A New Tab page with no back history is now unloaded when you switch away from it, freeing its memory.
+- Releases are now published automatically when a commit pushed to `main` includes `vMAJOR.MINOR.PATCH` in its message. The release tag is created on the commit being released.
+- CI uses `actions/setup-dotnet@v6` and `actions/upload-artifact@v7`.
+
 ### Fixed
-- few fixes and fix importer
+
+- Settings links that open a specific section now land on that section instead of the first page.
+- Sync could fail to read the remote encrypted sync record because of mismatched JSON property casing.
+- FeatherImport now interprets Chromium timestamps as UTC, so imported history and bookmark dates are no longer shifted by your time zone.
 
 ## 2.0.0
 
