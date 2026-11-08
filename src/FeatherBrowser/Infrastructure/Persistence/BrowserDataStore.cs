@@ -9,6 +9,9 @@ namespace FeatherBrowser.Infrastructure.Persistence;
 
 internal sealed class BrowserDataStore
 {
+    private static readonly Lazy<BrowserDataStore> SharedInstance = new(() => new BrowserDataStore());
+    public static BrowserDataStore Shared => SharedInstance.Value;
+
     private const string ApplicationDirectoryName = "FeatherBrowser";
     private const string DataDirectoryName = "Data";
 
@@ -17,6 +20,7 @@ internal sealed class BrowserDataStore
 
     private const string DefaultBookmarkFolder = "Favorites";
     private const string DownloadInProgressState = "In progress";
+    private const string DownloadInterruptedState = "Interrupted";
 
     private const int MaxFavicons = 256;
     private const int MaxFaviconBytes = 65_536;
@@ -60,6 +64,19 @@ internal sealed class BrowserDataStore
     public List<HistoryEntry> History { get; private set; }
     public BrowserSettings Settings { get; private set; }
     public List<DownloadEntry> Downloads { get; private set; }
+    public IReadOnlyList<DeviceTabs> OtherDeviceTabs { get; set; } = [];
+    public string InstallationId
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(Settings.InstallationId))
+            {
+                Settings.InstallationId = Guid.NewGuid().ToString("N");
+                SaveSettings();
+            }
+            return Settings.InstallationId;
+        }
+    }
 
     public BrowserDataStore()
     {
@@ -91,6 +108,27 @@ internal sealed class BrowserDataStore
         Downloads = downloads.GetAwaiter().GetResult();
 
         MigrateSettings();
+        ReconcileInterruptedDownloads();
+    }
+
+    private static int _downloadsReconciled;
+
+    private void ReconcileInterruptedDownloads()
+    {
+        if (Interlocked.Exchange(ref _downloadsReconciled, 1) != 0)
+            return;
+
+        bool changed = false;
+        foreach (DownloadEntry entry in Downloads.Where(entry =>
+                     string.Equals(entry.State, DownloadInProgressState, StringComparison.OrdinalIgnoreCase)))
+        {
+            entry.State = DownloadInterruptedState;
+            entry.CompletedAt ??= DateTimeOffset.Now;
+            changed = true;
+        }
+
+        if (changed)
+            Save(_downloadsPath, Downloads);
     }
 
     private string GetDataPath(string fileName) => Path.Join(_root, fileName);
@@ -306,8 +344,17 @@ internal sealed class BrowserDataStore
             return false;
         }
     }
+    
+    public bool LastSaveSucceeded { get; private set; } = true;
 
     private bool Save<T>(string path, T value)
+    {
+        bool saved = WriteJson(path, value);
+        LastSaveSucceeded = saved;
+        return saved;
+    }
+
+    private bool WriteJson<T>(string path, T value)
     {
         string temporaryPath = path + TemporarySuffix;
         string backupPath = path + BackupSuffix;
@@ -524,7 +571,7 @@ internal sealed class BrowserDataStore
         }
     }
 
-    public void ReplaceBookmarks(IEnumerable<BrowserBookmark> incoming)
+    public bool ReplaceBookmarks(IEnumerable<BrowserBookmark> incoming)
     {
         ArgumentNullException.ThrowIfNull(incoming);
 
@@ -532,13 +579,13 @@ internal sealed class BrowserDataStore
         {
             Bookmarks = incoming
                 .Where(bookmark => !string.IsNullOrWhiteSpace(bookmark.Url))
-                .GroupBy(bookmark => bookmark.Url, StringComparer.OrdinalIgnoreCase)
+                .GroupBy(bookmark => bookmark.Url, UrlIdentity.Comparer)
                 .Select(group => group.OrderByDescending(bookmark => bookmark.CreatedAt).First())
                 .OrderByDescending(bookmark => bookmark.CreatedAt)
                 .Take(5000)
                 .ToList();
 
-            Save(_bookmarksPath, Bookmarks);
+            return Save(_bookmarksPath, Bookmarks);
         }
     }
 
@@ -552,7 +599,7 @@ internal sealed class BrowserDataStore
                 Bookmarks
                     .Where(bookmark => !string.IsNullOrWhiteSpace(bookmark.Url))
                     .Select(bookmark => bookmark.Url),
-                StringComparer.OrdinalIgnoreCase);
+                UrlIdentity.Comparer);
 
             int added = 0;
 
@@ -638,7 +685,7 @@ internal sealed class BrowserDataStore
         }
     }
 
-    public void ReplaceHistory(IEnumerable<HistoryEntry> incoming)
+    public bool ReplaceHistory(IEnumerable<HistoryEntry> incoming)
     {
         ArgumentNullException.ThrowIfNull(incoming);
 
@@ -646,13 +693,13 @@ internal sealed class BrowserDataStore
         {
             History = incoming
                 .Where(entry => IsHttpUrl(entry.Url))
-                .GroupBy(entry => entry.Url, StringComparer.OrdinalIgnoreCase)
+                .GroupBy(entry => entry.Url, UrlIdentity.Comparer)
                 .Select(group => group.OrderByDescending(entry => entry.LastVisited).First())
                 .OrderByDescending(entry => entry.LastVisited)
                 .Take(MaxHistoryEntries)
                 .ToList();
 
-            Save(_historyPath, History);
+            return Save(_historyPath, History);
         }
     }
 
@@ -663,7 +710,7 @@ internal sealed class BrowserDataStore
         lock (_sync)
         {
             Dictionary<string, HistoryEntry> historyByUrl = new(
-                StringComparer.OrdinalIgnoreCase);
+                UrlIdentity.Comparer);
 
             foreach (HistoryEntry entry in History.Where(static entry => !string.IsNullOrWhiteSpace(entry.Url)))
             {
@@ -863,11 +910,14 @@ internal sealed class BrowserDataStore
 
     public event Action? SettingsSaved;
 
-    public void SaveSettings()
+    /// <summary>Returns false when settings.json could not be written; the change is then only in memory (#25).</summary>
+    public bool SaveSettings()
     {
+        bool saved;
         lock (_sync)
-            Save(_settingsPath, Settings);
+            saved = Save(_settingsPath, Settings);
         SettingsSaved?.Invoke();
+        return saved;
     }
 
     public SessionState LoadSessionState()
@@ -975,5 +1025,5 @@ internal sealed class BrowserDataStore
     }
 
     private static bool UrlEquals(string? left, string? right) =>
-        string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
+        UrlIdentity.Equals(left, right);
 }

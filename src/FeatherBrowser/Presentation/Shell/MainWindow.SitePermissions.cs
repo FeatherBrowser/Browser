@@ -20,19 +20,22 @@ public partial class MainWindow : Window
     private string GetSitePermission(string origin, string kind)
     {
         string key = SitePermissionPolicy.PermissionKey(origin, kind);
-        return _store.Settings.SitePermissions.TryGetValue(key, out string? value) ? value : "Ask";
+        IDictionary<string, string> decisions = _isPrivateMode ? _privatePermissionDecisions : _store.Settings.SitePermissions;
+        return decisions.TryGetValue(key, out string? value) ? value : "Ask";
     }
 
     private void SetSitePermission(string origin, string kind, string value)
     {
         string key = SitePermissionPolicy.PermissionKey(origin, kind);
 
+        IDictionary<string, string> decisions = _isPrivateMode ? _privatePermissionDecisions : _store.Settings.SitePermissions;
         if (string.Equals(value, "Ask", StringComparison.OrdinalIgnoreCase))
-            _store.Settings.SitePermissions.Remove(key);
+            decisions.Remove(key);
         else
-            _store.Settings.SitePermissions[key] = value;
+            decisions[key] = value;
 
-        _store.SaveSettings();
+        if (!_isPrivateMode)
+            _store.SaveSettings();
         StatusText.Text = $"{kind} permission for {origin}: {value}";
     }
 

@@ -591,11 +591,15 @@ internal static class AccountDialogs
 
         try
         {
-            return
-                new RecoveryBackupService()
-                    .Load(
-                        picker.FileName,
-                        password);
+            System.Windows.Input.Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
+            try
+            {
+                return new RecoveryBackupService().Load(picker.FileName, password);
+            }
+            finally
+            {
+                System.Windows.Input.Mouse.OverrideCursor = null;
+            }
         }
         catch (SyncSecurityException exception)
         {

@@ -1,6 +1,7 @@
 using System.IO;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using FeatherBrowser.Domain.Models;
 using FeatherBrowser.Features.Sync.Models;
 using FeatherBrowser.Infrastructure.Persistence;
@@ -33,9 +34,18 @@ internal sealed class SyncSnapshotService
             History = settings.SyncHistory
                 ? store.History.Select(CloneHistory).ToList()
                 : null,
-            Session = settings.SyncOpenTabs
-                ? CloneSession(store.LoadSessionState())
-                : null
+            Session = null,
+            DeviceTabs =
+            [
+                new DeviceTabs
+                {
+                    DeviceId = store.InstallationId,
+                    DeviceName = Environment.MachineName,
+                    Tabs = settings.SyncOpenTabs
+                        ? store.LoadSessionState().TabStates.Select(CloneTab).ToList()
+                        : []
+                }
+            ]
         };
     }
 
@@ -51,6 +61,19 @@ internal sealed class SyncSnapshotService
         }
 
         return data;
+    }
+
+    public SyncSnapshot Clone(SyncSnapshot snapshot)
+    {
+        byte[] data = Serialize(snapshot);
+        try
+        {
+            return Deserialize(data);
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(data);
+        }
     }
 
     public SyncSnapshot Deserialize(ReadOnlySpan<byte> data)
@@ -74,15 +97,23 @@ internal sealed class SyncSnapshotService
 
         snapshot.Settings.ApplyTo(store.Settings);
         store.Settings.SyncEnabled = true;
-        store.SaveSettings();
-        store.ReplaceBookmarks(snapshot.Bookmarks);
+        bool saved = store.SaveSettings();
+        saved &= store.ReplaceBookmarks(snapshot.Bookmarks);
 
         if (snapshot.Settings.SyncHistory && snapshot.History is not null)
-            store.ReplaceHistory(snapshot.History);
+            saved &= store.ReplaceHistory(snapshot.History);
 
-        if (snapshot.Settings.SyncOpenTabs && snapshot.Session is not null)
-            store.SaveSessionState(snapshot.Session.TabStates, snapshot.Session.ActiveIndex);
+        string self = store.InstallationId;
+        store.OtherDeviceTabs = (snapshot.DeviceTabs ?? [])
+            .Where(device => !string.Equals(device.DeviceId, self, StringComparison.Ordinal) && device.Tabs.Count > 0)
+            .Select(CloneDeviceTabs)
+            .ToList();
+
+        if (!saved)
+            throw new IOException("Feather could not save synced data to disk. Check free space and folder permissions, then sync again.");
     }
+
+    public bool HasSameContent(SyncSnapshot left, SyncSnapshot right) => Hash(left) == Hash(right);
 
     public SyncSnapshot Merge(
         SyncSnapshot local,
@@ -100,7 +131,7 @@ internal sealed class SyncSnapshotService
                 Bookmarks = MergeBookmarks(local.Bookmarks, remote.Bookmarks),
                 Settings = remote.Settings,
                 History = MergeHistory(local.History, remote.History),
-                Session = remote.Session ?? local.Session
+                DeviceTabs = MergeDeviceTabs(local.DeviceTabs, remote.DeviceTabs)
             });
         }
 
@@ -110,27 +141,32 @@ internal sealed class SyncSnapshotService
         bool remoteSettingsChanged = remoteHashes.Settings != baseline.SettingsHash;
         bool localHistoryChanged = localHashes.History != baseline.HistoryHash;
         bool remoteHistoryChanged = remoteHashes.History != baseline.HistoryHash;
-        bool localSessionChanged = localHashes.Session != baseline.SessionHash;
-        bool remoteSessionChanged = remoteHashes.Session != baseline.SessionHash;
+
+        SyncSnapshot? common = baseline.Snapshot;
 
         List<BrowserBookmark> bookmarks =
             !localBookmarksChanged && remoteBookmarksChanged ? remote.Bookmarks.Select(CloneBookmark).ToList() :
             localBookmarksChanged && !remoteBookmarksChanged ? local.Bookmarks.Select(CloneBookmark).ToList() :
-            localBookmarksChanged && remoteBookmarksChanged ? MergeBookmarks(local.Bookmarks, remote.Bookmarks) :
-            local.Bookmarks.Select(CloneBookmark).ToList();
+            localBookmarksChanged && remoteBookmarksChanged
+                ? common is not null
+                    ? MergeBookmarks(local.Bookmarks, remote.Bookmarks, common.Bookmarks)
+                    : MergeBookmarks(local.Bookmarks, remote.Bookmarks)
+                : local.Bookmarks.Select(CloneBookmark).ToList();
 
         SyncedBrowserSettings settings =
-            !localSettingsChanged && remoteSettingsChanged ? remote.Settings : local.Settings;
+            !localSettingsChanged && remoteSettingsChanged ? remote.Settings :
+            localSettingsChanged && remoteSettingsChanged && common is not null
+                ? MergeSettings(local.Settings, remote.Settings, common.Settings)
+                : local.Settings;
 
         List<HistoryEntry>? history =
             !localHistoryChanged && remoteHistoryChanged ? CloneHistoryList(remote.History) :
             localHistoryChanged && !remoteHistoryChanged ? CloneHistoryList(local.History) :
-            localHistoryChanged && remoteHistoryChanged ? MergeHistory(local.History, remote.History) :
-            CloneHistoryList(local.History);
-
-        SessionState? session =
-            !localSessionChanged && remoteSessionChanged ? CloneNullableSession(remote.Session) :
-            CloneNullableSession(local.Session);
+            localHistoryChanged && remoteHistoryChanged
+                ? common?.History is not null
+                    ? MergeHistory(local.History, remote.History, common.History)
+                    : MergeHistory(local.History, remote.History)
+                : CloneHistoryList(local.History);
 
         return Normalize(new SyncSnapshot
         {
@@ -138,7 +174,7 @@ internal sealed class SyncSnapshotService
             Bookmarks = bookmarks,
             Settings = settings,
             History = settings.SyncHistory ? history : null,
-            Session = settings.SyncOpenTabs ? session : null
+            DeviceTabs = MergeDeviceTabs(local.DeviceTabs, remote.DeviceTabs)
         });
     }
 
@@ -147,7 +183,7 @@ internal sealed class SyncSnapshotService
             HashObject(snapshot.Bookmarks),
             HashObject(snapshot.Settings),
             HashObject(snapshot.History),
-            HashObject(snapshot.Session));
+            HashObject(snapshot.DeviceTabs));
 
     public string HashBytes(ReadOnlySpan<byte> data) =>
         Convert.ToHexString(SHA256.HashData(data));
@@ -156,7 +192,7 @@ internal sealed class SyncSnapshotService
     {
         snapshot.Bookmarks.RemoveAll(bookmark => string.IsNullOrWhiteSpace(bookmark.Url));
         snapshot.Bookmarks = snapshot.Bookmarks
-            .GroupBy(bookmark => bookmark.Url, StringComparer.OrdinalIgnoreCase)
+            .GroupBy(bookmark => bookmark.Url, UrlIdentity.Comparer)
             .Select(group => group.OrderByDescending(item => item.CreatedAt).First())
             .OrderByDescending(bookmark => bookmark.CreatedAt)
             .Take(5000)
@@ -168,7 +204,7 @@ internal sealed class SyncSnapshotService
             snapshot.History = snapshot.History
                 .Where(entry => Uri.TryCreate(entry.Url, UriKind.Absolute, out Uri? uri) &&
                                 (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
-                .GroupBy(entry => entry.Url, StringComparer.OrdinalIgnoreCase)
+                .GroupBy(entry => entry.Url, UrlIdentity.Comparer)
                 .Select(group => group.OrderByDescending(item => item.LastVisited).First())
                 .OrderByDescending(entry => entry.LastVisited)
                 .Take(3000)
@@ -176,6 +212,8 @@ internal sealed class SyncSnapshotService
                 .ToList();
         }
 
+        snapshot.DeviceTabs ??= [];
+        snapshot.Session = null;
         snapshot.Settings.QuickLinks ??= [];
         snapshot.Settings.KeepAliveSites ??= [];
         snapshot.Settings.AllowlistedSites ??= [];
@@ -189,7 +227,7 @@ internal sealed class SyncSnapshotService
         IEnumerable<BrowserBookmark> local,
         IEnumerable<BrowserBookmark> remote)
     {
-        var byUrl = new Dictionary<string, BrowserBookmark>(StringComparer.OrdinalIgnoreCase);
+        var byUrl = new Dictionary<string, BrowserBookmark>(UrlIdentity.Comparer);
 
         foreach (BrowserBookmark item in local.Concat(remote))
         {
@@ -213,7 +251,7 @@ internal sealed class SyncSnapshotService
         if (local is null && remote is null)
             return null;
 
-        var byUrl = new Dictionary<string, HistoryEntry>(StringComparer.OrdinalIgnoreCase);
+        var byUrl = new Dictionary<string, HistoryEntry>(UrlIdentity.Comparer);
 
         foreach (HistoryEntry item in (local ?? []).Concat(remote ?? []))
         {
@@ -241,6 +279,125 @@ internal sealed class SyncSnapshotService
             .ToList();
     }
 
+    internal static List<BrowserBookmark> MergeBookmarks(
+        IEnumerable<BrowserBookmark> local,
+        IEnumerable<BrowserBookmark> remote,
+        IEnumerable<BrowserBookmark> common)
+    {
+        Dictionary<string, BrowserBookmark> localByUrl = IndexByUrl(local, static item => item.Url);
+        Dictionary<string, BrowserBookmark> remoteByUrl = IndexByUrl(remote, static item => item.Url);
+        Dictionary<string, BrowserBookmark> commonByUrl = IndexByUrl(common, static item => item.Url);
+        var merged = new List<BrowserBookmark>();
+
+        foreach (string url in localByUrl.Keys.Union(remoteByUrl.Keys, UrlIdentity.Comparer))
+        {
+            localByUrl.TryGetValue(url, out BrowserBookmark? mine);
+            remoteByUrl.TryGetValue(url, out BrowserBookmark? theirs);
+
+            if (commonByUrl.TryGetValue(url, out BrowserBookmark? before) && (mine is null || theirs is null))
+            {
+                BrowserBookmark survivor = mine ?? theirs!;
+                if (!BookmarkEdited(survivor, before))
+                    continue;
+                merged.Add(CloneBookmark(survivor));
+                continue;
+            }
+
+            BrowserBookmark pick = mine is null ? theirs! :
+                theirs is null ? mine :
+                theirs.CreatedAt > mine.CreatedAt || (BookmarkEdited(theirs, mine) && !BookmarkEdited(mine, before ?? mine))
+                    ? theirs
+                    : mine;
+            merged.Add(CloneBookmark(pick));
+        }
+
+        return merged
+            .OrderByDescending(item => item.CreatedAt)
+            .Take(5000)
+            .ToList();
+    }
+
+    internal static List<HistoryEntry>? MergeHistory(
+        IEnumerable<HistoryEntry>? local,
+        IEnumerable<HistoryEntry>? remote,
+        IEnumerable<HistoryEntry> common)
+    {
+        if (local is null && remote is null)
+            return null;
+
+        Dictionary<string, HistoryEntry> localByUrl = IndexByUrl(local ?? [], static item => item.Url);
+        Dictionary<string, HistoryEntry> remoteByUrl = IndexByUrl(remote ?? [], static item => item.Url);
+        Dictionary<string, HistoryEntry> commonByUrl = IndexByUrl(common, static item => item.Url);
+        var merged = new List<HistoryEntry>();
+
+        foreach (string url in localByUrl.Keys.Union(remoteByUrl.Keys, UrlIdentity.Comparer))
+        {
+            localByUrl.TryGetValue(url, out HistoryEntry? mine);
+            remoteByUrl.TryGetValue(url, out HistoryEntry? theirs);
+
+            if (commonByUrl.TryGetValue(url, out HistoryEntry? before) && (mine is null || theirs is null))
+            {
+                HistoryEntry survivor = mine ?? theirs!;
+                if (survivor.LastVisited > before.LastVisited)
+                    merged.Add(CloneHistory(survivor));
+                continue;
+            }
+
+            if (mine is null || theirs is null)
+            {
+                merged.Add(CloneHistory(mine ?? theirs!));
+                continue;
+            }
+
+            HistoryEntry newer = theirs.LastVisited > mine.LastVisited ? theirs : mine;
+            HistoryEntry entry = CloneHistory(newer);
+            entry.VisitCount = Math.Max(mine.VisitCount, theirs.VisitCount);
+            merged.Add(entry);
+        }
+
+        return merged
+            .OrderByDescending(item => item.LastVisited)
+            .Take(3000)
+            .ToList();
+    }
+
+    internal static SyncedBrowserSettings MergeSettings(
+        SyncedBrowserSettings local,
+        SyncedBrowserSettings remote,
+        SyncedBrowserSettings common)
+    {
+        JsonObject mine = (JsonObject)JsonSerializer.SerializeToNode(local, JsonOptions)!;
+        JsonObject theirs = (JsonObject)JsonSerializer.SerializeToNode(remote, JsonOptions)!;
+        JsonObject before = (JsonObject)JsonSerializer.SerializeToNode(common, JsonOptions)!;
+        var merged = new JsonObject();
+
+        foreach ((string name, JsonNode? value) in mine)
+        {
+            JsonNode? chosen = JsonNode.DeepEquals(value, before[name]) && theirs.ContainsKey(name)
+                ? theirs[name]
+                : value;
+            merged[name] = chosen?.DeepClone();
+        }
+
+        return merged.Deserialize<SyncedBrowserSettings>(JsonOptions) ?? local;
+    }
+
+    private static bool BookmarkEdited(BrowserBookmark item, BrowserBookmark before) =>
+        !string.Equals(item.Title, before.Title, StringComparison.Ordinal) ||
+        !string.Equals(item.Folder, before.Folder, StringComparison.Ordinal);
+
+    private static Dictionary<string, T> IndexByUrl<T>(IEnumerable<T> items, Func<T, string?> url)
+    {
+        var index = new Dictionary<string, T>(UrlIdentity.Comparer);
+        foreach (T item in items)
+        {
+            string? address = url(item);
+            if (!string.IsNullOrWhiteSpace(address))
+                index.TryAdd(address, item);
+        }
+        return index;
+    }
+
     private static BrowserBookmark CloneBookmark(BrowserBookmark item) =>
         new()
         {
@@ -261,6 +418,39 @@ internal sealed class SyncSnapshotService
 
     private static List<HistoryEntry>? CloneHistoryList(IEnumerable<HistoryEntry>? items) =>
         items?.Select(CloneHistory).ToList();
+
+    internal static List<DeviceTabs> MergeDeviceTabs(List<DeviceTabs>? local, List<DeviceTabs>? remote)
+    {
+        var byDevice = new Dictionary<string, DeviceTabs>(StringComparer.Ordinal);
+        foreach (DeviceTabs device in (remote ?? []).Concat(local ?? []))
+        {
+            if (!string.IsNullOrWhiteSpace(device.DeviceId))
+                byDevice[device.DeviceId] = CloneDeviceTabs(device);
+        }
+
+        return byDevice.Values
+            .Where(device => device.Tabs.Count > 0)
+            .OrderBy(device => device.DeviceId, StringComparer.Ordinal)
+            .Take(10)
+            .ToList();
+    }
+
+    private static DeviceTabs CloneDeviceTabs(DeviceTabs device) =>
+        new()
+        {
+            DeviceId = device.DeviceId,
+            DeviceName = device.DeviceName,
+            Tabs = device.Tabs.Take(40).Select(CloneTab).ToList()
+        };
+
+    private static SessionTabState CloneTab(SessionTabState tab) =>
+        new()
+        {
+            Address = tab.Address,
+            Title = tab.Title,
+            Workspace = tab.Workspace,
+            IsPinned = tab.IsPinned
+        };
 
     private static SessionState CloneSession(SessionState state) =>
         new()

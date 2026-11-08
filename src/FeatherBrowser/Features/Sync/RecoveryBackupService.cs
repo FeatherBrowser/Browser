@@ -9,6 +9,9 @@ namespace FeatherBrowser.Features.Sync;
 internal sealed class RecoveryBackupService
 {
     private const int Iterations = 600_000;
+    private const int MaxIterations = 2_000_000;
+    private const long MaxBackupFileBytes = 64 * 1024;
+    private const int MaxCiphertextBytes = 4 * 1024;
     private const int SaltSize = 32;
     private const int NonceSize = 12;
     private const int TagSize = 16;
@@ -69,12 +72,16 @@ internal sealed class RecoveryBackupService
     {
         ValidatePassword(password);
 
+        if (new FileInfo(path).Length > MaxBackupFileBytes)
+            throw new InvalidDataException("This file is too large to be a Feather recovery backup.");
+
         RecoveryBackupFile file = JsonSerializer.Deserialize<RecoveryBackupFile>(File.ReadAllText(path, Encoding.UTF8))
             ?? throw new InvalidDataException("The Feather recovery backup is empty.");
 
         if (file.Format != 1 ||
             !string.Equals(file.Kdf, "PBKDF2-HMAC-SHA256", StringComparison.Ordinal) ||
-            file.Iterations < Iterations)
+            file.Iterations < Iterations ||
+            file.Iterations > MaxIterations)
         {
             throw new InvalidDataException("The Feather recovery backup format is not supported.");
         }
@@ -82,6 +89,8 @@ internal sealed class RecoveryBackupService
         byte[] salt = Decode(file.Salt, SaltSize, "salt");
         byte[] nonce = Decode(file.Nonce, NonceSize, "nonce");
         byte[] tag = Decode(file.Tag, TagSize, "authentication tag");
+        if (string.IsNullOrEmpty(file.Ciphertext) || file.Ciphertext.Length > MaxCiphertextBytes * 4 / 3 + 4)
+            throw new InvalidDataException("The Feather recovery backup is damaged.");
         byte[] ciphertext = Convert.FromBase64String(file.Ciphertext);
         byte[] plaintext = new byte[ciphertext.Length];
         byte[] key = Rfc2898DeriveBytes.Pbkdf2(password, salt, file.Iterations, HashAlgorithmName.SHA256, KeySize);

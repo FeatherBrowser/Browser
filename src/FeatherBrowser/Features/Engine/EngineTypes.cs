@@ -178,6 +178,7 @@ internal static class PageScripts
 {
     public static readonly string AudioMarker = "__feather_audio_" + Guid.NewGuid().ToString("N") + ":";
     public static readonly string NavigationMarker = "__feather_nav_" + Guid.NewGuid().ToString("N") + ":";
+    public static readonly string EditMarker = "__feather_edit_" + Guid.NewGuid().ToString("N") + ":";
     public static readonly string AudioMonitor = """
         (() => {
           if (window.__featherAudioMonitor) return;
@@ -231,6 +232,40 @@ internal static class PageScripts
             });
           }
           setInterval(() => { if (last) schedule(); }, 5000);
+
+          const editMarker = "__EDIT__";
+          const skipped = ["button", "submit", "reset", "checkbox", "radio", "range", "color", "file", "image", "hidden", "search", "password"];
+          const edits = [];
+          let edited = false;
+          let editTimer = 0;
+          const isEditable = (element) => !!element && (element.isContentEditable ||
+            element.tagName === "TEXTAREA" ||
+            (element.tagName === "INPUT" && !skipped.includes((element.type || "text").toLowerCase())));
+          const changed = (element) => element.isContentEditable
+            ? (element.textContent || "").trim().length > 0
+            : (element.value || "") !== (element.defaultValue || "");
+          const checkEdits = () => {
+            editTimer = 0;
+            for (let i = edits.length - 1; i >= 0; i--) {
+              const element = edits[i].deref();
+              if (!element || !element.isConnected || !changed(element)) edits.splice(i, 1);
+            }
+            const now = edits.length > 0;
+            if (now !== edited) {
+              edited = now;
+              console.debug(editMarker + (now ? "1" : "0"));
+            }
+            if (now) editTimer = setTimeout(checkEdits, 3000);
+          };
+          document.addEventListener("input", (event) => {
+            if (!event.isTrusted) return;
+            const element = event.composedPath()[0];
+            if (!isEditable(element)) return;
+            if (!edits.some((ref) => ref.deref() === element)) edits.push(new WeakRef(element));
+            clearTimeout(editTimer);
+            editTimer = setTimeout(checkEdits, 400);
+          }, true);
+          document.addEventListener("submit", () => { edits.length = 0; clearTimeout(editTimer); checkEdits(); }, true);
           if (window === window.top) {
             window.addEventListener("mouseup", (event) => {
               if (event.button !== 3 && event.button !== 4) return;
@@ -243,7 +278,8 @@ internal static class PageScripts
 
     public static string AudioMonitorScript => AudioMonitor
         .Replace("__MARKER__", AudioMarker, StringComparison.Ordinal)
-        .Replace("__NAV__", NavigationMarker, StringComparison.Ordinal);
+        .Replace("__NAV__", NavigationMarker, StringComparison.Ordinal)
+        .Replace("__EDIT__", EditMarker, StringComparison.Ordinal);
 
     public const string ExitFullscreen =
         "if (document.fullscreenElement) { document.exitFullscreen().catch(() => {}); }";

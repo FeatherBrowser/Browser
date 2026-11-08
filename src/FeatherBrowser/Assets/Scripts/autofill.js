@@ -22,8 +22,8 @@
         el.dispatchEvent(new Event('change', { bubbles: true }));
     };
 
-    if (user && !user.value) setValue(user, username);
-    if (!pass.value) setValue(pass, password);
+    if (user && username && user.value !== username) setValue(user, username);
+    if (pass.value !== password) setValue(pass, password);
     pass.focus();
     return 'filled';
 })();

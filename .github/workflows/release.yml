@@ -97,6 +97,14 @@ jobs:
         run: ./scripts/build.ps1
         shell: pwsh
 
+      - name: Unit tests
+        shell: pwsh
+        run: |
+          dotnet test tests/FeatherBrowser.Tests/FeatherBrowser.Tests.csproj --configuration Release
+          if ($LASTEXITCODE -ne 0) { throw "FeatherBrowser unit tests failed." }
+          dotnet test external/FeatherShield/tests/FeatherShield.Tests/FeatherShield.Tests.csproj --configuration Release
+          if ($LASTEXITCODE -ne 0) { throw "FeatherShield unit tests failed." }
+
       - name: Checks
         run: ./scripts/check.ps1
         shell: pwsh

@@ -23,17 +23,23 @@ public partial class MainWindow
         if (!Uri.TryCreate(tab.LastAddress, UriKind.Absolute, out Uri? page))
             return false;
 
-        return _store.Settings.KeepAliveSites.Any(rule =>
-        {
-            string host = rule.Trim().TrimStart('*', '.');
-            if (Uri.TryCreate(host, UriKind.Absolute, out Uri? site) &&
-                !string.IsNullOrEmpty(site.Host))
-                host = site.Host;
-            host = host.TrimEnd('/');
-            return host.Length > 0 &&
-                (page.Host.Equals(host, StringComparison.OrdinalIgnoreCase) ||
-                 page.Host.EndsWith('.' + host, StringComparison.OrdinalIgnoreCase));
-        });
+        return _store.Settings.KeepAliveSites.Any(rule => KeepAliveRuleMatches(rule, page.Host));
+    }
+
+    private static string KeepAliveRuleHost(string rule)
+    {
+        string host = rule.Trim().TrimStart('*', '.');
+        if (Uri.TryCreate(host, UriKind.Absolute, out Uri? site) && !string.IsNullOrEmpty(site.Host))
+            host = site.Host;
+        return host.TrimEnd('/');
+    }
+
+    internal static bool KeepAliveRuleMatches(string rule, string host)
+    {
+        string ruleHost = KeepAliveRuleHost(rule);
+        return ruleHost.Length > 0 &&
+            (host.Equals(ruleHost, StringComparison.OrdinalIgnoreCase) ||
+             host.EndsWith('.' + ruleHost, StringComparison.OrdinalIgnoreCase));
     }
 
     private bool ShouldManageBackgroundTabs() =>
@@ -116,7 +122,7 @@ public partial class MainWindow
 
     private bool ColdUnloadTab(BrowserTab tab)
     {
-        if (_isClosing || !tab.IsLoaded || IsProtectedTab(tab))
+        if (_isClosing || !tab.IsLoaded || IsProtectedTab(tab) || tab.View.HasUnsavedEdits)
             return false;
 
         var oldView = tab.View;
@@ -160,8 +166,12 @@ public partial class MainWindow
         if (_isClosing || (!_store.Settings.LowMemoryMode && !_store.Settings.GameMode))
             return;
 
-        int limit = _store.Settings.GameMode ? 1 : Math.Clamp(_store.Settings.MaxLoadedTabs, 1, 8);
-        TimeSpan grace = TimeSpan.FromSeconds(_store.Settings.GameMode ? 0 : Math.Clamp(_store.Settings.UnloadAfterSeconds, 2, 300));
+        int limit = AdaptiveLoadedTabLimit(_store.Settings.GameMode ? 1 : Math.Clamp(_store.Settings.MaxLoadedTabs, 1, 8));
+
+        int graceSeconds = Math.Clamp(_store.Settings.BackgroundGraceSeconds, 0, 60);
+        if (!_store.Settings.GameMode)
+            graceSeconds = Math.Max(graceSeconds, Math.Clamp(_store.Settings.UnloadAfterSeconds, 2, 300));
+        TimeSpan grace = TimeSpan.FromSeconds(graceSeconds);
         DateTime now = DateTime.UtcNow;
         int loaded = _tabs.Count(tab => !tab.IsClosed && tab.IsLoaded);
         int unloaded = 0;
@@ -182,6 +192,22 @@ public partial class MainWindow
             UpdateWorkspaceSidebar();
             SaveSessionSnapshotIfEnabled();
         }
+    }
+    
+    private int AdaptiveLoadedTabLimit(int limit)
+    {
+        if (!_store.Settings.AdaptiveMemoryMode || _lastObservedMemoryBytes <= 0)
+            return limit;
+
+        return AdaptiveTabLimit(limit, _lastObservedMemoryBytes, Math.Clamp(_store.Settings.MemoryGuardMb, 350, 8192) * 1024L * 1024L);
+    }
+
+    internal static int AdaptiveTabLimit(int limit, long usedBytes, long guardBytes)
+    {
+        if (guardBytes <= 0 || usedBytes < guardBytes * 3 / 4)
+            return limit;
+
+        return usedBytes >= guardBytes ? 1 : Math.Max(1, limit / 2);
     }
 
     private void TrimMemoryNow()

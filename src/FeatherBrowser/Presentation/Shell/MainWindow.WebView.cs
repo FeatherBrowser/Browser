@@ -14,9 +14,6 @@ namespace FeatherBrowser.Presentation.Shell;
 public partial class MainWindow : Window
 {
     private readonly Dictionary<(WebPage Page, int Id), DownloadEntry?> _downloadEntries = [];
-    private string? _statusBeforeHover;
-
-    private readonly System.Windows.Controls.TextBlock StatusText = new();
 
     private WebPage CreateWebViewControl() => new(new WebPageOptions
     {
@@ -445,16 +442,7 @@ public partial class MainWindow : Window
             if (!IsCurrent(tab, page) || _activeTab != tab)
                 return;
 
-            if (string.IsNullOrEmpty(text))
-            {
-                if (_statusBeforeHover is not null)
-                    StatusText.Text = _statusBeforeHover;
-                _statusBeforeHover = null;
-                return;
-            }
-
-            _statusBeforeHover ??= StatusText.Text;
-            StatusText.Text = text;
+            SetLinkHoverStatus(text);
         };
 
         page.RequestsBlocked += (_, count) =>

@@ -6,8 +6,8 @@ namespace FeatherBrowser.Presentation.Pages;
 
 internal static class LibraryPage
 {
-    private const int BookmarkLimit = 1_000;
-    private const int HistoryLimit = 1_500;
+    private const int BookmarkLimit = 5_000;
+    private const int HistoryLimit = 3_000;
     private const int DownloadLimit = 500;
 
     private const string DefaultSection = "history";

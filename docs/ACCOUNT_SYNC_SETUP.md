@@ -17,6 +17,7 @@ Run the migrations in this order from the Supabase SQL editor:
 1. `supabase/migrations/001_feather_zero_knowledge_sync.sql`
 2. `supabase/migrations/002_mfa_and_device_approval.sql`
 3. `supabase/migrations/003_account_sync_completion.sql`
+4. `supabase/migrations/004_device_approval_hardening.sql` (Feather 2.0.2: a device can only be approved by consuming a real transfer from an approved device)
 
 The migrations create the encrypted sync store, device registry, one-time device-transfer records, recovery-device registration, pending-device denial, and AAL2 checks.
 

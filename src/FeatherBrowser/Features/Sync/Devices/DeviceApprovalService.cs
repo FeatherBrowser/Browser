@@ -125,9 +125,13 @@ internal sealed class DeviceApprovalService
     public async Task ApproveAsync(
         SupabaseSession session,
         Guid targetDeviceId,
+        string confirmedPairingCode,
         CancellationToken cancellationToken = default)
     {
         SupabaseMfaClient.RequireAal2(session);
+
+        if (string.IsNullOrWhiteSpace(confirmedPairingCode))
+            throw new SyncSecurityException("The device's pairing code was not confirmed.");
 
         using SyncDeviceSecrets secrets =
             LoadSecretsForSession(session);
@@ -152,6 +156,12 @@ internal sealed class DeviceApprovalService
                         StringComparison.Ordinal))
             ?? throw new InvalidOperationException(
                 "The pending Feather device could not be found.");
+
+        if (!string.Equals(target.PairingCode, confirmedPairingCode, StringComparison.Ordinal))
+        {
+            throw new SyncSecurityException(
+                "The device's key changed after you confirmed its pairing code. Feather did not approve it.");
+        }
 
         DeviceKeyTransfer transfer =
             DevicePairingCrypto.EncryptMasterKey(

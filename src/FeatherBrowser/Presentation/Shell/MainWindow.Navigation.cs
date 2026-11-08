@@ -247,7 +247,12 @@ public partial class MainWindow : Window
 
         if (!_activeTab.IsLoaded)
         {
-            await EnsureTabLoadedAsync(_activeTab);
+            BrowserTab tab = _activeTab;
+            if (!await TryEnsureTabLoadedAsync(tab) || tab.IsClosed || _isClosing || _activeTab != tab)
+                return;
+
+            ShowActiveTab(tab);
+            RefreshActiveTabUi(tab);
             return;
         }
 
@@ -287,9 +292,11 @@ public partial class MainWindow : Window
             _activeTab.Title.Text,
             _activeTab.LastAddress);
 
-        StatusText.Text = added
-            ? "Added to favorites"
-            : "Removed from favorites";
+        StatusText.Text = !_store.LastSaveSucceeded
+            ? "Favorites changed, but could not be saved to disk"
+            : added
+                ? "Added to favorites"
+                : "Removed from favorites";
 
         UpdateBookmarkButton();
     }

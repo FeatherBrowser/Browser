@@ -151,7 +151,7 @@ $('resetPerformance').addEventListener('click',()=>{
 $('discard').addEventListener('click',()=>loadInitial());
 
 $('apply').addEventListener('click',()=>{
-  post('save-settings',{settings:{
+  const settings={
     SearchEngine:$('search').value,
     StartupMode:$('startup').value,
     CrashRecoveryAutosave:$('crashSave').checked,
@@ -186,7 +186,9 @@ $('apply').addEventListener('click',()=>{
     KeepAliveSites:$('keepAlive').value,
     AllowlistedSites:$('allowlist').value,
     CustomBlockRules:$('rules').value
-  }});
+  };
+  post('save-settings',{settings});
+  Object.assign(initial,settings);
 
   const s=$('saved');
   s.classList.add('show');

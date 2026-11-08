@@ -39,9 +39,10 @@ internal sealed class SyncCoordinator : IDisposable
 
     public void ApplyProvisionedSnapshot(string userId, long revision, ReadOnlySpan<byte> plaintext)
     {
-        SyncSnapshot snapshot = _snapshots.Deserialize(plaintext);
-        _snapshots.Apply(_store, snapshot);
-        _state.Save(userId, revision, snapshot, _snapshots);
+        SyncSnapshot remote = _snapshots.Deserialize(plaintext);
+        SyncSnapshot merged = _snapshots.Merge(_snapshots.Capture(_store), _snapshots.Clone(remote), baseline: null);
+        _snapshots.Apply(_store, merged);
+        _state.Save(userId, revision, remote, _snapshots);
     }
 
     public SyncLocalState? GetState(string userId) => _state.Load(userId);
@@ -53,12 +54,13 @@ internal sealed class SyncCoordinator : IDisposable
         await _gate.WaitAsync(cancellationToken);
         try
         {
-            SyncSnapshot local = _snapshots.Capture(_store);
             SyncLocalState? baseline = _state.Load(session.UserId);
 
             for (int attempt = 0; attempt < 3; attempt++)
             {
                 SyncPullResult pulled = await _sync.PullWithRevisionAsync(session, cancellationToken);
+
+                SyncSnapshot local = _snapshots.Capture(_store);
                 SyncSnapshot remote = _snapshots.Deserialize(pulled.Plaintext);
                 SyncSnapshot merged = _snapshots.Merge(local, remote, baseline);
                 byte[] mergedBytes = _snapshots.Serialize(merged);
@@ -67,11 +69,7 @@ internal sealed class SyncCoordinator : IDisposable
                 try
                 {
                     _snapshots.Apply(_store, merged);
-
-                    string mergedHash = _snapshots.HashBytes(mergedBytes);
-                    string remoteHash = _snapshots.HashBytes(remoteBytes);
-
-                    if (string.Equals(mergedHash, remoteHash, StringComparison.Ordinal))
+                    if (_snapshots.HasSameContent(merged, remote))
                     {
                         _state.Save(session.UserId, pulled.Revision, merged, _snapshots);
                         return new SyncRunResult(pulled.Revision, false, DateTimeOffset.UtcNow);
@@ -90,6 +88,7 @@ internal sealed class SyncCoordinator : IDisposable
                     }
                     catch (SyncRevisionConflictException) when (attempt < 2)
                     {
+                        baseline = _state.Load(session.UserId);
                         continue;
                     }
                 }

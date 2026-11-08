@@ -24,12 +24,15 @@ public partial class MainWindow : Window
     {
         if (string.IsNullOrWhiteSpace(address))
             return;
+        await _startupCompleted.Task;
 
-        for (int attempt = 0; attempt < 200 && !_engineReady && !_isClosing; attempt++)
-            await Task.Delay(50);
+        if (_isClosing)
+            return;
 
-        if (_engineReady && !_isClosing)
+        if (_engineReady)
             await AddTabAsync(address);
+        else
+            StatusText.Text = $"Could not open {SafeHost(address)}: the browser engine failed to start";
     }
 
     private static void CleanupStalePrivateProfiles()
@@ -89,72 +92,67 @@ public partial class MainWindow : Window
             _ = ReportRuleLoadFailureAsync();
             _engineReady = true;
 
-            if (!string.IsNullOrWhiteSpace(_initialAddress))
+            string? initialAddress = string.IsNullOrWhiteSpace(_initialAddress) ? null : _initialAddress;
+
+            if (_isPrivateMode)
             {
-                await AddTabAsync(_initialAddress);
+                await AddTabAsync(initialAddress);
+                LoadingOverlay.Visibility = Visibility.Collapsed;
+                StatusText.Text = "Private browsing · history and session are not saved";
+                _resourceTimer.Start();
+                return;
+            }
+
+            string startup = _store.Settings.StartupMode;
+            if (!_store.Settings.FirstRunCompleted)
+            {
+                await AddTabAsync(initialAddress ?? "feather://welcome");
+            }
+            else if (string.Equals(startup, "Gaming", StringComparison.OrdinalIgnoreCase))
+            {
+                _store.Settings.GameMode = true;
+                _store.Settings.EcoMode = true;
+                _store.Settings.LowMemoryMode = true;
+                _ecoMode = true;
+                await AddTabAsync(initialAddress);
+            }
+            else if (string.Equals(startup, "NewTab", StringComparison.OrdinalIgnoreCase) || !_store.Settings.RestorePreviousSession)
+            {
+                await AddTabAsync(initialAddress);
             }
             else
             {
-                if (_isPrivateMode)
+                SessionState session = _store.LoadSessionState();
+                List<SessionTabState> states = session.TabStates.Count > 0
+                    ? session.TabStates.ToList()
+                    : session.Tabs.Select(x => new SessionTabState { Address = x, Workspace = "Main" }).ToList();
+
+                var restored = new List<BrowserTab>();
+                int activeIndex = 0;
+                if (states.Count > 0)
                 {
-                    await AddTabAsync();
-                    LoadingOverlay.Visibility = Visibility.Collapsed;
-                    StatusText.Text = "Private browsing · history and session are not saved";
-                    _resourceTimer.Start();
-                    return;
+                    activeIndex = Math.Clamp(session.ActiveIndex, 0, states.Count - 1);
+                    string activeWorkspace = string.IsNullOrWhiteSpace(states[activeIndex].Workspace) ? "Main" : states[activeIndex].Workspace;
+                    EnsureWorkspaceExists(activeWorkspace);
+                    _store.Settings.ActiveWorkspace = activeWorkspace;
+
+                    foreach (SessionTabState state in states)
+                    {
+                        EnsureWorkspaceExists(state.Workspace);
+                        BrowserTab? tab = await AddTabAsync(state.Address, select: false, workspace: state.Workspace, pinned: state.IsPinned, titleHint: state.Title);
+                        if (tab is not null)
+                            restored.Add(tab);
+                    }
+
+                    UpdateWorkspaceSidebar();
                 }
 
-                string startup = _store.Settings.StartupMode;
-                if (!_store.Settings.FirstRunCompleted)
-                {
-                    await AddTabAsync("feather://welcome");
-                }
-                else if (string.Equals(startup, "Gaming", StringComparison.OrdinalIgnoreCase))
-                {
-                    _store.Settings.GameMode = true;
-                    _store.Settings.EcoMode = true;
-                    _store.Settings.LowMemoryMode = true;
-                    _ecoMode = true;
-                    await AddTabAsync();
-                }
-                else if (string.Equals(startup, "NewTab", StringComparison.OrdinalIgnoreCase) || !_store.Settings.RestorePreviousSession)
-                {
-                    await AddTabAsync();
-                }
+                if (initialAddress is not null)
+                    await AddTabAsync(initialAddress);
+                else if (restored.Count > 0)
+                    await SelectTabAsync(restored[Math.Clamp(activeIndex, 0, restored.Count - 1)]);
                 else
-                {
-                    SessionState session = _store.LoadSessionState();
-                    List<SessionTabState> states = session.TabStates.Count > 0
-                        ? session.TabStates.ToList()
-                        : session.Tabs.Select(x => new SessionTabState { Address = x, Workspace = "Main" }).ToList();
-
-                    if (states.Count > 0)
-                    {
-                        int activeIndex = Math.Clamp(session.ActiveIndex, 0, states.Count - 1);
-                        string activeWorkspace = string.IsNullOrWhiteSpace(states[activeIndex].Workspace) ? "Main" : states[activeIndex].Workspace;
-                        EnsureWorkspaceExists(activeWorkspace);
-                        _store.Settings.ActiveWorkspace = activeWorkspace;
-
-                        var restored = new List<BrowserTab>();
-                        foreach (SessionTabState state in states)
-                        {
-                            EnsureWorkspaceExists(state.Workspace);
-                            BrowserTab? tab = await AddTabAsync(state.Address, select: false, workspace: state.Workspace, pinned: state.IsPinned, titleHint: state.Title);
-                            if (tab is not null)
-                                restored.Add(tab);
-                        }
-
-                        UpdateWorkspaceSidebar();
-                        if (restored.Count > 0)
-                            await SelectTabAsync(restored[Math.Clamp(activeIndex, 0, restored.Count - 1)]);
-                        else
-                            await AddTabAsync();
-                    }
-                    else
-                    {
-                        await AddTabAsync();
-                    }
-                }
+                    await AddTabAsync();
             }
 
             LoadingOverlay.Visibility = Visibility.Collapsed;
@@ -177,11 +175,16 @@ public partial class MainWindow : Window
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
         }
+        finally
+        {
+            _startupCompleted.TrySetResult();
+        }
     }
 
     private void Window_Closing(object? sender, CancelEventArgs e)
     {
         _isClosing = true;
+        _startupCompleted.TrySetResult();
         _resourceTimer.Stop();
         _sessionTimer.Stop();
         if (!_isPrivateMode)

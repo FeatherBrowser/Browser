@@ -100,6 +100,9 @@ internal sealed class BlockerEngine : INetworkPolicy
         if (!decision.IsBlocked)
             return NetworkVerdict.Allow;
 
+        if (kind is WebResourceKind.XmlHttpRequest or WebResourceKind.Other)
+            return NetworkVerdict.Block;
+
         return RedirectResources.TryGet(decision.Redirect, out RedirectResource stub)
             ? new NetworkVerdict(true, stub.MimeType, stub.Body)
             : NetworkVerdict.Block;

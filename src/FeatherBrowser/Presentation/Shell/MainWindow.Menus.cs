@@ -171,6 +171,38 @@ public partial class MainWindow : Window
 
         menu.Items.Add(new Separator());
 
+        if (!_isPrivateMode && _store.Settings.SyncOpenTabs && _store.OtherDeviceTabs.Count > 0)
+        {
+            var otherDevices = new MenuItem { Header = "Tabs from other devices" };
+            foreach (DeviceTabs device in _store.OtherDeviceTabs)
+            {
+                var deviceItem = new MenuItem
+                {
+                    Header = string.IsNullOrWhiteSpace(device.DeviceName) ? "Another device" : device.DeviceName
+                };
+                foreach (SessionTabState remoteTab in device.Tabs.Where(t => !FeatherBrowser.Features.Engine.InternalPages.IsInternalUrl(t.Address)))
+                {
+                    string address = remoteTab.Address;
+                    var tabItem = new MenuItem
+                    {
+                        Header = TrimLabel(string.IsNullOrWhiteSpace(remoteTab.Title) ? address : remoteTab.Title, 60),
+                        ToolTip = address
+                    };
+                    tabItem.Click += async (_, _) => await AddTabAsync(address);
+                    deviceItem.Items.Add(tabItem);
+                }
+
+                if (deviceItem.Items.Count > 0)
+                    otherDevices.Items.Add(deviceItem);
+            }
+
+            if (otherDevices.Items.Count > 0)
+            {
+                menu.Items.Add(otherDevices);
+                menu.Items.Add(new Separator());
+            }
+        }
+
         var settingsPage = new MenuItem { Header = "Settings", InputGestureText = "Ctrl+," };
         settingsPage.Click += async (_, _) => await OpenSettingsAsync();
         menu.Items.Add(settingsPage);
@@ -206,21 +238,33 @@ public partial class MainWindow : Window
         string tabHost = tab.IsInternalPage ? string.Empty : SafeHost(tab.LastAddress);
         if (!string.IsNullOrWhiteSpace(tabHost) && tabHost != "page")
         {
-            bool keepAlive = _store.Settings.KeepAliveSites.Any(x =>
+            List<string> matchingRules = _store.Settings.KeepAliveSites.Where(rule => KeepAliveRuleMatches(rule, tabHost)).ToList();
+            bool keepAlive = matchingRules.Count > 0;
+            string? inherited = matchingRules.Select(KeepAliveRuleHost)
+                .FirstOrDefault(host => !tabHost.Equals(host, StringComparison.OrdinalIgnoreCase));
+            var keepSiteAlive = new MenuItem
             {
-                string host = x.Trim().TrimStart('.');
-                return tabHost.Equals(host, StringComparison.OrdinalIgnoreCase) || tabHost.EndsWith('.' + host, StringComparison.OrdinalIgnoreCase);
-            });
-            var keepSiteAlive = new MenuItem { Header = "Keep this site alive in background", IsCheckable = true, IsChecked = keepAlive };
+                Header = inherited is null ? "Keep this site alive in background" : $"Keep this site alive in background (via {inherited})",
+                IsCheckable = true,
+                IsChecked = keepAlive
+            };
             keepSiteAlive.Click += (_, _) =>
             {
                 if (keepAlive)
-                    _store.Settings.KeepAliveSites.RemoveAll(x => tabHost.Equals(x.Trim().TrimStart('.'), StringComparison.OrdinalIgnoreCase));
+                    _store.Settings.KeepAliveSites.RemoveAll(rule => KeepAliveRuleMatches(rule, tabHost));
                 else if (!_store.Settings.KeepAliveSites.Contains(tabHost, StringComparer.OrdinalIgnoreCase))
                     _store.Settings.KeepAliveSites.Add(tabHost);
                 _store.SaveSettings();
-                if (!keepAlive && tab != _activeTab && tab.IsLoaded)
-                    ScheduleBackgroundLifecycle(tab);
+
+                if (keepAlive)
+                {
+                    foreach (BrowserTab other in _tabs.Where(t => t != _activeTab && t.IsLoaded && !t.IsClosed))
+                        ScheduleBackgroundLifecycle(other);
+                }
+                else
+                {
+                    CancelSleepSchedule(tab);
+                }
             };
             menu.Items.Add(keepSiteAlive);
         }

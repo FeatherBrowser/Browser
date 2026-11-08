@@ -35,7 +35,9 @@ public partial class MainWindow : Window
         List<SavedCredential> matches = _passwordVault.FindForUrl(source);
         if (matches.Count == 0)
         {
-            StatusText.Text = "No imported password is saved for this site";
+            StatusText.Text = _passwordVault.LoadError is not null
+                ? "Saved passwords could not be read"
+                : "No imported password is saved for this site";
             return;
         }
 
@@ -115,6 +117,20 @@ public partial class MainWindow : Window
 
     private void ClearImportedPasswords()
     {
+        if (_passwordVault.LoadError is { } loadError)
+        {
+            if (MessageBox.Show(
+                    $"Feather could not read its saved passwords:\n\n{loadError}\n\nClear the password vault and start over? A backup copy of the unreadable file is kept.",
+                    "Forget imported passwords",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning) != MessageBoxResult.Yes)
+                return;
+
+            _passwordVault.Clear();
+            StatusText.Text = "Imported password vault cleared";
+            return;
+        }
+
         if (_passwordVault.Count == 0)
         {
             StatusText.Text = "No imported passwords are stored";

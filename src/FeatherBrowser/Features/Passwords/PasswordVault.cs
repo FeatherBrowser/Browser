@@ -14,6 +14,11 @@ internal sealed class PasswordVault
     private readonly string _path;
     private readonly JsonSerializerOptions _jsonOptions = new() { WriteIndented = true };
     private List<SavedCredential> _credentials;
+    private string? _loadError;
+    public string? LoadError
+    {
+        get { lock (_sync) return _loadError; }
+    }
 
     public int Count
     {
@@ -59,6 +64,7 @@ internal sealed class PasswordVault
 
         lock (_sync)
         {
+            EnsureLoadedForWrite();
             foreach (List<string> row in rows.Skip(1))
             {
                 string url = Cell(row, urlIndex);
@@ -129,7 +135,10 @@ internal sealed class PasswordVault
     {
         lock (_sync)
         {
+            if (_loadError is not null)
+                BackUpUnreadableVault();
             _credentials.Clear();
+            _loadError = null;
             Save();
         }
     }
@@ -138,13 +147,43 @@ internal sealed class PasswordVault
     {
         try
         {
+            _loadError = null;
             if (!File.Exists(_path))
                 return [];
             return JsonSerializer.Deserialize<List<SavedCredential>>(File.ReadAllText(_path), _jsonOptions) ?? [];
         }
-        catch
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or NotSupportedException)
         {
+            _loadError = ex.Message;
             return [];
+        }
+    }
+
+    private void EnsureLoadedForWrite()
+    {
+        if (_loadError is null)
+            return;
+
+        _credentials = Load();
+        if (_loadError is not null)
+        {
+            throw new InvalidOperationException(
+                "Feather could not read your existing saved passwords, so it did not change them.\n\n" +
+                $"{_loadError}\n\nClose other programs that may be using passwords.json and try again, " +
+                "or clear the password vault to start over (a backup copy is kept).");
+        }
+    }
+
+    private void BackUpUnreadableVault()
+    {
+        try
+        {
+            if (File.Exists(_path))
+                File.Copy(_path, _path + $".unreadable-{DateTime.Now:yyyyMMddHHmmss}.bak", overwrite: false);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            System.Diagnostics.Trace.TraceWarning($"Could not back up unreadable password vault: {ex.Message}");
         }
     }
 

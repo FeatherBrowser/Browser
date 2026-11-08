@@ -110,10 +110,12 @@ public partial class MainWindow : Window
             settings.LowMemoryMode = true;
         }
 
-        _store.SaveSettings();
+        bool saved = _store.SaveSettings();
         ApplyRuntimeSettings();
         ConfigureAutomaticSync();
-        StatusText.Text = settings.GameMode ? "Settings saved · Gaming Mode active" : "Settings saved";
+        StatusText.Text = !saved
+            ? "Settings applied, but could not be saved to disk; they will be lost when Feather closes"
+            : settings.GameMode ? "Settings saved · Gaming Mode active" : "Settings saved";
     }
 
     private static bool GetBool(JsonElement root, string name, bool fallback) =>
@@ -435,6 +437,7 @@ public partial class MainWindow : Window
                     break;
                 case "reset-site-permissions":
                     _store.Settings.SitePermissions.Clear();
+                    _privatePermissionDecisions.Clear();
                     _store.SaveSettings();
                     StatusText.Text = "Saved site permission decisions cleared";
                     if (tab.IsSettingsPage)

@@ -66,7 +66,8 @@ internal sealed class SyncLocalStateStore
             SettingsHash = hashes.Settings,
             HistoryHash = hashes.History,
             SessionHash = hashes.Session,
-            LastSyncUtc = DateTimeOffset.UtcNow
+            LastSyncUtc = DateTimeOffset.UtcNow,
+            Snapshot = snapshot
         };
 
         byte[] plain = JsonSerializer.SerializeToUtf8Bytes(state);
@@ -112,4 +113,5 @@ internal sealed class SyncLocalState
     public string HistoryHash { get; init; } = "";
     public string SessionHash { get; init; } = "";
     public DateTimeOffset LastSyncUtc { get; init; }
+    public SyncSnapshot? Snapshot { get; init; }
 }

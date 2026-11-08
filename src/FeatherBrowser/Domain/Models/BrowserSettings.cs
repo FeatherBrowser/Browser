@@ -53,5 +53,6 @@ internal sealed class BrowserSettings
     public int AutoSyncMinutes { get; set; } = 5;
     public bool SyncHistory { get; set; }
     public bool SyncOpenTabs { get; set; }
+    public string InstallationId { get; set; } = "";
     public Dictionary<string, string> SitePermissions { get; set; } = new();
 }

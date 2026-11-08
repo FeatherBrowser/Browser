@@ -34,29 +34,9 @@ public partial class MainWindow : Window
                     return;
                 }
 
-                _accountSession = stored;
-
-                if (_accountSession.NeedsRefresh)
-                {
-                    SupabaseSession refreshed =
-                        await _supabaseAuth.RefreshAsync(_accountSession.RefreshToken);
-
-                    if (string.IsNullOrWhiteSpace(refreshed.Email) &&
-                        !string.IsNullOrWhiteSpace(_accountSession.Email))
-                    {
-                        refreshed = new SupabaseSession
-                        {
-                            UserId = refreshed.UserId,
-                            AccessToken = refreshed.AccessToken,
-                            RefreshToken = refreshed.RefreshToken,
-                            Email = _accountSession.Email,
-                            ExpiresAt = refreshed.ExpiresAt
-                        };
-                    }
-
-                    _accountSession = refreshed;
-                    _supabaseSessionStore.Save(refreshed);
-                }
+                BeginAccountSession(stored);
+                ConfigureAutomaticSync();
+                await RefreshAccountSessionIfNeededAsync();
 
                 await RefreshAccountStateAsync();
                 ConfigureAutomaticSync();
@@ -88,7 +68,7 @@ public partial class MainWindow : Window
                         credentials.Email,
                         credentials.Password);
 
-                _accountSession = session;
+                BeginAccountSession(session);
                 _supabaseSessionStore.Save(session);
 
                 List<MfaFactor> factors =
@@ -136,7 +116,7 @@ public partial class MainWindow : Window
 
                 if (result.Session is null)
                 {
-                    _accountSession = null;
+                    BeginAccountSession(null);
                     _supabaseSessionStore.Delete();
 
                     _accountPageState =
@@ -146,7 +126,7 @@ public partial class MainWindow : Window
                 }
                 else
                 {
-                    _accountSession = result.Session;
+                    BeginAccountSession(result.Session);
                     _supabaseSessionStore.Save(result.Session);
 
                     await RefreshAccountStateAsync(
@@ -165,7 +145,7 @@ public partial class MainWindow : Window
 
         SupabaseSession? session = _accountSession;
 
-        _accountSession = null;
+        BeginAccountSession(null);
         _pendingTotpEnrollment = null;
 
         _supabaseSessionStore.Delete();
@@ -195,8 +175,12 @@ public partial class MainWindow : Window
         await RunAccountOperationAsync(
             async () =>
             {
+                SupabaseSession? session = await RefreshAccountSessionIfNeededAsync();
+                if (session is null)
+                    return;
+
                 List<MfaFactor> factors =
-                    await _supabaseMfa.ListFactorsAsync(_accountSession);
+                    await _supabaseMfa.ListFactorsAsync(session);
 
                 if (factors.Any(item => item.IsVerifiedTotp))
                 {
@@ -208,7 +192,7 @@ public partial class MainWindow : Window
 
                 _pendingTotpEnrollment =
                     await _supabaseMfa.EnrollTotpAsync(
-                        _accountSession,
+                        session,
                         Environment.MachineName);
 
                 await RefreshAccountStateAsync(
@@ -240,14 +224,20 @@ public partial class MainWindow : Window
         await RunAccountOperationAsync(
             async () =>
             {
+                TotpEnrollment enrollment = _pendingTotpEnrollment;
+                SupabaseSession? session = await RefreshAccountSessionIfNeededAsync();
+                if (session is null)
+                    return;
+
+                int generation = _accountGeneration;
                 SupabaseSession aal2 =
                     await _supabaseMfa.ChallengeAndVerifyAsync(
-                        _accountSession,
-                        _pendingTotpEnrollment.FactorId,
+                        session,
+                        enrollment.FactorId,
                         code);
 
-                _accountSession = aal2;
-                _supabaseSessionStore.Save(aal2);
+                if (!AdoptAccountSession(aal2, generation, session.Email))
+                    return;
 
                 _pendingTotpEnrollment = null;
 
@@ -269,8 +259,12 @@ public partial class MainWindow : Window
         await RunAccountOperationAsync(
             async () =>
             {
+                SupabaseSession? session = await RefreshAccountSessionIfNeededAsync();
+                if (session is null)
+                    return;
+
                 List<MfaFactor> factors =
-                    await _supabaseMfa.ListFactorsAsync(_accountSession);
+                    await _supabaseMfa.ListFactorsAsync(session);
 
                 MfaFactor? factor =
                     factors.FirstOrDefault(item => item.IsVerifiedTotp);
@@ -283,7 +277,11 @@ public partial class MainWindow : Window
                     return;
                 }
 
-                await VerifyMfaFactorAsync(factor, true);
+                if (!await VerifyMfaFactorAsync(factor, true))
+                {
+                    await RefreshAccountStateAsync();
+                    return;
+                }
 
                 await RefreshAccountStateAsync(
                     "2FA verified for this session.");
@@ -317,16 +315,15 @@ public partial class MainWindow : Window
         if (code is null)
             return false;
 
+        SupabaseSession session = _accountSession;
+        int generation = _accountGeneration;
         SupabaseSession aal2 =
             await _supabaseMfa.ChallengeAndVerifyAsync(
-                _accountSession,
+                session,
                 factor.Id,
                 code);
 
-        _accountSession = aal2;
-        _supabaseSessionStore.Save(aal2);
-
-        return true;
+        return AdoptAccountSession(aal2, generation, session.Email);
     }
 
     private async Task<bool> EnsureAal2Async(bool prompt)
@@ -334,28 +331,8 @@ public partial class MainWindow : Window
         if (_accountSession is null || _isPrivateMode)
             return false;
 
-        if (_accountSession.NeedsRefresh)
-        {
-            SupabaseSession old = _accountSession;
-
-            SupabaseSession refreshed =
-                await _supabaseAuth.RefreshAsync(old.RefreshToken);
-
-            if (string.IsNullOrWhiteSpace(refreshed.Email))
-            {
-                refreshed = new SupabaseSession
-                {
-                    UserId = refreshed.UserId,
-                    AccessToken = refreshed.AccessToken,
-                    RefreshToken = refreshed.RefreshToken,
-                    Email = old.Email,
-                    ExpiresAt = refreshed.ExpiresAt
-                };
-            }
-
-            _accountSession = refreshed;
-            _supabaseSessionStore.Save(refreshed);
-        }
+        if (await RefreshAccountSessionIfNeededAsync() is null)
+            return false;
 
         if (JwtAssuranceLevel.IsAal2(_accountSession.AccessToken))
             return true;
@@ -395,7 +372,7 @@ public partial class MainWindow : Window
                     RemoteSyncRecord? remote =
                         await _supabaseSync.GetAsync(_accountSession);
 
-                    if (remote is not null)
+                    if (remote is not null && !_zeroKnowledgeSync.HasPendingSetup(_accountSession.UserId))
                     {
                         await RefreshAccountStateAsync(
                             "This account already has encrypted sync data. Approve this device or use the recovery key.");
@@ -411,10 +388,13 @@ public partial class MainWindow : Window
                             _accountSession,
                             snapshot);
 
-                    _syncCoordinator.MarkInitialized(
-                        _accountSession.UserId,
-                        result.Revision,
-                        snapshot);
+                    if (!result.Resumed)
+                    {
+                        _syncCoordinator.MarkInitialized(
+                            _accountSession.UserId,
+                            result.Revision,
+                            snapshot);
+                    }
 
                     _store.Settings.SyncEnabled = true;
                     _store.SaveSettings();
@@ -426,6 +406,8 @@ public partial class MainWindow : Window
                     await _deviceApproval.RegisterInitialDeviceAsync(
                         _accountSession,
                         Environment.MachineName);
+
+                    _zeroKnowledgeSync.CompletePendingSetup();
 
                     ConfigureAutomaticSync();
 
@@ -638,11 +620,14 @@ public partial class MainWindow : Window
                 AccountDeviceState? device =
                     _accountPageState.Devices.FirstOrDefault(
                         item => item.Id == id.ToString());
+                if (device is null || string.IsNullOrWhiteSpace(device.PairingCode))
+                {
+                    await RefreshAccountStateAsync(
+                        "Refresh the device list and compare the pairing code before approving.");
+                    return;
+                }
 
-                string detail =
-                    device is null
-                        ? id.ToString()
-                        : $"{device.Name}\nPairing code: {device.PairingCode}";
+                string detail = $"{device.Name}\nPairing code: {device.PairingCode}";
 
                 if (MessageBox.Show(
                         this,
@@ -656,7 +641,8 @@ public partial class MainWindow : Window
 
                 await _deviceApproval.ApproveAsync(
                     _accountSession,
-                    id);
+                    id,
+                    device.PairingCode);
 
                 await RefreshAccountStateAsync(
                     "The device was approved.");
@@ -711,6 +697,8 @@ public partial class MainWindow : Window
                 }
 
                 await SyncNowInternalAsync(true);
+
+                ConfigureAutomaticSync();
             },
             "manual sync");
 
@@ -1123,38 +1111,8 @@ public partial class MainWindow : Window
             await RunAccountOperationAsync(
                 async () =>
                 {
-                    if (_accountSession.NeedsRefresh)
-                    {
-                        SupabaseSession old =
-                            _accountSession;
-
-                        SupabaseSession refreshed =
-                            await _supabaseAuth.RefreshAsync(
-                                old.RefreshToken);
-
-                        if (string.IsNullOrWhiteSpace(
-                                refreshed.Email))
-                        {
-                            refreshed =
-                                new SupabaseSession
-                                {
-                                    UserId =
-                                        refreshed.UserId,
-                                    AccessToken =
-                                        refreshed.AccessToken,
-                                    RefreshToken =
-                                        refreshed.RefreshToken,
-                                    Email =
-                                        old.Email,
-                                    ExpiresAt =
-                                        refreshed.ExpiresAt
-                                };
-                        }
-
-                        _accountSession = refreshed;
-                        _supabaseSessionStore.Save(
-                            refreshed);
-                    }
+                    if (await RefreshAccountSessionIfNeededAsync() is null)
+                        return;
 
                     if (!CanRunAutomaticSync())
                     {
@@ -1185,9 +1143,16 @@ public partial class MainWindow : Window
         string operationName,
         bool refreshAccountStateOnFailure = true)
     {
+        if (_accountResourcesClosed)
+            return null;
+        _pendingAccountOperations++;
         try
         {
             await operation();
+            return null;
+        }
+        catch (Exception) when (_accountResourcesClosed)
+        {
             return null;
         }
         catch (SyncSecurityException exception)
@@ -1294,6 +1259,11 @@ public partial class MainWindow : Window
                 exception,
                 operationName,
                 refreshAccountStateOnFailure);
+        }
+        finally
+        {
+            if (--_pendingAccountOperations == 0 && _accountResourcesClosed)
+                DisposeAccountResources();
         }
     }
 

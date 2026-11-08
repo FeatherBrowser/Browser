@@ -12,6 +12,7 @@
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" PrivateAssets="all" />
     <PackageReference Include="coverlet.collector" Version="6.0.2" PrivateAssets="all" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.0.0" />
     <Using Include="Xunit" />
   </ItemGroup>
   <ItemGroup>
@@ -27,6 +28,17 @@
     <Compile Include="../../src/FeatherBrowser/Features/Engine/DownloadPaths.cs" Link="Engine/DownloadPaths.cs" />
     <Compile Include="../../src/FeatherBrowser/Features/Engine/FaviconLoader.cs" Link="Engine/FaviconLoader.cs" />
     <Compile Include="../../src/FeatherBrowser/Infrastructure/Resources/EmbeddedAssets.cs" Link="EmbeddedAssets.cs" />
+    <Compile Include="../../src/FeatherBrowser/Domain/Models/UrlIdentity.cs" Link="UrlIdentity.cs" />
+    <Compile Include="../../src/FeatherBrowser/Domain/Models/DeviceTabs.cs" Link="DeviceTabs.cs" />
+    <Compile Include="../../src/FeatherBrowser/Domain/Models/BrowserBookmark.cs" Link="BrowserBookmark.cs" />
+    <Compile Include="../../src/FeatherBrowser/Domain/Models/HistoryEntry.cs" Link="HistoryEntry.cs" />
+    <Compile Include="../../src/FeatherBrowser/Domain/Models/DownloadEntry.cs" Link="DownloadEntry.cs" />
+    <Compile Include="../../src/FeatherBrowser/Domain/Models/SessionState.cs" Link="SessionState.cs" />
+    <Compile Include="../../src/FeatherBrowser/Domain/Models/SessionTabState.cs" Link="SessionTabState.cs" />
+    <Compile Include="../../src/FeatherBrowser/Features/Sync/Models/SyncSnapshot.cs" Link="Sync/SyncSnapshot.cs" />
+    <Compile Include="../../src/FeatherBrowser/Features/Sync/SyncSnapshotService.cs" Link="Sync/SyncSnapshotService.cs" />
+    <Compile Include="../../src/FeatherBrowser/Features/Sync/SyncLocalStateStore.cs" Link="Sync/SyncLocalStateStore.cs" />
+    <Compile Include="../../src/FeatherBrowser/Infrastructure/Persistence/BrowserDataStore.cs" Link="Persistence/BrowserDataStore.cs" />
     <EmbeddedResource Include="../../src/FeatherBrowser/Assets/Pages/*;../../src/FeatherBrowser/Assets/Scripts/*">
       <LogicalName>FeatherBrowser.Assets.%(Filename)%(Extension)</LogicalName>
     </EmbeddedResource>

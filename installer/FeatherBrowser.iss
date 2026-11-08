@@ -45,6 +45,14 @@ Name: "{autodesktop}\Feather Browser"; Filename: "{app}\FeatherBrowser.exe"; Wor
 [Run]
 Filename: "{app}\FeatherBrowser.exe"; Description: "Launch Feather Browser"; Flags: nowait postinstall skipifsilent
 
+[Registry]
+Root: HKCU; Subkey: "Software\Classes\FeatherBrowserURL"; Flags: dontcreatekey uninsdeletekey
+Root: HKCU; Subkey: "Software\Classes\FeatherBrowserHTML"; Flags: dontcreatekey uninsdeletekey
+Root: HKCU; Subkey: "Software\Clients\StartMenuInternet\FeatherBrowser"; Flags: dontcreatekey uninsdeletekey
+Root: HKCU; Subkey: "Software\FeatherBrowser\Capabilities"; Flags: dontcreatekey uninsdeletekey
+Root: HKCU; Subkey: "Software\FeatherBrowser"; Flags: dontcreatekey uninsdeletekeyifempty
+Root: HKCU; Subkey: "Software\RegisteredApplications"; ValueType: none; ValueName: "Feather Browser"; Flags: dontcreatekey uninsdeletevalue
+
 [InstallDelete]
 Type: filesandordirs; Name: "{app}\locales"
 Type: files; Name: "{app}\Microsoft.Web.WebView2.*.dll"

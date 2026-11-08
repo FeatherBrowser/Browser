@@ -10,6 +10,7 @@ internal sealed class SyncSnapshot
     public SyncedBrowserSettings Settings { get; set; } = new();
     public List<HistoryEntry>? History { get; set; }
     public SessionState? Session { get; set; }
+    public List<DeviceTabs>? DeviceTabs { get; set; }
 }
 
 internal sealed class SyncedBrowserSettings

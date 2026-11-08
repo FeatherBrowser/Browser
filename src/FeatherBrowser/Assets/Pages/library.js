@@ -92,6 +92,27 @@ function empty(text) {
   return e;
 }
 
+const PAGE_SIZE = 300;
+let visibleRows = PAGE_SIZE;
+
+function appendPage(root, items, makeItemRow) {
+  items.slice(0, visibleRows).forEach((x) => root.appendChild(makeItemRow(x)));
+
+  const remaining = items.length - visibleRows;
+  if (remaining > 0) {
+    const more = document.createElement("button");
+    more.className = "btn";
+    more.style.margin = "10px auto";
+    more.style.display = "block";
+    more.textContent = `Show ${Math.min(remaining, PAGE_SIZE)} more (${remaining} not shown)`;
+    more.addEventListener("click", () => {
+      visibleRows += PAGE_SIZE;
+      render();
+    });
+    root.appendChild(more);
+  }
+}
+
 function matches(...values) {
   if (!query) {
     return true;
@@ -122,21 +143,19 @@ function renderHistory() {
     return;
   }
 
-  items.slice(0, 700).forEach((x) => {
-    root.appendChild(
-      makeRow(
-        x.title || x.url,
-        `${host(x.url)} · ${fmtDate(x.lastVisited)} · ${x.visitCount || 1} visit${x.visitCount === 1 ? "" : "s"}`,
-        () => {
-          post("open-url", { url: x.url });
-        },
-        [
-          makeButton("Open", "open-url", { url: x.url }),
-          makeButton("Remove", "remove-history", { url: x.url }, true),
-        ],
-      ),
-    );
-  });
+  appendPage(root, items, (x) =>
+    makeRow(
+      x.title || x.url,
+      `${host(x.url)} · ${fmtDate(x.lastVisited)} · ${x.visitCount || 1} visit${x.visitCount === 1 ? "" : "s"}`,
+      () => {
+        post("open-url", { url: x.url });
+      },
+      [
+        makeButton("Open", "open-url", { url: x.url }),
+        makeButton("Remove", "remove-history", { url: x.url }, true),
+      ],
+    ),
+  );
 }
 
 function renderDownloads() {
@@ -206,25 +225,24 @@ function renderFavorites() {
     return;
   }
 
-  items.slice(0, 700).forEach((x) => {
-    root.appendChild(
-      makeRow(
-        x.title || x.url,
-        `${x.folder || "Favorites"} · ${host(x.url)}`,
-        () => {
-          post("open-url", { url: x.url });
-        },
-        [
-          makeButton("Open", "open-url", { url: x.url }),
-          makeButton("Remove", "remove-bookmark", { url: x.url }, true),
-        ],
-      ),
-    );
-  });
+  appendPage(root, items, (x) =>
+    makeRow(
+      x.title || x.url,
+      `${x.folder || "Favorites"} · ${host(x.url)}`,
+      () => {
+        post("open-url", { url: x.url });
+      },
+      [
+        makeButton("Open", "open-url", { url: x.url }),
+        makeButton("Remove", "remove-bookmark", { url: x.url }, true),
+      ],
+    ),
+  );
 }
 
 function show(next, notifyHost = false) {
   section = next;
+  visibleRows = PAGE_SIZE;
 
   document.querySelectorAll("nav button,.section").forEach((x) => {
     x.classList.remove("active");
@@ -280,6 +298,7 @@ document.querySelectorAll("[data-action]").forEach((b) => {
 
 $("search").addEventListener("input", (e) => {
   query = e.target.value.trim();
+  visibleRows = PAGE_SIZE;
   render();
 });
 

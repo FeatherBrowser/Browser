@@ -159,9 +159,6 @@ public partial class MainWindow : Window
         _store.SaveSettings();
         RefreshWorkspaceTabVisibility();
 
-        if (_store.Settings.ColdUnloadOtherWorkspaces)
-            HibernateInactiveWorkspaceTabs(workspace);
-
         BrowserTab? target = _tabs
             .Where(tab => !tab.IsClosed && WorkspaceEquals(tab.Workspace, workspace))
             .OrderByDescending(static tab => tab.LastActivatedUtc)
@@ -171,6 +168,8 @@ public partial class MainWindow : Window
             await AddTabAsync(workspace: workspace);
         else
             await SelectTabAsync(target);
+        if (_store.Settings.ColdUnloadOtherWorkspaces)
+            HibernateInactiveWorkspaceTabs(workspace);
 
         UpdateWorkspaceSidebar();
         StatusText.Text = $"Workspace: {workspace}";

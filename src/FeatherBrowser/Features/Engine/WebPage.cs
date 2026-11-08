@@ -38,6 +38,7 @@ internal sealed partial class WebPage : IDisposable
     private readonly WebPageOptions _options;
     private readonly TaskCompletionSource _created = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly ConcurrentDictionary<string, bool> _audibleFrames = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, byte> _editedFrames = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<int, DownloadProgress> _downloads = new();
     private readonly ConcurrentDictionary<PermissionRequest, byte> _pendingPermissions = new();
     private readonly ResourceRequestHandlerImpl _resourceHandler;
@@ -165,6 +166,7 @@ internal sealed partial class WebPage : IDisposable
     public bool IsSuspended => _suspended;
 
     public bool IsPlayingAudio => _audible;
+    public bool HasUnsavedEdits => !_editedFrames.IsEmpty;
 
     public bool IsShowingInternalPage => InternalPages.IsInternalUrl(_source);
 
@@ -386,11 +388,32 @@ internal sealed partial class WebPage : IDisposable
             return 0;
 
         IRequestContext context = Browser.RequestContext ?? Cef.GetGlobalRequestContext();
+        if (!Uri.TryCreate(url, UriKind.Absolute, out Uri? site) || string.IsNullOrEmpty(site.Host))
+            return 0;
+
         ICookieManager manager = await context.GetCookieManagerAsync();
-        List<Cookie> cookies = await manager.VisitUrlCookiesAsync(url, includeHttpOnly: true);
+        List<Cookie> cookies = (await manager.VisitAllCookiesAsync())
+            .Where(cookie => CookieAppliesToHost(cookie.Domain, site.Host))
+            .ToList();
+
         foreach (Cookie cookie in cookies)
-            manager.DeleteCookies(url, cookie.Name);
+        {
+            string domain = cookie.Domain.TrimStart('.');
+            string scheme = cookie.Secure ? Uri.UriSchemeHttps : site.Scheme;
+            await manager.DeleteCookiesAsync($"{scheme}://{domain}{cookie.Path}", cookie.Name);
+        }
+
         return cookies.Count;
+    }
+
+    internal static bool CookieAppliesToHost(string? cookieDomain, string host)
+    {
+        if (string.IsNullOrWhiteSpace(cookieDomain))
+            return false;
+
+        string domain = cookieDomain.TrimStart('.');
+        return host.Equals(domain, StringComparison.OrdinalIgnoreCase) ||
+               (cookieDomain.StartsWith('.') && host.EndsWith("." + domain, StringComparison.OrdinalIgnoreCase));
     }
 
 
@@ -571,6 +594,7 @@ internal sealed partial class WebPage : IDisposable
 
         Volatile.Write(ref _loadError, null);
         _audibleFrames.Clear();
+        _editedFrames.Clear();
         UpdateAudibleState();
     }
 

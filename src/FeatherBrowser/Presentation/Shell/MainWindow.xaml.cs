@@ -20,7 +20,7 @@ public partial class MainWindow : Window
 {
     private readonly List<BrowserTab> _tabs = [];
     private readonly Stack<string> _closedTabs = new();
-    private readonly BrowserDataStore _store = new();
+    private readonly BrowserDataStore _store = BrowserDataStore.Shared;
     private readonly BlockerEngine _blocker = new();
     private readonly PasswordVault _passwordVault = new();
 
@@ -58,6 +58,7 @@ public partial class MainWindow : Window
     private bool _syncBusy;
 
     private bool _engineReady;
+    private readonly TaskCompletionSource _startupCompleted = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private IRequestContext? _privateContext;
     private BrowserTab? _activeTab;
 
@@ -81,6 +82,7 @@ public partial class MainWindow : Window
         _rulesLoading = BlockerEngine.WarmUpAsync(_store.Settings.CustomBlockRules);
         _rulesGate = _rulesLoading.ContinueWith(static _ => { }, TaskScheduler.Default);
         InitializeComponent();
+        InitializeStatusBubble();
 
         _initialAddress = initialAddress;
         _isPrivateMode = privateMode;
@@ -186,12 +188,27 @@ public partial class MainWindow : Window
         _privateContext?.Dispose();
         _privateContext = null;
         _syncTimer.Stop();
+        _accountResourcesClosed = true;
+        if (_pendingAccountOperations == 0)
+            DisposeAccountResources();
+
+        base.OnClosed(e);
+    }
+
+    private int _pendingAccountOperations;
+    private bool _accountResourcesClosed;
+    private bool _accountResourcesDisposed;
+
+    private void DisposeAccountResources()
+    {
+        if (_accountResourcesDisposed)
+            return;
+
+        _accountResourcesDisposed = true;
         _syncCoordinator.Dispose();
         _supabaseDevices.Dispose();
         _supabaseSync.Dispose();
         _supabaseMfa.Dispose();
         _supabaseAuth.Dispose();
-
-        base.OnClosed(e);
     }
 }

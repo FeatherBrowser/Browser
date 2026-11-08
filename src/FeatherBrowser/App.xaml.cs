@@ -85,7 +85,27 @@ public partial class App : Application
             x.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
             x.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ||
             x.StartsWith("file://", StringComparison.OrdinalIgnoreCase));
+        address ??= args.Select(FileArgumentToUri).FirstOrDefault(x => x is not null);
         return new InstanceRequest { PrivateMode = privateMode, Address = address };
+    }
+
+    internal static string? FileArgumentToUri(string argument)
+    {
+        if (string.IsNullOrWhiteSpace(argument) || argument.StartsWith('-'))
+            return null;
+
+        try
+        {
+            string path = argument.Trim().Trim('"');
+            if (!Path.IsPathFullyQualified(path) || !File.Exists(path))
+                return null;
+
+            return new Uri(Path.GetFullPath(path)).AbsoluteUri;
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or UriFormatException or IOException)
+        {
+            return null;
+        }
     }
 
     private static void SendToPrimary(string[] args)

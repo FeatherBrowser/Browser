@@ -9,6 +9,7 @@ internal sealed class ZeroKnowledgeSyncService
 {
     private readonly SupabaseSyncClient _remote;
     private readonly SyncDeviceSecretStore _secrets;
+    private readonly PendingSyncSetupStore _pendingSetup = new();
 
     public ZeroKnowledgeSyncService(
         SupabaseSyncClient remote,
@@ -25,6 +26,25 @@ internal sealed class ZeroKnowledgeSyncService
     {
         RemoteSyncRecord? existing =
             await _remote.GetAsync(session, cancellationToken);
+
+        PendingSyncSetup? pending = _pendingSetup.Load(session.UserId);
+
+        if (existing is not null &&
+            pending is not null &&
+            string.Equals(SyncCrypto.Fingerprint(existing.KeyBundle), pending.Fingerprint, StringComparison.Ordinal))
+        {
+            byte[] savedKey = Convert.FromBase64String(pending.MasterKey);
+            try
+            {
+                _secrets.Save(session.UserId, savedKey, pending.Fingerprint, existing.BlobRevision);
+            }
+            finally
+            {
+                CryptographicOperations.ZeroMemory(savedKey);
+            }
+
+            return new SyncInitializationResult(pending.RecoveryCode, existing.BlobRevision, Resumed: true);
+        }
 
         if (existing is not null)
         {
@@ -44,6 +64,8 @@ internal sealed class ZeroKnowledgeSyncService
                     recoveryKey);
 
             const long firstRevision = 1;
+
+            _pendingSetup.Save(session.UserId, masterKey, recoveryCode, SyncCrypto.Fingerprint(bundle));
 
             EncryptedSyncBlob blob =
                 SyncCrypto.Encrypt(
@@ -82,6 +104,10 @@ internal sealed class ZeroKnowledgeSyncService
             CryptographicOperations.ZeroMemory(masterKey);
         }
     }
+
+    public bool HasPendingSetup(string userId) => _pendingSetup.Load(userId) is not null;
+
+    public void CompletePendingSetup() => _pendingSetup.Delete();
 
     public async Task<byte[]> RecoverAsync(
         SupabaseSession session,
@@ -346,7 +372,8 @@ internal sealed class ZeroKnowledgeSyncService
 
 internal sealed record SyncInitializationResult(
     string RecoveryCode,
-    long Revision);
+    long Revision,
+    bool Resumed = false);
 
 internal sealed record SyncPullResult(
     byte[] Plaintext,

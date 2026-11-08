@@ -1,5 +1,69 @@
 # Changelog
 
+## 2.0.2
+
+Feather 2.0.2 is a reliability and security release. It fixes every open GitHub issue across sync, accounts, tab memory, passwords, privacy and startup, brings back status messages that disappeared with the bottom bar, and hardens device approval.
+
+### Added
+
+- A small status bubble in the bottom-left corner of the page shows the hovered link's address and short messages (import results, errors, permission changes, saves). They had gone nowhere since the bottom status bar was removed in 2.0.1.
+- Database migration `004_device_approval_hardening.sql` for Feather Account servers. See `docs/ACCOUNT_SYNC_SETUP.md`.
+- "Tabs from other devices" in the main menu lists the open tabs of your other synced devices; click one to open it here (#30).
+- The History and Favorites library shows a "Show more" button instead of silently stopping at 700 rows.
+
+### Changed
+
+- Sync now keeps the content both devices last agreed on (DPAPI-protected, on this device only) and merges against it, so deletions and per-setting edits are understood. Existing installs switch to the new merge after their next successful sync.
+- With open-tab sync on, each device now shares its own tabs separately. Another device's tabs are no longer written into this device's session file, where they used to overwrite or be overwritten by your own tabs (#30).
+- All Feather windows now share one copy of your bookmarks, history and settings, so a second (or Private) window can no longer overwrite changes made in another window (#26).
+- Joining an account (device approval or recovery) now merges this device's bookmarks and history into the account instead of replacing them (#31).
+- The Release workflow runs the FeatherBrowser and FeatherShield unit tests and does not publish if they fail (#48).
+- Uninstalling removes the per-user default-browser registration that Feather creates from Settings (#54).
+
+### Fixed
+
+- **Ad blocking**
+  - Blocked XHR/fetch requests to ad and tracker hosts (such as doubleclick.net and googlesyndication.com) now fail like a real block instead of resolving with an empty stub, so ad-block test pages report them as blocked. Scripts, images and frames still receive harmless stubs so pages don't break.
+  - FeatherShield recognises negative redirect priorities such as `nooptext:-1`.
+  - An exception rule naming an unknown redirect resource no longer cancels every redirect for that request.
+- **Sync**
+  - A bookmark or history entry deleted on one device no longer comes back when another device has also made changes (#12).
+  - Changing different settings on two devices keeps both changes instead of one device overwriting the other (#56).
+  - Edits made while a sync request is running are no longer overwritten by the older captured state (#11).
+  - Syncing with no changes no longer uploads a new revision every time (#17).
+  - Bookmarks and history entries whose addresses differ only in path or query case (`/File` vs `/file`) are kept separate, in local data and in sync (#19).
+  - If synced data cannot be saved to disk, sync stops and reports it instead of recording the change as done. Settings and favorites changes also say when they could not be written (#25).
+  - First-time encrypted sync setup can no longer leave a vault whose recovery key you never saw. The setup is kept (DPAPI-protected) until your recovery key has been shown and this device is registered; if anything fails in between, trying again finishes the same setup and shows the key (#35).
+  - Closing a window during a sync no longer disposes the sync engine and network clients while requests are still using them (#36).
+- **Account and security**
+  - Device approval encrypts only to the key whose pairing code you confirmed; a key that changes between display and approval is rejected (#39).
+  - The server can no longer mark a device approved without a real key transfer from an approved device, and a recovered device can't replace an approved device's key (#38, requires migration 004).
+  - Signing out can no longer be undone by a token refresh that was still in flight (#32).
+  - Cancelling the 2FA code prompt no longer shows "2FA verified" (#33).
+  - Setting up or verifying 2FA refreshes an expired access token first instead of failing (#34).
+  - Starting Feather offline no longer leaves automatic sync stopped once you reconnect, and a successful manual sync restarts it (#37).
+  - Recovery backup files are size- and work-limited, so a damaged or hostile file cannot freeze Feather with unbounded key derivation (#40).
+- **Passwords**
+  - If the saved-password vault can't be read, Feather now says so and refuses to overwrite it on the next import. Clearing it keeps a backup of the unreadable file (#41).
+  - Autofill fills the username and password of the account you picked together, instead of pairing your password with a different prefilled username (#42).
+- **Privacy and site data**
+  - Permission choices made from the site menu in a Private window stay in that window and are never saved to the normal profile (#27). Reset permissions also clears them.
+  - "Clear cookies for this site" removes the site's cookies on every path, not only those matching the current page (#51).
+- **Tabs and memory**
+  - Automatic unloading no longer discards pages with unsaved typing. Text you typed into a form or editor and haven't submitted or cleared keeps the tab loaded (it can still be suspended) (#15).
+  - Low Memory mode's loaded-tab budget respects the background grace period, so quickly switching tabs doesn't reload them (#16).
+  - Adaptive Memory Mode now works: the loaded-tab budget halves at 75% of the RAM Guard limit and drops to one tab at the limit (#24).
+  - Switching workspaces with "Cold unload other workspaces" also unloads the tab that was active in the old workspace (#46).
+  - Turning off "Keep this site alive" also removes a matching parent-domain rule (the menu now shows "via example.com"), and background unloading resumes afterwards (#47).
+  - Pressing Reload on a tab whose wake-up failed shows the recovered page instead of leaving it hidden (#45).
+- **Startup, settings and downloads**
+  - Library search covers all stored bookmarks and history, not just the first 1,000 bookmarks and 1,500 history entries (#21).
+  - Opening Feather from a link restores your previous session and adds the link, instead of replacing the saved session (#29).
+  - Links opened while Feather is still starting are queued until it's ready instead of being dropped after five seconds (#55).
+  - Double-clicking a local `.html` file opens it when Feather is the HTML handler (#53).
+  - In Settings, Discard returns to the last applied values rather than the values from when the page opened (#23).
+  - Downloads cut off by a crash or forced exit are marked Interrupted on the next start instead of staying In progress forever (#52).
+
 ## 2.0.1
 
 Feather 2.0.1 strengthens FeatherShield with redirect and scriptlet filter support and anti-adblock protection, removes the bottom status bar, and fixes sync, importing and settings navigation.
