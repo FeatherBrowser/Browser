@@ -17,11 +17,24 @@ internal enum WebResourceKind
     Other
 }
 
+internal readonly record struct NetworkVerdict(bool IsBlocked, string? StubMimeType = null, ReadOnlyMemory<byte> StubBody = default)
+{
+    public static readonly NetworkVerdict Allow = new(false);
+    public static readonly NetworkVerdict Block = new(true);
+
+    public bool HasStub => IsBlocked && StubMimeType is not null;
+}
+
 internal interface INetworkPolicy
 {
     bool SendDoNotTrack { get; }
 
-    bool ShouldBlock(Uri request, string? topLevelAddress, WebResourceKind kind);
+    NetworkVerdict Evaluate(Uri request, string? topLevelAddress, WebResourceKind kind);
+
+    bool ShouldBlock(Uri request, string? topLevelAddress, WebResourceKind kind) =>
+        Evaluate(request, topLevelAddress, kind).IsBlocked;
+
+    string? GetScriptletScript(string? frameAddress, string? topLevelAddress);
 
     string? RewriteNavigation(string address);
 }

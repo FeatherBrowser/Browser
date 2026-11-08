@@ -92,6 +92,8 @@ document.querySelectorAll('nav button[data-section]').forEach(btn=>{
   btn.addEventListener('click',()=>setSection(btn.dataset.section,true,true));
 });
 
+if(initialSection&&$(initialSection)) setSection(initialSection,false,false);
+
 document.querySelectorAll('[data-action]').forEach(btn=>{
   btn.addEventListener('click',()=>post(btn.dataset.action));
 });

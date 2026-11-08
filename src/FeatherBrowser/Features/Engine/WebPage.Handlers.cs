@@ -99,6 +99,44 @@ internal sealed partial class WebPage
 
     private sealed class ResourceRequestHandlerImpl(WebPage page) : ResourceRequestHandler
     {
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<ulong, NetworkVerdict> _stubs = new();
+
+        protected override IResourceHandler? GetResourceHandler(
+            IWebBrowser chromiumWebBrowser, IBrowser browser, IFrame frame, IRequest request)
+        {
+            if (!_stubs.TryRemove(request.Identifier, out NetworkVerdict verdict))
+                return null;
+
+            var handler = new ResourceHandler(
+                verdict.StubMimeType!,
+                new MemoryStream(verdict.StubBody.ToArray(), writable: false),
+                autoDisposeStream: true)
+            {
+                StatusCode = 200,
+                StatusText = "OK"
+            };
+
+            string origin = request.GetHeaderByName("Origin");
+            if (string.IsNullOrEmpty(origin))
+            {
+                handler.Headers.Add("Access-Control-Allow-Origin", "*");
+            }
+            else
+            {
+                handler.Headers.Add("Access-Control-Allow-Origin", origin);
+                handler.Headers.Add("Access-Control-Allow-Credentials", "true");
+                handler.Headers.Add("Vary", "Origin");
+            }
+
+            handler.Headers.Add("Cache-Control", "no-store");
+            return handler;
+        }
+
+        protected override void OnResourceLoadComplete(
+            IWebBrowser chromiumWebBrowser, IBrowser browser, IFrame frame, IRequest request, IResponse response,
+            UrlRequestStatus status, long receivedContentLength) =>
+            _stubs.TryRemove(request.Identifier, out _);
+
         protected override CefReturnValue OnBeforeResourceLoad(
             IWebBrowser chromiumWebBrowser, IBrowser browser, IFrame frame, IRequest request, IRequestCallback callback)
         {
@@ -116,10 +154,21 @@ internal sealed partial class WebPage
             WebResourceKind kind = MapResourceType(request.ResourceType);
             string? topLevel = kind == WebResourceKind.Document ? url : page._source;
 
-            if (!policy.ShouldBlock(uri, topLevel, kind))
+            NetworkVerdict verdict = policy.Evaluate(uri, topLevel, kind);
+            if (!verdict.IsBlocked)
+            {
+                _stubs.TryRemove(request.Identifier, out _);
                 return CefReturnValue.Continue;
+            }
 
             page.OnRequestBlocked();
+
+            if (verdict.HasStub)
+            {
+                _stubs[request.Identifier] = verdict;
+                return CefReturnValue.Continue;
+            }
+
             return CefReturnValue.Cancel;
         }
 
@@ -550,6 +599,13 @@ internal sealed partial class WebPage
         {
             if (browser.IsPopup || frame is null)
                 return;
+
+            string frameUrl = frame.Url ?? string.Empty;
+            if (!InternalPages.IsInternalUrl(frameUrl) &&
+                page._options.Network.GetScriptletScript(frameUrl, frame.IsMain ? frameUrl : page._source) is { } scriptlets)
+            {
+                frame.ExecuteJavaScriptAsync(scriptlets, "feather://shield-scriptlets", 1);
+            }
 
             string frameKey = frame.Identifier.ToString();
             string script = PageScripts.AudioMonitorScript.Replace(

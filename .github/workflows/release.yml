@@ -3,6 +3,8 @@ name: Stable release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*.*.*'
 
@@ -14,15 +16,63 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  detect:
+    runs-on: ubuntu-latest
+
+    outputs:
+      version: ${{ steps.find.outputs.version }}
+
+    steps:
+      - name: Find vMAJOR.MINOR.PATCH in commit messages
+        id: find
+        shell: pwsh
+        run: |
+          $event = Get-Content $env:GITHUB_EVENT_PATH -Raw | ConvertFrom-Json
+          $version = $null
+
+          if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            if ($env:GITHUB_REF_NAME -match '^v(?<version>\d+\.\d+\.\d+)$') {
+              $version = $Matches['version']
+            }
+          }
+          else {
+            # Every commit in the push, oldest first; the newest version mention wins.
+            $messages = @($event.commits | ForEach-Object { $_.message })
+            if ($messages.Count -eq 0 -and $event.head_commit) {
+              $messages = @($event.head_commit.message)
+            }
+
+            foreach ($message in $messages) {
+              $found = [regex]::Matches(
+                $message,
+                '(?<![\w.])[vV](?<version>\d+\.\d+\.\d+)(?![\w.]*\d)')
+              if ($found.Count -gt 0) {
+                $version = $found[$found.Count - 1].Groups['version'].Value
+              }
+            }
+          }
+
+          if ($version) {
+            Write-Host "Release version detected: v$version"
+          }
+          else {
+            Write-Host 'No vMAJOR.MINOR.PATCH found; skipping release.'
+          }
+
+          "version=$version" >> $env:GITHUB_OUTPUT
+
   release:
+    needs: detect
+    if: needs.detect.outputs.version != ''
     runs-on: windows-latest
 
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
+      RELEASE_VERSION: ${{ needs.detect.outputs.version }}
 
     steps:
-      - name: Checkout release tag
+      - name: Checkout release commit
         uses: actions/checkout@v4
         with:
           submodules: recursive
@@ -33,20 +83,14 @@ jobs:
         with:
           dotnet-version: '9.0.x'
 
-      - name: Verify tag matches project version
+      - name: Verify version matches project version
         shell: pwsh
         run: |
-          $tag = "${{ github.ref_name }}"
-
-          if ($tag -notmatch '^v(?<version>\d+\.\d+\.\d+)$') {
-            throw "Release tag must use vMAJOR.MINOR.PATCH format. Received: $tag"
-          }
-
           [xml]$project = Get-Content "src/FeatherBrowser/FeatherBrowser.csproj" -Raw
           $projectVersion = $project.SelectSingleNode('/Project/PropertyGroup/Version').InnerText.Trim()
 
-          if ($Matches['version'] -ne $projectVersion) {
-            throw "Tag version $($Matches['version']) does not match project version $projectVersion."
+          if ($env:RELEASE_VERSION -ne $projectVersion) {
+            throw "Release version $env:RELEASE_VERSION does not match project version $projectVersion."
           }
 
       - name: Build

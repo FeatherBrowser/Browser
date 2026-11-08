@@ -20,6 +20,11 @@ internal sealed class BlockerEngine : INetworkPolicy
     private static readonly Dictionary<string, string> _cosmeticScripts = new(StringComparer.OrdinalIgnoreCase);
     private static ShieldEngine? _cosmeticEngine;
 
+    private const int MaxCachedScriptletScripts = 64;
+    private static readonly object ScriptletGate = new();
+    private static readonly Dictionary<string, string?> _scriptletScripts = new(StringComparer.OrdinalIgnoreCase);
+    private static ShieldEngine? _scriptletEngine;
+
     private volatile PolicySnapshot _policy = PolicySnapshot.Disabled;
 
     private sealed record PolicySnapshot(bool ShieldEnabled, bool StripTracking, bool DoNotTrack, ShieldOptions Options)
@@ -80,14 +85,57 @@ internal sealed class BlockerEngine : INetworkPolicy
     public bool IsSiteAllowlisted(string? host, BrowserSettings settings) =>
         _shared.IsAllowlisted(host, settings.AllowlistedSites);
 
-    public bool ShouldBlock(Uri request, string? topLevelAddress, WebResourceKind kind)
+    public bool ShouldBlock(Uri request, string? topLevelAddress, WebResourceKind kind) =>
+        Evaluate(request, topLevelAddress, kind).IsBlocked;
+
+    public NetworkVerdict Evaluate(Uri request, string? topLevelAddress, WebResourceKind kind)
     {
         PolicySnapshot policy = _policy;
         if (!policy.ShieldEnabled)
-            return false;
+            return NetworkVerdict.Allow;
 
         Uri? document = Uri.TryCreate(topLevelAddress, UriKind.Absolute, out Uri? parsed) ? parsed : null;
-        return _shared.Evaluate(new ResourceRequest(request, document, Map(kind)), policy.Options).IsBlocked;
+        BlockDecision decision = _shared.Evaluate(new ResourceRequest(request, document, Map(kind)), policy.Options);
+
+        if (!decision.IsBlocked)
+            return NetworkVerdict.Allow;
+
+        return RedirectResources.TryGet(decision.Redirect, out RedirectResource stub)
+            ? new NetworkVerdict(true, stub.MimeType, stub.Body)
+            : NetworkVerdict.Block;
+    }
+
+    public string? GetScriptletScript(string? frameAddress, string? topLevelAddress)
+    {
+        PolicySnapshot policy = _policy;
+        if (!policy.ShieldEnabled ||
+            !Uri.TryCreate(frameAddress, UriKind.Absolute, out Uri? frame) ||
+            frame.Scheme is not ("http" or "https"))
+        {
+            return null;
+        }
+
+        ShieldEngine engine = _shared;
+        string topHost = Uri.TryCreate(topLevelAddress, UriKind.Absolute, out Uri? top) ? top.Host : frame.Host;
+        if (engine.IsAllowlisted(topHost, policy.Options.AllowlistedSites))
+            return null;
+
+        lock (ScriptletGate)
+        {
+            if (!ReferenceEquals(engine, _scriptletEngine) || _scriptletScripts.Count >= MaxCachedScriptletScripts)
+            {
+                _scriptletScripts.Clear();
+                _scriptletEngine = engine;
+            }
+
+            if (!_scriptletScripts.TryGetValue(frame.Host, out string? script))
+            {
+                script = engine.GetScriptletScript(frameAddress);
+                _scriptletScripts[frame.Host] = script;
+            }
+
+            return script;
+        }
     }
 
     public string? RewriteNavigation(string address)
@@ -141,7 +189,8 @@ internal sealed class BlockerEngine : INetworkPolicy
 
         Debug.WriteLine(
             $"FeatherShield loaded {rules.NetworkRuleCount} network rules, {rules.ExceptionRuleCount} exceptions, " +
-            $"{rules.CosmeticRuleCount} cosmetic rules in {timer.ElapsedMilliseconds} ms.");
+            $"{rules.CosmeticRuleCount} cosmetic rules, {rules.RedirectRuleCount} redirects, " +
+            $"{rules.ScriptletRuleCount} scriptlets in {timer.ElapsedMilliseconds} ms.");
         return new ShieldEngine(rules);
     }
 

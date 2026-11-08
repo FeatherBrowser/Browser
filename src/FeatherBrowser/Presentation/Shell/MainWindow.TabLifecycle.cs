@@ -133,6 +133,11 @@ public partial class MainWindow
     {
         tab.HiddenSinceUtc = DateTime.UtcNow;
         HideTab(tab);
+        if (tab.IsStartPage && !tab.View.CanGoBack && ColdUnloadTab(tab))
+        {
+            UpdateWorkspaceSidebar();
+            return;
+        }
 
         ApplyTabMute(tab);
 

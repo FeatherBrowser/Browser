@@ -143,6 +143,7 @@ Download FeatherBrowser-v$version-win-x64-Setup.exe below and run the installer.
             -Encoding utf8
 
     gh release create $tag $installer `
+        --target $env:GITHUB_SHA `
         --title "Feather Browser $version" `
         --notes-file $notesPath
 

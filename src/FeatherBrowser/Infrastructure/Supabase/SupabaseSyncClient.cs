@@ -57,11 +57,11 @@ internal sealed class SupabaseSyncClient : IDisposable
 
         SyncKeyBundle? keyBundle =
             row.GetProperty("key_bundle")
-                .Deserialize<SyncKeyBundle>();
+                .Deserialize<SyncKeyBundle>(JsonSerializerOptions.Web);
 
         EncryptedSyncBlob? encryptedBlob =
             row.GetProperty("encrypted_blob")
-                .Deserialize<EncryptedSyncBlob>();
+                .Deserialize<EncryptedSyncBlob>(JsonSerializerOptions.Web);
 
         if (keyBundle is null || encryptedBlob is null)
             throw new InvalidDataException("The remote Feather sync record is incomplete.");
