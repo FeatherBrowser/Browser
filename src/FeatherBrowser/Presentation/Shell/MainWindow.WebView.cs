@@ -16,6 +16,8 @@ public partial class MainWindow : Window
     private readonly Dictionary<(WebPage Page, int Id), DownloadEntry?> _downloadEntries = [];
     private string? _statusBeforeHover;
 
+    private readonly System.Windows.Controls.TextBlock StatusText = new();
+
     private WebPage CreateWebViewControl() => new(new WebPageOptions
     {
         Network = _blocker,

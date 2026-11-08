@@ -184,7 +184,6 @@ public partial class MainWindow : Window
         AddressBorder.Height = compact ? 24 : 28;
         if (System.Windows.Shell.WindowChrome.GetWindowChrome(this) is { IsFrozen: false } chrome)
             chrome.CaptionHeight = rowHeight;
-        StatusBar.Visibility = _store.Settings.ShowStatusBar && !_isFullscreen ? Visibility.Visible : Visibility.Collapsed;
         WorkspaceSidebar.Visibility = _store.Settings.ShowWorkspaceSidebar && !_isFullscreen ? Visibility.Visible : Visibility.Collapsed;
         AddressBox.FontSize = compact ? 12 : 12.5;
     }

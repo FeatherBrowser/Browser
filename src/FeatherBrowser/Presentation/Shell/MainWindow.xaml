@@ -148,27 +148,6 @@
             AutomationProperties.Name="Page loading" />
 
         <Border
-            x:Name="StatusBar"
-            DockPanel.Dock="Bottom"
-            Height="22"
-            Background="{DynamicResource ChromeBrush}"
-            BorderBrush="{DynamicResource DividerBrush}"
-            BorderThickness="0,1,0,0"
-            Padding="10,0,6,0">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <TextBlock x:Name="StatusText" Foreground="{DynamicResource TextMutedBrush}" FontSize="11" VerticalAlignment="Center"
-                           Text="Starting…" TextTrimming="CharacterEllipsis" Margin="0,0,12,0" />
-                <TextBlock x:Name="ResourceText" Grid.Column="1" Foreground="{DynamicResource TextMutedBrush}" FontSize="11"
-                           VerticalAlignment="Center" Padding="4,0" Cursor="Hand" ToolTip="Performance (Shift+Esc)"
-                           MouseLeftButtonDown="ResourceText_MouseLeftButtonDown" />
-            </Grid>
-        </Border>
-
-        <Border
             x:Name="WorkspaceSidebar"
             DockPanel.Dock="Left"
             Width="196"

@@ -87,7 +87,6 @@ public partial class MainWindow : Window
                 TitleBar.Visibility = Visibility.Collapsed;
                 TabBar.Visibility = Visibility.Collapsed;
                 Toolbar.Visibility = Visibility.Collapsed;
-                StatusBar.Visibility = Visibility.Collapsed;
                 WorkspaceSidebar.Visibility = Visibility.Collapsed;
                 NavigationProgress.Visibility = Visibility.Collapsed;
                 PermissionBar.Visibility = Visibility.Collapsed;
@@ -118,8 +117,6 @@ public partial class MainWindow : Window
                 TitleBar.Visibility = Visibility.Visible;
                 TabBar.Visibility = Visibility.Visible;
                 Toolbar.Visibility = Visibility.Visible;
-                StatusBar.Visibility = _store.Settings.ShowStatusBar
-                    ? Visibility.Visible : Visibility.Collapsed;
                 WorkspaceSidebar.Visibility = _store.Settings.ShowWorkspaceSidebar
                     ? Visibility.Visible : Visibility.Collapsed;
                 WindowState = _stateBeforeFullscreen;

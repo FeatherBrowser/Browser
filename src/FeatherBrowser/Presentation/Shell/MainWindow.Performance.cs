@@ -145,11 +145,6 @@ public partial class MainWindow : Window
     }
     private void PublishResourceSnapshot()
     {
-        int loaded = _tabs.Count(t => !t.IsClosed && t.IsLoaded);
-        int cold = _tabs.Count(t => !t.IsClosed && !t.IsLoaded);
-        string cpu = _resourceSnapshot.CpuPercent is double value ? $"{value:0.0}% CPU" : "CPU warming up";
-        if (StatusBar.Visibility == Visibility.Visible)
-            ResourceText.Text = $"{FormatBytes(_resourceSnapshot.MemoryBytes)} {_resourceSnapshot.MemoryLabel.ToLowerInvariant()}{(_resourceSnapshot.IsPartial ? " (partial)" : "")} · {cpu} · {loaded} loaded · {cold} cold";
         if (WindowState != WindowState.Minimized && _activeTab is { IsLoaded: true, IsStartPage: true } home)
             SendHomeStats(home);
     }
@@ -188,8 +183,6 @@ public partial class MainWindow : Window
         if (unloaded > 0)
             StatusText.Text = $"Memory Guard unloaded {unloaded} tab{(unloaded == 1 ? "" : "s")} at {FormatBytes(totalBytes)}";
     }
-
-    private void ResourceText_MouseLeftButtonDown(object sender, MouseButtonEventArgs e) => ShowPerformanceCenter();
 
     private void ShowPerformanceCenter()
     {
