@@ -575,12 +575,9 @@ internal sealed partial class WebPage
                 page._pendingPermissions.TryRemove(request!, out _);
                 using (callback)
                 {
-                    callback.Continue(allow switch
-                    {
-                        true => PermissionRequestResult.Accept,
-                        false => PermissionRequestResult.Deny,
-                        _ => PermissionRequestResult.Dismiss
-                    });
+                    callback.Continue(allow is not bool allowed
+                        ? PermissionRequestResult.Dismiss
+                        : allowed ? PermissionRequestResult.Accept : PermissionRequestResult.Deny);
                 }
             });
 

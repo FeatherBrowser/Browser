@@ -519,48 +519,70 @@ internal sealed partial class WebPage : IDisposable
 
         IRequestContext context = Browser.RequestContext ?? Cef.GetGlobalRequestContext();
         var result = new TaskCompletionSource<byte[]?>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var buffer = new MemoryStream();
+        using var buffer = new MemoryStream();
+        object gate = new();
+        bool finished = false;
         bool tooLarge = false;
         IUrlRequest? pending = null;
 
         IUrlRequestClient client = CefSharp.Fluent.UrlRequestClient.Create()
             .OnDownloadData((_, data) =>
             {
-                if (tooLarge)
-                    return;
-                data.CopyTo(buffer);
-                if (buffer.Length > FaviconLoader.MaxBytes)
+                lock (gate)
                 {
-                    tooLarge = true;
-                    buffer.SetLength(0);
+                    if (finished || tooLarge)
+                        return;
+                    data.CopyTo(buffer);
+                    if (buffer.Length > FaviconLoader.MaxBytes)
+                    {
+                        tooLarge = true;
+                        buffer.SetLength(0);
+                    }
                 }
             })
             .OnRequestComplete(request =>
             {
-                IResponse? response = request.Response;
-                bool ok = !tooLarge &&
-                          request.RequestStatus == UrlRequestStatus.Success &&
-                          response is { StatusCode: >= 200 and < 300 } &&
-                          FaviconLoader.IsImageType(response.MimeType) &&
-                          buffer.Length > 0;
-                result.TrySetResult(ok ? buffer.ToArray() : null);
-                GC.KeepAlive(pending);
+                lock (gate)
+                {
+                    if (finished)
+                        return;
+                    IResponse? response = request.Response;
+                    bool ok = !tooLarge &&
+                              request.RequestStatus == UrlRequestStatus.Success &&
+                              response is { StatusCode: >= 200 and < 300 } &&
+                              FaviconLoader.IsImageType(response.MimeType) &&
+                              buffer.Length > 0;
+                    result.TrySetResult(ok ? buffer.ToArray() : null);
+                }
             })
             .Build();
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
         timeout.CancelAfter(TimeSpan.FromSeconds(8));
-        using (timeout.Token.Register(() => result.TrySetResult(null)))
+        try
         {
-            await Cef.UIThreadTaskFactory.StartNew(() =>
+            using (timeout.Token.Register(() => result.TrySetResult(null)))
             {
-                IRequest request = new Request();
-                request.Url = uri.AbsoluteUri;
-                request.Method = "GET";
-                pending = new UrlRequest(request, client, context);
-            });
+                await Cef.UIThreadTaskFactory.StartNew(() =>
+                {
+                    using IRequest request = new Request();
+                    request.Url = uri.AbsoluteUri;
+                    request.Method = "GET";
+                    pending = new UrlRequest(request, client, context);
+                });
 
-            return await result.Task;
+                return await result.Task;
+            }
+        }
+        finally
+        {
+            lock (gate)
+                finished = true;
+
+            if (pending is { } urlRequest)
+            {
+                _ = Cef.UIThreadTaskFactory.StartNew(urlRequest.Dispose);
+            }
         }
     }
 

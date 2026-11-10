@@ -72,9 +72,8 @@ public partial class MainWindow
 
     private void RememberDecision(string origin, IEnumerable<string> kinds, string decision)
     {
-        foreach (string kind in kinds)
+        foreach (string key in kinds.Select(kind => SitePermissionPolicy.PermissionKey(origin, kind)))
         {
-            string key = SitePermissionPolicy.PermissionKey(origin, kind);
             if (_isPrivateMode)
                 _privatePermissionDecisions[key] = decision;
             else
@@ -201,12 +200,10 @@ public partial class MainWindow
         if (_permissionQueues.TryGetValue(shown.Tab, out var queue))
             queue.RemoveAll(entry => ReferenceEquals(entry.Request, shown.Request));
 
-        StatusText.Text = allow switch
-        {
-            true => $"Allowed {string.Join(", ", shown.Request.Kinds.Select(PermissionDisplayName)).ToLowerInvariant()} for {SafeHost(shown.Origin)}",
-            false => $"Blocked {string.Join(", ", shown.Request.Kinds.Select(PermissionDisplayName)).ToLowerInvariant()} for {SafeHost(shown.Origin)}",
-            null => "Permission request dismissed"
-        };
+        string kinds = string.Join(", ", shown.Request.Kinds.Select(PermissionDisplayName)).ToLowerInvariant();
+        StatusText.Text = allow is not bool allowed
+            ? "Permission request dismissed"
+            : $"{(allowed ? "Allowed" : "Blocked")} {kinds} for {SafeHost(shown.Origin)}";
 
         RefreshPermissionBar(_activeTab);
         if (_activeTab is { IsLoaded: true } active)
@@ -250,12 +247,12 @@ public partial class MainWindow
 
     private void RefreshFindBar(BrowserTab tab)
     {
-        bool open = _findQueries.ContainsKey(tab) && !tab.IsInternalPage;
+        bool open = _findQueries.TryGetValue(tab, out string? query) && !tab.IsInternalPage;
         FindBar.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
         FindCount.Text = string.Empty;
         if (open)
         {
-            FindBox.Text = _findQueries[tab];
+            FindBox.Text = query!;
             tab.View.Find(FindBox.Text);
         }
     }

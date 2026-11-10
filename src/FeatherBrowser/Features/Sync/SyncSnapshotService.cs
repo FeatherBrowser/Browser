@@ -373,8 +373,8 @@ internal sealed class SyncSnapshotService
 
         foreach ((string name, JsonNode? value) in mine)
         {
-            JsonNode? chosen = JsonNode.DeepEquals(value, before[name]) && theirs.ContainsKey(name)
-                ? theirs[name]
+            JsonNode? chosen = JsonNode.DeepEquals(value, before[name]) && theirs.TryGetPropertyValue(name, out JsonNode? other)
+                ? other
                 : value;
             merged[name] = chosen?.DeepClone();
         }

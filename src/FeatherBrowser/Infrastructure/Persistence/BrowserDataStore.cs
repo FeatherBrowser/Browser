@@ -113,9 +113,11 @@ internal sealed class BrowserDataStore
 
     private static int _downloadsReconciled;
 
+    private static bool DownloadsAlreadyReconciled() => Interlocked.Exchange(ref _downloadsReconciled, 1) != 0;
+
     private void ReconcileInterruptedDownloads()
     {
-        if (Interlocked.Exchange(ref _downloadsReconciled, 1) != 0)
+        if (DownloadsAlreadyReconciled())
             return;
 
         bool changed = false;
@@ -910,7 +912,6 @@ internal sealed class BrowserDataStore
 
     public event Action? SettingsSaved;
 
-    /// <summary>Returns false when settings.json could not be written; the change is then only in memory (#25).</summary>
     public bool SaveSettings()
     {
         bool saved;

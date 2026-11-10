@@ -196,7 +196,7 @@ public partial class MainWindow : Window
     }
 
     private int _pendingAccountOperations;
-    private bool _accountResourcesClosed;
+    private volatile bool _accountResourcesClosed;
     private bool _accountResourcesDisposed;
 
     private void DisposeAccountResources()

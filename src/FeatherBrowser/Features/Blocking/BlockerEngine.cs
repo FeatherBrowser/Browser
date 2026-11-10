@@ -123,6 +123,11 @@ internal sealed class BlockerEngine : INetworkPolicy
         if (engine.IsAllowlisted(topHost, policy.Options.AllowlistedSites))
             return null;
 
+        return CachedScriptletScript(engine, frame.Host, frameAddress);
+    }
+
+    private static string? CachedScriptletScript(ShieldEngine engine, string host, string? frameAddress)
+    {
         lock (ScriptletGate)
         {
             if (!ReferenceEquals(engine, _scriptletEngine) || _scriptletScripts.Count >= MaxCachedScriptletScripts)
@@ -131,10 +136,30 @@ internal sealed class BlockerEngine : INetworkPolicy
                 _scriptletEngine = engine;
             }
 
-            if (!_scriptletScripts.TryGetValue(frame.Host, out string? script))
+            if (!_scriptletScripts.TryGetValue(host, out string? script))
             {
                 script = engine.GetScriptletScript(frameAddress);
-                _scriptletScripts[frame.Host] = script;
+                _scriptletScripts[host] = script;
+            }
+
+            return script;
+        }
+    }
+
+    private static string CachedCosmeticScript(ShieldEngine engine, string host, string? pageAddress)
+    {
+        lock (CosmeticGate)
+        {
+            if (!ReferenceEquals(engine, _cosmeticEngine) || _cosmeticScripts.Count >= MaxCachedCosmeticScripts)
+            {
+                _cosmeticScripts.Clear();
+                _cosmeticEngine = engine;
+            }
+
+            if (!_cosmeticScripts.TryGetValue(host, out string? script))
+            {
+                script = engine.GetCosmeticFilterScript(pageAddress);
+                _cosmeticScripts[host] = script;
             }
 
             return script;
@@ -156,23 +181,7 @@ internal sealed class BlockerEngine : INetworkPolicy
     {
         ShieldEngine engine = _shared;
         string host = Uri.TryCreate(pageAddress, UriKind.Absolute, out Uri? uri) ? uri.Host : string.Empty;
-
-        lock (CosmeticGate)
-        {
-            if (!ReferenceEquals(engine, _cosmeticEngine) || _cosmeticScripts.Count >= MaxCachedCosmeticScripts)
-            {
-                _cosmeticScripts.Clear();
-                _cosmeticEngine = engine;
-            }
-
-            if (!_cosmeticScripts.TryGetValue(host, out string? script))
-            {
-                script = engine.GetCosmeticFilterScript(pageAddress);
-                _cosmeticScripts[host] = script;
-            }
-
-            return script;
-        }
+        return CachedCosmeticScript(engine, host, pageAddress);
     }
 
     private static ShieldEngine Build(string[] customRules)
