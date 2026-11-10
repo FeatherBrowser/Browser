@@ -107,6 +107,7 @@ public partial class MainWindow
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
+            return;
         }
         catch (InvalidOperationException ex)
         {

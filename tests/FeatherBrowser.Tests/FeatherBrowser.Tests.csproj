@@ -39,6 +39,7 @@
     <Compile Include="../../src/FeatherBrowser/Features/Sync/SyncSnapshotService.cs" Link="Sync/SyncSnapshotService.cs" />
     <Compile Include="../../src/FeatherBrowser/Features/Sync/SyncLocalStateStore.cs" Link="Sync/SyncLocalStateStore.cs" />
     <Compile Include="../../src/FeatherBrowser/Infrastructure/Persistence/BrowserDataStore.cs" Link="Persistence/BrowserDataStore.cs" />
+    <Compile Include="../../src/FeatherBrowser/Infrastructure/Persistence/SecureFileDelete.cs" Link="Persistence/SecureFileDelete.cs" />
     <EmbeddedResource Include="../../src/FeatherBrowser/Assets/Pages/*;../../src/FeatherBrowser/Assets/Scripts/*">
       <LogicalName>FeatherBrowser.Assets.%(Filename)%(Extension)</LogicalName>
     </EmbeddedResource>

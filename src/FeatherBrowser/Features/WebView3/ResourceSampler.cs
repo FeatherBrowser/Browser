@@ -52,6 +52,7 @@ internal sealed class ResourceSampler
                     or Win32Exception
                     or NotSupportedException)
             {
+                Trace.WriteLine($"Skipped a process that ended during sampling: {ex.Message}");
             }
         }
 

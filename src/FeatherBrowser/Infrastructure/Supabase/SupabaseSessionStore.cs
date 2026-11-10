@@ -1,3 +1,4 @@
+using FeatherBrowser.Infrastructure.Persistence;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -78,20 +79,7 @@ internal sealed class SupabaseSessionStore
         }
     }
 
-    public void Delete()
-    {
-        try
-        {
-            if (File.Exists(_path))
-                File.Delete(_path);
-        }
-        catch (IOException)
-        {
-        }
-        catch (UnauthorizedAccessException)
-        {
-        }
-    }
+    public void Delete() => SecureFileDelete.Delete(_path, "saved sign-in");
 
     private static void WriteAtomic(string path, byte[] data)
     {

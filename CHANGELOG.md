@@ -25,6 +25,8 @@ Feather 2.0.3 adds split view, reader view, password saving, picture-in-picture,
 - An exception rule naming an unknown redirect resource no longer cancels every redirect for that request.
 - Loading a site's icon no longer leaks request objects, and a slow icon download that finishes after its 8-second timeout can no longer write into memory that was already released.
 - Code-quality fixes from CodeQL analysis (no change in behaviour): simpler dictionary lookups in settings sync and the find bar, shared Feather Shield caches updated only from static helpers, clearer permission-answer handling, and loops that filter their items explicitly.
+- Signing out, or removing sync from a device, can no longer silently leave the saved sign-in or the sync keys on disk. If the file can't be deleted (for example because another program has it open), Feather overwrites it with zeros so the secret is gone either way, and records the failure.
+- Errors that Feather deliberately ignores (a process ending while being measured, an unreadable server error, a locked old Private-window folder, shutdown clean-up) are now recorded in the diagnostic log instead of vanishing.
 - Process sampling for the Performance Center now closes its Windows process and snapshot handles automatically (through .NET safe handles), so an error partway through can no longer leak a handle.
 
 ## 2.0.2

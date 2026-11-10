@@ -132,6 +132,7 @@ public partial class MainWindow : Window
         }
         catch (OperationCanceledException)
         {
+            return;
         }
         catch (Exception exception)
         {

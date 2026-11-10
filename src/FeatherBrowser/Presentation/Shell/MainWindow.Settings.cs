@@ -454,8 +454,9 @@ public partial class MainWindow : Window
                     break;
             }
         }
-        catch (JsonException)
+        catch (JsonException ex)
         {
+            Trace.TraceWarning($"Ignored a malformed settings page message: {ex.Message}");
         }
     }
 }

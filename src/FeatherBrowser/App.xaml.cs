@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO.Pipes;
 using System.IO;
 using System.Text.Json;
@@ -71,9 +72,23 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         FeatherEngine.Shutdown();
-        try { _ipcCancellation?.Cancel(); } catch { }
+        try
+        {
+            _ipcCancellation?.Cancel();
+        }
+        catch (Exception ex) when (ex is ObjectDisposedException or AggregateException)
+        {
+            Trace.TraceWarning($"Stopping the single-instance listener failed: {ex.Message}");
+        }
         _ipcCancellation?.Dispose();
-        try { _instanceMutex?.ReleaseMutex(); } catch { }
+        try
+        {
+            _instanceMutex?.ReleaseMutex();
+        }
+        catch (ApplicationException ex)
+        {
+            Trace.TraceWarning($"Single-instance lock was not held at exit: {ex.Message}");
+        }
         _instanceMutex?.Dispose();
         base.OnExit(e);
     }

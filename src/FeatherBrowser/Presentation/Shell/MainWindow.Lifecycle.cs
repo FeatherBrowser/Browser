@@ -51,10 +51,16 @@ public partial class MainWindow : Window
                     if (DateTime.UtcNow - lastWrite > TimeSpan.FromHours(24))
                         Directory.Delete(dir, true);
                 }
-                catch { }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    Trace.TraceWarning($"Could not remove old private profile {dir}: {ex.Message}");
+                }
             }
         }
-        catch { }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Trace.TraceWarning($"Could not scan old private profiles: {ex.Message}");
+        }
     }
 
     private void ApplyPrivateWindowChrome()

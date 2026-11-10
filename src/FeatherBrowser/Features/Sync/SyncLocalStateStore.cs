@@ -1,3 +1,4 @@
+using FeatherBrowser.Infrastructure.Persistence;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -88,20 +89,7 @@ internal sealed class SyncLocalStateStore
         }
     }
 
-    public void Delete()
-    {
-        try
-        {
-            if (File.Exists(_path))
-                File.Delete(_path);
-        }
-        catch (IOException)
-        {
-        }
-        catch (UnauthorizedAccessException)
-        {
-        }
-    }
+    public void Delete() => SecureFileDelete.Delete(_path, "sync state");
 }
 
 internal sealed class SyncLocalState
