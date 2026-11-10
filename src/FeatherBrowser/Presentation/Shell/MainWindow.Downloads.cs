@@ -19,7 +19,7 @@ public partial class MainWindow : Window
 {
     private void OpenDownloadsFolder()
     {
-        string path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+        string path = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
         Directory.CreateDirectory(path);
         Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
     }
@@ -54,7 +54,7 @@ public partial class MainWindow : Window
             else
                 StatusText.Text = "Downloaded file is no longer available";
         }
-        catch (Exception ex)
+        catch (Exception ex) when (FeatherBrowser.Infrastructure.ExceptionFilters.IsRecoverable(ex))
         {
             StatusText.Text = "Could not open downloaded file";
             MessageBox.Show($"Feather could not open this download.\n\n{ex.Message}", "Downloads", MessageBoxButton.OK, MessageBoxImage.Warning);

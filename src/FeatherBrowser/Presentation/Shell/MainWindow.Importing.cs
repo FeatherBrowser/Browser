@@ -87,7 +87,7 @@ public partial class MainWindow : Window
                     await SelectTabAsync(newest);
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (FeatherBrowser.Infrastructure.ExceptionFilters.IsRecoverable(ex))
         {
             StatusText.Text = "Edge import failed";
 
@@ -144,7 +144,7 @@ public partial class MainWindow : Window
                 StatusText.Text =
                     "Passwords imported · plaintext Edge CSV deleted";
             }
-            catch (Exception ex)
+            catch (Exception ex) when (FeatherBrowser.Infrastructure.ExceptionFilters.IsRecoverable(ex))
             {
                 MessageBox.Show(
                     $"Passwords were imported, but Feather could not delete the CSV.\n\n" +
@@ -155,7 +155,7 @@ public partial class MainWindow : Window
                     MessageBoxImage.Warning);
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (FeatherBrowser.Infrastructure.ExceptionFilters.IsRecoverable(ex))
         {
             MessageBox.Show(
                 $"Feather could not import that password CSV.\n\n{ex.Message}",
@@ -180,7 +180,7 @@ public partial class MainWindow : Window
                 "In Edge, use Passwords > Export passwords, " +
                 "then import the CSV into Feather";
         }
-        catch (Exception ex)
+        catch (Exception ex) when (FeatherBrowser.Infrastructure.ExceptionFilters.IsRecoverable(ex))
         {
             MessageBox.Show(
                 $"Could not open Microsoft Edge's password manager.\n\n" +
@@ -201,7 +201,7 @@ public partial class MainWindow : Window
             StatusText.Text =
                 "Feather registered · choose Feather Browser in Windows Default Apps";
         }
-        catch (Exception ex)
+        catch (Exception ex) when (FeatherBrowser.Infrastructure.ExceptionFilters.IsRecoverable(ex))
         {
             MessageBox.Show(
                 $"Could not register Feather with Windows Default Apps.\n\n{ex.Message}",

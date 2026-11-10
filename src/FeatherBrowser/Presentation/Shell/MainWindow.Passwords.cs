@@ -108,7 +108,7 @@ public partial class MainWindow : Window
                     ? "Page changed; saved login was not filled"
                     : "No password field was found on this page";
         }
-        catch (Exception ex)
+        catch (Exception ex) when (FeatherBrowser.Infrastructure.ExceptionFilters.IsRecoverable(ex))
         {
             StatusText.Text = "Could not autofill saved login";
             MessageBox.Show($"Feather could not fill this saved login.\n\n{ex.Message}", "Password autofill", MessageBoxButton.OK, MessageBoxImage.Warning);

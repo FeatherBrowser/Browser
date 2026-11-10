@@ -27,6 +27,8 @@ Feather 2.0.3 adds split view, reader view, password saving, picture-in-picture,
 - Code-quality fixes from CodeQL analysis (no change in behaviour): simpler dictionary lookups in settings sync and the find bar, shared Feather Shield caches updated only from static helpers, clearer permission-answer handling, and loops that filter their items explicitly.
 - Signing out, or removing sync from a device, can no longer silently leave the saved sign-in or the sync keys on disk. If the file can't be deleted (for example because another program has it open), Feather overwrites it with zeros so the secret is gone either way, and records the failure.
 - Errors that Feather deliberately ignores (a process ending while being measured, an unreadable server error, a locked old Private-window folder, shutdown clean-up) are now recorded in the diagnostic log instead of vanishing.
+- Catch-all error handlers (imports, autofill, engine start-up and shutdown, page actions) still turn ordinary failures into a message instead of closing the browser, but no longer swallow fatal runtime errors such as running out of memory. The single-instance link between Feather launches now only ignores real connection errors, and logs them.
+- File paths are built with `Path.Join`, which never drops a folder from the path (CodeQL; no change in behaviour, since no path part was ever absolute).
 - Process sampling for the Performance Center now closes its Windows process and snapshot handles automatically (through .NET safe handles), so an error partway through can no longer leak a handle.
 
 ## 2.0.2

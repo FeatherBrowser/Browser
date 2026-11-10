@@ -134,7 +134,7 @@ public partial class MainWindow : Window
         {
             return;
         }
-        catch (Exception exception)
+        catch (Exception exception) when (FeatherBrowser.Infrastructure.ExceptionFilters.IsRecoverable(exception))
         {
             Debug.WriteLine($"Deferred page message failed: {exception}");
             StatusText.Text = "The requested action could not be completed";

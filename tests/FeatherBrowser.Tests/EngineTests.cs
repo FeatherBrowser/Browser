@@ -35,15 +35,15 @@ public sealed class EngineTests
     [Fact]
     public void DownloadsNeverOverwriteExistingFiles()
     {
-        string folder = Path.Combine(Path.GetTempPath(), "feather-download-test-" + Guid.NewGuid().ToString("N"));
+        string folder = Path.Join(Path.GetTempPath(), "feather-download-test-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(folder);
         try
         {
-            File.WriteAllText(Path.Combine(folder, "report.pdf"), "x");
-            File.WriteAllText(Path.Combine(folder, "report (2).pdf"), "x");
+            File.WriteAllText(Path.Join(folder, "report.pdf"), "x");
+            File.WriteAllText(Path.Join(folder, "report (2).pdf"), "x");
 
-            Assert.Equal(Path.Combine(folder, "report (3).pdf"), DownloadPaths.Unique(folder, "report.pdf"));
-            Assert.Equal(Path.Combine(folder, "notes.txt"), DownloadPaths.Unique(folder, "notes.txt"));
+            Assert.Equal(Path.Join(folder, "report (3).pdf"), DownloadPaths.Unique(folder, "report.pdf"));
+            Assert.Equal(Path.Join(folder, "notes.txt"), DownloadPaths.Unique(folder, "notes.txt"));
         }
         finally
         {

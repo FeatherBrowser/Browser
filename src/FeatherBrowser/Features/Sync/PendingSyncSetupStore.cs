@@ -10,13 +10,13 @@ internal sealed class PendingSyncSetupStore
 
     public PendingSyncSetupStore()
     {
-        string root = Path.Combine(
+        string root = Path.Join(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "FeatherBrowser",
             "Data");
 
         Directory.CreateDirectory(root);
-        _path = Path.Combine(root, "sync-setup-pending.bin");
+        _path = Path.Join(root, "sync-setup-pending.bin");
     }
 
     public void Save(string userId, ReadOnlySpan<byte> masterKey, string recoveryCode, string fingerprint)

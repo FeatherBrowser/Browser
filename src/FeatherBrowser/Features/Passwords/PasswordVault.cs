@@ -27,12 +27,12 @@ internal sealed class PasswordVault
 
     public PasswordVault()
     {
-        string root = Path.Combine(
+        string root = Path.Join(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "FeatherBrowser",
             "Data");
         Directory.CreateDirectory(root);
-        _path = Path.Combine(root, "passwords.json");
+        _path = Path.Join(root, "passwords.json");
         _credentials = Load();
     }
 

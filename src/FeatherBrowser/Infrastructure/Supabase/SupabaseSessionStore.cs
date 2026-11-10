@@ -11,13 +11,13 @@ internal sealed class SupabaseSessionStore
 
     public SupabaseSessionStore()
     {
-        string root = Path.Combine(
+        string root = Path.Join(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "FeatherBrowser",
             "Data");
 
         Directory.CreateDirectory(root);
-        _path = Path.Combine(root, "account-session.bin");
+        _path = Path.Join(root, "account-session.bin");
     }
 
     public void Save(SupabaseSession session)

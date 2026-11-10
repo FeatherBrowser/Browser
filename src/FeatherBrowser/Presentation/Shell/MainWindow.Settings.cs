@@ -158,7 +158,7 @@ public partial class MainWindow : Window
             await Features.Blocking.BlockerEngine.ReloadAsync(_store.Settings.CustomBlockRules);
             StatusText.Text = $"Feather Shield rules updated ({_store.Settings.CustomBlockRules.Count} custom)";
         }
-        catch (Exception ex)
+        catch (Exception ex) when (FeatherBrowser.Infrastructure.ExceptionFilters.IsRecoverable(ex))
         {
             System.Diagnostics.Trace.TraceWarning($"Custom rules failed to load: {ex.Message}");
             StatusText.Text = "Custom Shield rules could not be loaded";

@@ -49,7 +49,7 @@ public partial class App : Application
         {
             FeatherEngine.Initialize(new EngineStartupOptions
             {
-                DataRoot = Path.Combine(
+                DataRoot = Path.Join(
                     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                     "FeatherBrowser",
                     "Chromium"),
@@ -58,7 +58,7 @@ public partial class App : Application
                 ForcedDarkMode = ThemeManager.ForcedDarkMode,
             });
         }
-        catch (Exception ex)
+        catch (Exception ex) when (FeatherBrowser.Infrastructure.ExceptionFilters.IsRecoverable(ex))
         {
             MessageBox.Show(
                 $"Feather's browser engine could not start.\n\n{ex.Message}",
@@ -136,8 +136,9 @@ public partial class App : Application
                 writer.WriteLine(payload);
                 return;
             }
-            catch
+            catch (Exception ex) when (ex is TimeoutException or IOException or UnauthorizedAccessException)
             {
+                Trace.WriteLine($"Waiting for the running Feather window: {ex.Message}");
                 Thread.Sleep(100);
             }
         }
@@ -172,8 +173,10 @@ public partial class App : Application
             {
                 break;
             }
-            catch
+            catch (Exception ex) when (ex is IOException or JsonException or ObjectDisposedException or
+                                           InvalidOperationException or UnauthorizedAccessException)
             {
+                Trace.TraceWarning($"Ignored a request from another Feather launch: {ex.Message}");
                 if (!token.IsCancellationRequested)
                     await Task.Delay(150, token);
             }

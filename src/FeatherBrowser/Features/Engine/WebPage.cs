@@ -285,7 +285,7 @@ internal sealed partial class WebPage : IDisposable
         _pendingPermissions.Clear();
 
         try { _devTools?.Dispose(); }
-        catch (Exception ex) { Trace.TraceWarning($"DevTools client disposal failed: {ex.Message}"); }
+        catch (Exception ex) when (FeatherBrowser.Infrastructure.ExceptionFilters.IsRecoverable(ex)) { Trace.TraceWarning($"DevTools client disposal failed: {ex.Message}"); }
         _devTools = null;
 
         if (_browser is { } browser)
@@ -297,7 +297,7 @@ internal sealed partial class WebPage : IDisposable
             browser.JavascriptMessageReceived -= OnJavascriptMessageReceived;
 
             try { browser.Dispose(); }
-            catch (Exception ex) { Trace.TraceWarning($"Browser disposal failed: {ex.Message}"); }
+            catch (Exception ex) when (FeatherBrowser.Infrastructure.ExceptionFilters.IsRecoverable(ex)) { Trace.TraceWarning($"Browser disposal failed: {ex.Message}"); }
         }
 
         _created.TrySetCanceled();

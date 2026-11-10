@@ -17,13 +17,13 @@ internal sealed class SyncDeviceSecretStore
 
     public SyncDeviceSecretStore()
     {
-        string root = Path.Combine(
+        string root = Path.Join(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "FeatherBrowser",
             "Data");
 
         Directory.CreateDirectory(root);
-        _path = Path.Combine(root, "sync-device.bin");
+        _path = Path.Join(root, "sync-device.bin");
     }
 
     public void Save(

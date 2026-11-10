@@ -12,13 +12,13 @@ internal sealed class SyncLocalStateStore
 
     public SyncLocalStateStore()
     {
-        string root = Path.Combine(
+        string root = Path.Join(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "FeatherBrowser",
             "Data");
 
         Directory.CreateDirectory(root);
-        _path = Path.Combine(root, "sync-state.bin");
+        _path = Path.Join(root, "sync-state.bin");
     }
 
     public SyncLocalState? Load(string userId)

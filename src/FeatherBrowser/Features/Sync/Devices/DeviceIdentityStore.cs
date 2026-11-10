@@ -10,14 +10,14 @@ internal sealed class DeviceIdentityStore
 
     public DeviceIdentityStore()
     {
-        string root = Path.Combine(
+        string root = Path.Join(
             Environment.GetFolderPath(
                 Environment.SpecialFolder.LocalApplicationData),
             "FeatherBrowser",
             "Data");
 
         Directory.CreateDirectory(root);
-        _path = Path.Combine(root, "sync-device-identity.bin");
+        _path = Path.Join(root, "sync-device-identity.bin");
     }
 
     public DeviceIdentity LoadOrCreate(string deviceName)
