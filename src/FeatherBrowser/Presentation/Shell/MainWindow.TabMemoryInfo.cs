@@ -45,7 +45,7 @@ public partial class MainWindow
                     continue;
 
                 tab.PageMemoryBytes = await tab.View.GetPageMemoryAsync();
-                if (_isClosing)
+                if (System.Threading.Volatile.Read(ref _isClosing))
                     return;
             }
         }

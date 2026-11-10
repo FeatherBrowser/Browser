@@ -34,7 +34,7 @@ internal static class FeatherEngine
             DataRoot = options.DataRoot;
             Directory.CreateDirectory(DataRoot);
 
-            var settings = new CefSettings
+            using var settings = new CefSettings
             {
                 RootCachePath = DataRoot,
                 CachePath = Path.Join(DataRoot, "Default"),

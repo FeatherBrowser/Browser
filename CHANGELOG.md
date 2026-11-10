@@ -1,8 +1,8 @@
 # Changelog
 
-## 2.0.3
+## 2.1.0
 
-Feather 2.0.3 adds split view, reader view, password saving, picture-in-picture, tab search, per-site zoom and page memory per tab, and fixes a black page when switching back to a tab.
+Feather 2.1.0 adds split view, reader view, password saving, picture-in-picture, tab search, per-site zoom and page memory per tab, and fixes a black page when switching back to a tab.
 
 ### Added
 
@@ -29,6 +29,7 @@ Feather 2.0.3 adds split view, reader view, password saving, picture-in-picture,
 - Errors that Feather deliberately ignores (a process ending while being measured, an unreadable server error, a locked old Private-window folder, shutdown clean-up) are now recorded in the diagnostic log instead of vanishing.
 - Catch-all error handlers (imports, autofill, engine start-up and shutdown, page actions) still turn ordinary failures into a message instead of closing the browser, but no longer swallow fatal runtime errors such as running out of memory. The single-instance link between Feather launches now only ignores real connection errors, and logs them.
 - File paths are built with `Path.Join`, which never drops a folder from the path (CodeQL; no change in behaviour, since no path part was ever absolute).
+- Chromium start-up settings and site-icon requests are released through clearer ownership, and the per-tab memory check re-reads whether the window is closing after each sample (CodeQL; no change in behaviour).
 - Process sampling for the Performance Center now closes its Windows process and snapshot handles automatically (through .NET safe handles), so an error partway through can no longer leak a handle.
 
 ## 2.0.2

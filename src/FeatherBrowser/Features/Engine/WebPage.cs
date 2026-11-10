@@ -563,13 +563,7 @@ internal sealed partial class WebPage : IDisposable
         {
             using (timeout.Token.Register(() => result.TrySetResult(null)))
             {
-                await Cef.UIThreadTaskFactory.StartNew(() =>
-                {
-                    using IRequest request = new Request();
-                    request.Url = uri.AbsoluteUri;
-                    request.Method = "GET";
-                    pending = new UrlRequest(request, client, context);
-                });
+                pending = await Cef.UIThreadTaskFactory.StartNew(() => StartFaviconRequest(uri, client, context));
 
                 return await result.Task;
             }
@@ -584,6 +578,13 @@ internal sealed partial class WebPage : IDisposable
                 _ = Cef.UIThreadTaskFactory.StartNew(urlRequest.Dispose);
             }
         }
+    }
+    private static IUrlRequest StartFaviconRequest(Uri uri, IUrlRequestClient client, IRequestContext context)
+    {
+        using IRequest request = new Request();
+        request.Url = uri.AbsoluteUri;
+        request.Method = "GET";
+        return new UrlRequest(request, client, context);
     }
 
     public void ShowDevTools() => TryGetHost()?.ShowDevTools();
