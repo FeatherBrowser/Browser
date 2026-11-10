@@ -185,7 +185,8 @@ internal static class PageScripts
     public static readonly string NavigationMarker = "__feather_nav_" + Guid.NewGuid().ToString("N") + ":";
     public static readonly string EditMarker = "__feather_edit_" + Guid.NewGuid().ToString("N") + ":";
     public static readonly string PipMarker = "__feather_pip_" + Guid.NewGuid().ToString("N") + ":";
-    public static readonly string LoginMarker = "__feather_login_" + Guid.NewGuid().ToString("N") + ":";
+    public static readonly string MediaMarker = "__feather_media_" + Guid.NewGuid().ToString("N") + ":";
+    public static readonly string LoginMarker ="__feather_login_" + Guid.NewGuid().ToString("N") + ":";
     public static readonly string AudioMonitor = """
         (() => {
           if (window.__featherAudioMonitor) return;
@@ -274,6 +275,70 @@ internal static class PageScripts
           }, true);
           document.addEventListener("submit", () => { edits.length = 0; clearTimeout(editTimer); checkEdits(); }, true);
 
+          const mediaMarker = "__MEDIA__";
+          let mediaReported = "";
+          let wantedProprietary = "";
+          let acceptedVideo = false;
+          let usesMedia = false;
+          const proprietary = /avc1|avc3|mp4a|hev1|hvc1|ec-3|ac-3|^video\/mp4(;|$)|^audio\/(mp4|aac|x-m4a)(;|$)|mpegurl/i;
+          const reportMedia = () => {
+            if (mediaReported === location.href) return;
+            mediaReported = location.href;
+            console.debug(mediaMarker + "1");
+          };
+          const noteSupport = (type, supported) => {
+            type = String(type || "");
+            if (supported) { if (/^video\//i.test(type)) acceptedVideo = true; return; }
+            if (!proprietary.test(type) || wantedProprietary === location.href) return;
+            wantedProprietary = location.href;
+            setTimeout(() => {
+              if (!acceptedVideo && (usesMedia || document.querySelector("video"))) reportMedia();
+            }, 2500);
+          };
+          const MS = window.MediaSource;
+          if (typeof MS === "function") {
+            const isTypeSupported = MS.isTypeSupported;
+            if (typeof isTypeSupported === "function") {
+              MS.isTypeSupported = function (type) {
+                const result = isTypeSupported.call(this, type);
+                noteSupport(type, result);
+                return result;
+              };
+            }
+            const addSourceBuffer = MS.prototype.addSourceBuffer;
+            MS.prototype.addSourceBuffer = function (type) {
+              usesMedia = true;
+              try { return addSourceBuffer.apply(this, arguments); }
+              catch (error) {
+                if (error && error.name === "NotSupportedError" && proprietary.test(String(type || ""))) reportMedia();
+                throw error;
+              }
+            };
+          }
+          const canPlayType = HTMLMediaElement.prototype.canPlayType;
+          HTMLMediaElement.prototype.canPlayType = function (type) {
+            const result = canPlayType.apply(this, arguments);
+            noteSupport(type, result !== "");
+            return result;
+          };
+          document.addEventListener("error", (event) => {
+            const target = event.target;
+            if (!target || !target.tagName) return;
+            const media = target.tagName === "SOURCE" ? target.parentElement : target;
+            if (!media || (media.tagName !== "VIDEO" && media.tagName !== "AUDIO")) return;
+            setTimeout(() => {
+              if (!(media.error && media.error.code === 4) && media.networkState !== 3) return;
+              const message = media.error ? String(media.error.message || "") : "";
+              const src = String(media.currentSrc || media.src || "");
+              const type = target.tagName === "SOURCE" ? String(target.type || "") : "";
+              if (/DEMUXER_ERROR_NO_SUPPORTED_STREAMS|DEMUXER_ERROR_COULD_NOT_OPEN|DECODER_ERROR_NOT_SUPPORTED|codec/i.test(message) ||
+                  proprietary.test(type) ||
+                  /\.(mp4|m4v|m4a|mov|m3u8|aac)(\?|#|$)/i.test(target.tagName === "SOURCE" ? String(target.src || "") : src)) {
+                reportMedia();
+              }
+            }, 0);
+          }, true);
+
           const pipMarker = "__PIP__";
           document.addEventListener("enterpictureinpicture", () => console.debug(pipMarker + "1"), true);
           document.addEventListener("leavepictureinpicture", () => console.debug(pipMarker + "0"), true);
@@ -291,7 +356,8 @@ internal static class PageScripts
         .Replace("__MARKER__", AudioMarker, StringComparison.Ordinal)
         .Replace("__NAV__", NavigationMarker, StringComparison.Ordinal)
         .Replace("__EDIT__", EditMarker, StringComparison.Ordinal)
-        .Replace("__PIP__", PipMarker, StringComparison.Ordinal);
+        .Replace("__PIP__", PipMarker, StringComparison.Ordinal)
+        .Replace("__MEDIA__", MediaMarker, StringComparison.Ordinal);
     public static readonly string LoginCapture = """
         (() => {
           if (window.__featherLoginCapture) return;

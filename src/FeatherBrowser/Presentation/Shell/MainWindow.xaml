@@ -233,6 +233,40 @@
             </Border>
 
             <Border
+                x:Name="UnsupportedMediaBar"
+                DockPanel.Dock="Top"
+                Visibility="Collapsed"
+                Height="36"
+                Background="{DynamicResource ChromeBrush}"
+                BorderBrush="{DynamicResource DividerBrush}"
+                BorderThickness="0,0,0,1"
+                Padding="12,0,6,0"
+                AutomationProperties.LiveSetting="Polite"
+                AutomationProperties.Name="Video format not supported">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="&#xE714;" FontFamily="{StaticResource IconFont}" FontSize="13"
+                               Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="This page's video uses a format Feather can't play yet" FontWeight="SemiBold"
+                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                        <TextBlock x:Name="UnsupportedMediaDetail" Text="H.264 / AAC" Foreground="{DynamicResource TextMutedBrush}" FontSize="11"
+                                   Margin="10,0,0,0" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button x:Name="UnsupportedMediaOpenButton" Style="{StaticResource PrimaryButton}" Margin="0,0,4,0"
+                                Click="UnsupportedMediaOpenButton_Click" />
+                        <Button Style="{StaticResource IconButton}" Content="&#xE711;" FontSize="10" ToolTip="Dismiss"
+                                Click="UnsupportedMediaDismissButton_Click" AutomationProperties.Name="Dismiss" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Border
                 x:Name="PermissionBar"
                 DockPanel.Dock="Top"
                 Visibility="Collapsed"

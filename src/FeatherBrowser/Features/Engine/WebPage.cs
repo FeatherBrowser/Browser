@@ -136,6 +136,14 @@ internal sealed partial class WebPage : IDisposable
                 page.Post(() => page.FocusReceived?.Invoke(page, EventArgs.Empty));
         }
     }
+    public event EventHandler? UnsupportedMediaDetected;
+    private int _unsupportedMediaReported;
+
+    internal void OnUnsupportedMedia()
+    {
+        if (Interlocked.Exchange(ref _unsupportedMediaReported, 1) == 0)
+            Post(() => UnsupportedMediaDetected?.Invoke(this, EventArgs.Empty));
+    }
 
     internal void OnLoginSubmitted(string json)
     {
@@ -761,6 +769,7 @@ internal sealed partial class WebPage : IDisposable
         _audibleFrames.Clear();
         _editedFrames.Clear();
         _pipFrames.Clear();
+        Volatile.Write(ref _unsupportedMediaReported, 0);
         UpdateAudibleState();
     }
 

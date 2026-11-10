@@ -263,6 +263,9 @@ public partial class MainWindow : Window
                 AddressBox.Text = DisplayAddress(tab);
                 UpdateBookmarkButton();
             }
+
+            if (_unsupportedMediaTab == tab)
+                RefreshUnsupportedMediaBar();
         };
 
         page.HistoryChanged += (_, _) =>
@@ -445,6 +448,12 @@ public partial class MainWindow : Window
         {
             if (IsCurrent(tab, page) && _activeTab is { } active && SplitPartner(active) == tab)
                 await SelectTabAsync(tab);
+        };
+
+        page.UnsupportedMediaDetected += (_, _) =>
+        {
+            if (IsCurrent(tab, page))
+                OfferOtherBrowserForMedia(tab);
         };
 
         page.LoginSubmitted += (_, login) =>

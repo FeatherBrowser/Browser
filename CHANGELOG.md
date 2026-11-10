@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.1.1
+
+Feather 2.1.1 gets more video players working and explains the ones it can't play.
+
+### Added
+
+- When a page's video uses H.264 or AAC, a bar explains that Feather can't play that format yet and offers to open the page in your default browser, or in Microsoft Edge when Feather is your default browser. Feather's Chromium engine doesn't include these decoders, so sites such as X, Reddit, Twitch, Instagram and Facebook, and many news players, can't play here; sites that use VP9 or AV1, such as YouTube, are unaffected. Private windows show the explanation without the button, so the page isn't added to another browser's history.
+
+### Fixed
+
+- Video players that load Google's video-ad SDK (IMA) no longer hang or show an error. The ad blocker used to block the SDK outright, so players that wait for it never started the video; FeatherShield now gives them a stand-in that reports "no ads", and the video plays.
+- The two FeatherShield fixes listed under 2.1.0 (negative redirect priorities such as `nooptext:-1`, and exception rules naming an unknown redirect resource) are now included. The 2.1.0 release still used the earlier FeatherShield commit.
+
 ## 2.1.0
 
 Feather 2.1.0 adds split view, reader view, password saving, picture-in-picture, tab search, per-site zoom and page memory per tab, and fixes a black page when switching back to a tab.

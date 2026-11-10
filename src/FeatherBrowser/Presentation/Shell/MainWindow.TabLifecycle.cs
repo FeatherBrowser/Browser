@@ -167,6 +167,7 @@ public partial class MainWindow
         UpdateFeatureButtons();
         UpdateSiteIndicator();
         RefreshSaveLoginBar();
+        RefreshUnsupportedMediaBar();
     }
 
     private async Task CloseTabAsync(BrowserTab tab)

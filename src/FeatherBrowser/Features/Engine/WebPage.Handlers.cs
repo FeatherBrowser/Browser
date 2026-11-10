@@ -225,6 +225,7 @@ internal sealed partial class WebPage
 
             page._source = args.Address ?? string.Empty;
             string address = page._source;
+            Volatile.Write(ref page._unsupportedMediaReported, 0);
             page.Post(() => page.SourceChanged?.Invoke(page, address));
         }
 
@@ -291,6 +292,13 @@ internal sealed partial class WebPage
             {
                 if (!consoleMessageArgs.Browser.IsPopup)
                     page.OnLoginSubmitted(message[PageScripts.LoginMarker.Length..]);
+                return true;
+            }
+
+            if (message.StartsWith(PageScripts.MediaMarker, StringComparison.Ordinal))
+            {
+                if (!consoleMessageArgs.Browser.IsPopup)
+                    page.OnUnsupportedMedia();
                 return true;
             }
 

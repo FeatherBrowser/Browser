@@ -9,6 +9,21 @@ internal static class DefaultBrowserRegistrar
     private const string UrlProgId = "FeatherBrowserURL";
     private const string HtmlProgId = "FeatherBrowserHTML";
 
+    public static bool IsFeatherDefaultForWeb()
+    {
+        try
+        {
+            using RegistryKey? choice = Registry.CurrentUser.OpenSubKey(
+                @"Software\Microsoft\Windows\Shell\Associations\UrlAssociations\https\UserChoice");
+            return choice?.GetValue("ProgId") is not string progId ||
+                   string.Equals(progId, UrlProgId, StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception ex) when (ex is System.Security.SecurityException or UnauthorizedAccessException or System.IO.IOException)
+        {
+            return true;
+        }
+    }
+
     public static void RegisterAndOpenSettings()
     {
         string exe =
