@@ -98,6 +98,7 @@ public partial class MainWindow : Window
         settings.CustomBlockRules = SplitRules(GetString(element, "CustomBlockRules", string.Join("\n", settings.CustomBlockRules)));
         settings.BlockNotificationPrompts = GetBool(element, "BlockNotificationPrompts", settings.BlockNotificationPrompts);
         settings.SendDoNotTrack = GetBool(element, "SendDoNotTrack", settings.SendDoNotTrack);
+        settings.OfferToSavePasswords = GetBool(element, "OfferToSavePasswords", settings.OfferToSavePasswords);
         settings.DataBackupsEnabled = GetBool(element, "DataBackupsEnabled", settings.DataBackupsEnabled);
         settings.AutoSyncEnabled = GetBool(element, "AutoSyncEnabled", settings.AutoSyncEnabled);
         settings.AutoSyncMinutes = Math.Clamp(GetInt(element, "AutoSyncMinutes", settings.AutoSyncMinutes), 1, 60);

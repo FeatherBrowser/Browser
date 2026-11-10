@@ -127,10 +127,14 @@ public partial class MainWindow
         RefreshPermissionBar(tab);
         RefreshFindBar(tab);
         tab.UpdateStateIndicator();
+        ApplySplitLayout();
     }
 
     private void MoveTabToBackground(BrowserTab tab)
     {
+        if (IsShownInSplit(tab))
+            return;
+
         tab.HiddenSinceUtc = DateTime.UtcNow;
         HideTab(tab);
         if (tab.IsStartPage && !tab.View.CanGoBack && ColdUnloadTab(tab))
@@ -162,6 +166,7 @@ public partial class MainWindow
         UpdateBookmarkButton();
         UpdateFeatureButtons();
         UpdateSiteIndicator();
+        RefreshSaveLoginBar();
     }
 
     private async Task CloseTabAsync(BrowserTab tab)
@@ -187,6 +192,8 @@ public partial class MainWindow
             _closedTabs.Push(reopenAddress);
 
         tab.IsClosed = true;
+        if (tab == _splitLeft || tab == _splitRight)
+            CloseSplitView();
         if (ReferenceEquals(_videoFullscreenTab, tab))
         {
             _videoFullscreenTab = null;

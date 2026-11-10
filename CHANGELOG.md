@@ -1,5 +1,29 @@
 # Changelog
 
+## 2.0.3
+
+Feather 2.0.3 adds split view, reader view, password saving, picture-in-picture, tab search, per-site zoom and page memory per tab, and fixes a black page when switching back to a tab.
+
+### Added
+
+- **Split view:** right-click a tab and choose "Open in split view" to see it next to the current tab. Drag the divider to resize; click a side to make it the active tab. Switching to another tab shows it full size, and going back to either tab of the pair restores the split. Pages in a split are never frozen or unloaded while visible.
+- **Reader view** (main menu or command palette): shows the page's article as clean, readable text without ads, menus or scripts. Choose it again to return to the full page.
+- **Save passwords:** after you sign in or sign up on an HTTPS site, a bar offers to save or update the password in Feather's encrypted vault, or to never ask for that site. Never offered in Private windows; can be turned off in Settings → Privacy. Saved logins fill with Ctrl+Shift+P as before.
+- **Picture-in-picture** (main menu or command palette): pops the page's video out into a floating window. Tabs with a floating video are never frozen or unloaded.
+- **Search open tabs** (Ctrl+Shift+A): searches every open tab by title or address across all workspaces, most recently used first.
+- **Zoom per site:** the zoom you choose for a site is remembered and applied whenever you open it, in every tab.
+- **Page memory per tab:** each tab's tooltip and the Performance Center show how much memory the page's own scripts and content use, sampled with Feather's regular resource check.
+
+### Changed
+
+- Successful page loads no longer show a "Done" message in the status bubble; only load errors do.
+
+### Fixed
+
+- Switching back to a tab no longer shows a black page. A background tab was shown before it had finished unfreezing, so Chromium couldn't draw it.
+- FeatherShield recognises negative redirect priorities such as `nooptext:-1`. (These two were listed under 2.0.2, but the 2.0.2 release still used the earlier FeatherShield commit.)
+- An exception rule naming an unknown redirect resource no longer cancels every redirect for that request.
+
 ## 2.0.2
 
 Feather 2.0.2 is a reliability and security release. It fixes every open GitHub issue across sync, accounts, tab memory, passwords, privacy and startup, brings back status messages that disappeared with the bottom bar, and hardens device approval.
@@ -24,8 +48,6 @@ Feather 2.0.2 is a reliability and security release. It fixes every open GitHub 
 
 - **Ad blocking**
   - Blocked XHR/fetch requests to ad and tracker hosts (such as doubleclick.net and googlesyndication.com) now fail like a real block instead of resolving with an empty stub, so ad-block test pages report them as blocked. Scripts, images and frames still receive harmless stubs so pages don't break.
-  - FeatherShield recognises negative redirect priorities such as `nooptext:-1`.
-  - An exception rule naming an unknown redirect resource no longer cancels every redirect for that request.
 - **Sync**
   - A bookmark or history entry deleted on one device no longer comes back when another device has also made changes (#12).
   - Changing different settings on two devices keeps both changes instead of one device overwriting the other (#56).

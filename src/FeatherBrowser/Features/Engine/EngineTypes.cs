@@ -174,11 +174,18 @@ internal sealed class PermissionRequest
     }
 }
 
+internal sealed record LoginSubmission(string Origin, string Username, string Password)
+{
+    public override string ToString() => $"LoginSubmission {{ Origin = {Origin}, Username = {Username} }}";
+}
+
 internal static class PageScripts
 {
     public static readonly string AudioMarker = "__feather_audio_" + Guid.NewGuid().ToString("N") + ":";
     public static readonly string NavigationMarker = "__feather_nav_" + Guid.NewGuid().ToString("N") + ":";
     public static readonly string EditMarker = "__feather_edit_" + Guid.NewGuid().ToString("N") + ":";
+    public static readonly string PipMarker = "__feather_pip_" + Guid.NewGuid().ToString("N") + ":";
+    public static readonly string LoginMarker = "__feather_login_" + Guid.NewGuid().ToString("N") + ":";
     public static readonly string AudioMonitor = """
         (() => {
           if (window.__featherAudioMonitor) return;
@@ -266,6 +273,10 @@ internal static class PageScripts
             editTimer = setTimeout(checkEdits, 400);
           }, true);
           document.addEventListener("submit", () => { edits.length = 0; clearTimeout(editTimer); checkEdits(); }, true);
+
+          const pipMarker = "__PIP__";
+          document.addEventListener("enterpictureinpicture", () => console.debug(pipMarker + "1"), true);
+          document.addEventListener("leavepictureinpicture", () => console.debug(pipMarker + "0"), true);
           if (window === window.top) {
             window.addEventListener("mouseup", (event) => {
               if (event.button !== 3 && event.button !== 4) return;
@@ -279,7 +290,51 @@ internal static class PageScripts
     public static string AudioMonitorScript => AudioMonitor
         .Replace("__MARKER__", AudioMarker, StringComparison.Ordinal)
         .Replace("__NAV__", NavigationMarker, StringComparison.Ordinal)
-        .Replace("__EDIT__", EditMarker, StringComparison.Ordinal);
+        .Replace("__EDIT__", EditMarker, StringComparison.Ordinal)
+        .Replace("__PIP__", PipMarker, StringComparison.Ordinal);
+    public static readonly string LoginCapture = """
+        (() => {
+          if (window.__featherLoginCapture) return;
+          Object.defineProperty(window, "__featherLoginCapture", { value: true });
+          const marker = "__LOGIN__";
+          let lastSent = "";
+          const shown = (el) => !!el && el.getClientRects().length > 0;
+          const capture = (root) => {
+            const scope = root && root.querySelectorAll ? root : document;
+            const passwords = [...scope.querySelectorAll('input[type="password"]')].filter((p) => p.value && shown(p));
+            if (!passwords.length) return;
+            const pass = passwords[passwords.length - 1];
+            const fields = [...scope.querySelectorAll("input")];
+            let user = "";
+            for (let i = fields.indexOf(passwords[0]) - 1; i >= 0; i--) {
+              const type = (fields[i].type || "text").toLowerCase();
+              if ((type === "text" || type === "email" || type === "tel") && fields[i].value && shown(fields[i])) {
+                user = fields[i].value.trim();
+                break;
+              }
+            }
+            if (!user) {
+              const named = scope.querySelector('input[autocomplete="username"],input[autocomplete="email"]');
+              if (named && named.value) user = named.value.trim();
+            }
+            const payload = JSON.stringify({ o: location.origin, u: user, p: pass.value });
+            if (payload === lastSent) return;
+            lastSent = payload;
+            console.debug(marker + payload);
+          };
+          document.addEventListener("submit", (event) => capture(event.target), true);
+          document.addEventListener("click", (event) => {
+            const button = event.target && event.target.closest && event.target.closest('button,input[type="submit"]');
+            if (button) capture(button.form || button.closest("form") || document);
+          }, true);
+          document.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" && event.target && event.target.type === "password")
+              capture(event.target.form || document);
+          }, true);
+        })();
+        """;
+
+    public static string LoginCaptureScript => LoginCapture.Replace("__LOGIN__", LoginMarker, StringComparison.Ordinal);
 
     public const string ExitFullscreen =
         "if (document.fullscreenElement) { document.exitFullscreen().catch(() => {}); }";

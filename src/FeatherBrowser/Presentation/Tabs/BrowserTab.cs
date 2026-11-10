@@ -28,6 +28,8 @@ internal sealed class BrowserTab
     public int ActiveDownloadCount { get; private set; }
     public bool HasActiveDownload => ActiveDownloadCount > 0;
     public bool NeedsContentRestore { get; set; } = true;
+    public long? PageMemoryBytes { get; set; }
+    public bool IsReaderView { get; set; }
     public string InternalPageToken { get; set; } = string.Empty;
     public int BlockedRequests { get; set; }
     public DateTime HiddenSinceUtc { get; set; } = DateTime.UtcNow;

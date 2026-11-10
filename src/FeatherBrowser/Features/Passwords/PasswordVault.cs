@@ -114,6 +114,66 @@ internal sealed class PasswordVault
         return result;
     }
 
+    public bool IsSaved(string origin, string username, string password)
+    {
+        lock (_sync)
+        {
+            SavedCredential? existing = _credentials.FirstOrDefault(x =>
+                string.Equals(x.Origin, origin, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(x.Username, username, StringComparison.Ordinal));
+            return existing is not null &&
+                   string.Equals(WindowsDpapi.Unprotect(existing.ProtectedPassword), password, StringComparison.Ordinal);
+        }
+    }
+
+    public bool HasLoginFor(string origin, string username)
+    {
+        lock (_sync)
+        {
+            return _credentials.Any(x =>
+                string.Equals(x.Origin, origin, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(x.Username, username, StringComparison.Ordinal));
+        }
+    }
+
+    public void Save(string origin, string username, string password)
+    {
+        if (!TryNormalizeOrigin(origin, out string normalized) || string.IsNullOrEmpty(password))
+            throw new ArgumentException("A web origin and a password are required.");
+
+        lock (_sync)
+        {
+            EnsureLoadedForWrite();
+            string protectedPassword = WindowsDpapi.Protect(password);
+            SavedCredential? existing = _credentials.FirstOrDefault(x =>
+                string.Equals(x.Origin, normalized, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(x.Username, username, StringComparison.Ordinal));
+
+            if (existing is null)
+            {
+                _credentials.Add(new SavedCredential
+                {
+                    Name = normalized,
+                    Origin = normalized,
+                    Username = username,
+                    ProtectedPassword = protectedPassword,
+                    ImportedAt = DateTimeOffset.Now
+                });
+            }
+            else
+            {
+                existing.ProtectedPassword = protectedPassword;
+                existing.ImportedAt = DateTimeOffset.Now;
+            }
+
+            _credentials = _credentials
+                .OrderBy(x => x.Origin, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(x => x.Username, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            Save();
+        }
+    }
+
     public List<SavedCredential> FindForUrl(string? url)
     {
         if (!TryNormalizeOrigin(url, out string origin))

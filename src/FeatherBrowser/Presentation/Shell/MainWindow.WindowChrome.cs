@@ -167,6 +167,7 @@ public partial class MainWindow : Window
                 active.HiddenSinceUtc = DateTime.UtcNow;
                 active.View.SetVisible(false, zIndex: 0);
             }
+            HideSplitPartner();
             foreach (BrowserTab tab in _tabs.Where(t => t.IsLoaded && !t.IsClosed).ToList())
             {
                 if (!_store.Settings.HibernateWhenMinimized || !HibernateTab(tab))
@@ -180,6 +181,7 @@ public partial class MainWindow : Window
                 active.SleepCancellation?.Cancel();
                 active.View.Resume();
                 active.View.SetVisible(true, zIndex: 10);
+                ApplySplitLayout();
             }
             else _ = SelectTabAsync(active);
         }

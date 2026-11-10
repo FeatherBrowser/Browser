@@ -37,6 +37,10 @@ public partial class MainWindow : Window
         palette.Click += (_, _) => OpenCommandPalette();
         menu.Items.Add(palette);
 
+        var searchTabs = new MenuItem { Header = "Search open tabs", InputGestureText = "Ctrl+Shift+A" };
+        searchTabs.Click += (_, _) => OpenCommandPalette(tabsOnly: true);
+        menu.Items.Add(searchTabs);
+
         var newTab = new MenuItem { Header = "New tab", InputGestureText = "Ctrl+T" };
         newTab.Click += async (_, _) => await AddTabAsync();
         menu.Items.Add(newTab);
@@ -59,6 +63,18 @@ public partial class MainWindow : Window
         zoom.Items.Add(zoomOut);
         zoom.Items.Add(zoomReset);
         menu.Items.Add(zoom);
+
+        var reader = new MenuItem
+        {
+            Header = _activeTab?.IsReaderView == true ? "Exit reader view" : "Reader view",
+            IsEnabled = pageTools
+        };
+        reader.Click += async (_, _) => await ToggleReaderViewAsync();
+        menu.Items.Add(reader);
+
+        var pip = new MenuItem { Header = "Picture-in-picture video", IsEnabled = pageTools };
+        pip.Click += async (_, _) => await TogglePictureInPictureAsync();
+        menu.Items.Add(pip);
 
         var find = new MenuItem { Header = "Find on page…", InputGestureText = "Ctrl+F", IsEnabled = pageTools };
         find.Click += (_, _) => OpenFindBar();
@@ -267,6 +283,19 @@ public partial class MainWindow : Window
                 }
             };
             menu.Items.Add(keepSiteAlive);
+        }
+
+        if (_activeTab is not null && (tab == _splitLeft || tab == _splitRight) && SplitPartner(_activeTab) is not null)
+        {
+            var exitSplit = new MenuItem { Header = "Exit split view" };
+            exitSplit.Click += (_, _) => CloseSplitView();
+            menu.Items.Add(exitSplit);
+        }
+        else if (_activeTab is not null && tab != _activeTab && IsTabInActiveWorkspace(tab))
+        {
+            var split = new MenuItem { Header = "Open in split view" };
+            split.Click += async (_, _) => await OpenSplitViewAsync(tab);
+            menu.Items.Add(split);
         }
 
         var duplicate = new MenuItem { Header = "Duplicate tab" };

@@ -36,6 +36,8 @@ internal sealed class BrowserSettings
     public bool CrashRecoveryAutosave { get; set; } = true;
     public int LastActiveSessionIndex { get; set; }
     public List<string> KeepAliveSites { get; set; } = [];
+    public bool OfferToSavePasswords { get; set; } = true;
+    public List<string> NeverSavePasswordSites { get; set; } = [];
     public List<string> AllowlistedSites { get; set; } = [];
     public List<string> CustomBlockRules { get; set; } = [];
     public bool ShowWorkspaceSidebar { get; set; } = true;
@@ -55,4 +57,5 @@ internal sealed class BrowserSettings
     public bool SyncOpenTabs { get; set; }
     public string InstallationId { get; set; } = "";
     public Dictionary<string, string> SitePermissions { get; set; } = new();
+    public Dictionary<string, double> SiteZoom { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 }

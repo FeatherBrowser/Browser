@@ -39,6 +39,7 @@ internal sealed partial class WebPage : IDisposable
     private readonly TaskCompletionSource _created = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly ConcurrentDictionary<string, bool> _audibleFrames = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, byte> _editedFrames = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, byte> _pipFrames = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<int, DownloadProgress> _downloads = new();
     private readonly ConcurrentDictionary<PermissionRequest, byte> _pendingPermissions = new();
     private readonly ResourceRequestHandlerImpl _resourceHandler;
@@ -58,6 +59,7 @@ internal sealed partial class WebPage : IDisposable
     private bool _muted;
     private bool _visible;
     private bool _suspended;
+    private Task _resumeTask = Task.CompletedTask;
     private bool _audible;
     private int _findIdentifier;
 
@@ -94,6 +96,7 @@ internal sealed partial class WebPage : IDisposable
         browser.PermissionHandler = new PermissionHandlerImpl(this);
         browser.FindHandler = new FindHandlerImpl(this);
         browser.RenderProcessMessageHandler = new RenderProcessHandlerImpl(this);
+        browser.FocusHandler = new FocusHandlerImpl(this);
 
         browser.LoadingStateChanged += OnLoadingStateChanged;
         browser.FrameLoadStart += OnFrameLoadStart;
@@ -121,6 +124,47 @@ internal sealed partial class WebPage : IDisposable
     public event EventHandler<bool>? AudioPlayingChanged;
     public event EventHandler<bool>? FullscreenChanged;
     public event EventHandler<string>? ProcessFailed;
+    public event EventHandler<LoginSubmission>? LoginSubmitted;
+    public event EventHandler? FocusReceived;
+
+    private sealed class FocusHandlerImpl(WebPage page) : CefSharp.Handler.FocusHandler
+    {
+        protected override void OnGotFocus(IWebBrowser chromiumWebBrowser, IBrowser browser)
+        {
+            base.OnGotFocus(chromiumWebBrowser, browser);
+            if (!browser.IsPopup)
+                page.Post(() => page.FocusReceived?.Invoke(page, EventArgs.Empty));
+        }
+    }
+
+    internal void OnLoginSubmitted(string json)
+    {
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(json);
+            JsonElement root = document.RootElement;
+            string origin = root.GetProperty("o").GetString() ?? "";
+            string username = root.GetProperty("u").GetString() ?? "";
+            string password = root.GetProperty("p").GetString() ?? "";
+            if (password.Length is 0 or > 1024 || username.Length > 512)
+                return;
+
+            Post(() =>
+            {
+                if (!Uri.TryCreate(_source, UriKind.Absolute, out Uri? current) ||
+                    !string.Equals(current.GetLeftPart(UriPartial.Authority), origin, StringComparison.OrdinalIgnoreCase))
+                {
+                    return;
+                }
+
+                LoginSubmitted?.Invoke(this, new LoginSubmission(origin, username, password));
+            });
+        }
+        catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException)
+        {
+            Trace.TraceWarning("Ignored a malformed login report.");
+        }
+    }
     public event EventHandler<IReadOnlyList<string>>? FaviconUrlsChanged;
     public event EventHandler<string>? InternalPageRequested;
     public event EventHandler<ShortcutArgs>? ShortcutPressed;
@@ -141,8 +185,32 @@ internal sealed partial class WebPage : IDisposable
         if (_browser is null)
             return;
 
-        _browser.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
         System.Windows.Controls.Panel.SetZIndex(_browser, zIndex);
+
+        if (!visible)
+        {
+            _browser.Visibility = Visibility.Collapsed;
+            return;
+        }
+        if (_resumeTask.IsCompleted)
+            _browser.Visibility = Visibility.Visible;
+        else
+            _ = ShowAfterResumeAsync();
+    }
+
+    private async Task ShowAfterResumeAsync()
+    {
+        try
+        {
+            await _resumeTask.WaitAsync(TimeSpan.FromSeconds(2));
+        }
+        catch (TimeoutException)
+        {
+            Trace.TraceWarning("Page resume is slow; showing the page anyway.");
+        }
+
+        if (_visible && !_disposed && _browser is not null)
+            _browser.Visibility = Visibility.Visible;
     }
 
     public bool IsVisible => _visible;
@@ -167,6 +235,7 @@ internal sealed partial class WebPage : IDisposable
 
     public bool IsPlayingAudio => _audible;
     public bool HasUnsavedEdits => !_editedFrames.IsEmpty;
+    public bool IsInPictureInPicture => !_pipFrames.IsEmpty;
 
     public bool IsShowingInternalPage => InternalPages.IsInternalUrl(_source);
 
@@ -352,7 +421,7 @@ internal sealed partial class WebPage : IDisposable
             return;
 
         _suspended = false;
-        _ = ResumeCoreAsync();
+        _resumeTask = ResumeCoreAsync();
     }
 
     private async Task ResumeCoreAsync()
@@ -364,6 +433,28 @@ internal sealed partial class WebPage : IDisposable
         catch (Exception ex) when (ex is DevToolsClientException or ObjectDisposedException or InvalidOperationException)
         {
             Trace.TraceWarning($"Page resume failed: {ex.Message}");
+        }
+        if (_visible && !_disposed && _browser is { Visibility: Visibility.Visible } browser)
+        {
+            browser.Visibility = Visibility.Collapsed;
+            browser.Visibility = Visibility.Visible;
+        }
+    }
+
+    public async Task<long?> GetPageMemoryAsync()
+    {
+        if (_disposed || !IsCreated)
+            return null;
+
+        try
+        {
+            var usage = await DevTools().Runtime.GetHeapUsageAsync().WaitAsync(TimeSpan.FromSeconds(2));
+            return (long)(usage.UsedSize + usage.EmbedderHeapUsedSize + usage.BackingStorageSize);
+        }
+        catch (Exception ex) when (ex is DevToolsClientException or ObjectDisposedException or InvalidOperationException or TimeoutException)
+        {
+            Trace.TraceWarning($"Page memory sample failed: {ex.Message}");
+            return null;
         }
     }
 
@@ -474,6 +565,57 @@ internal sealed partial class WebPage : IDisposable
     }
 
     public void ShowDevTools() => TryGetHost()?.ShowDevTools();
+    public async Task<string> TogglePictureInPictureAsync()
+    {
+        if (_disposed || !IsCreated)
+            return "failed";
+
+        const string script = """
+            (async () => {
+              if (document.pictureInPictureElement) { await document.exitPictureInPicture(); return "exited"; }
+              const videos = [...document.querySelectorAll("video")]
+                .filter(v => v.readyState > 0 && !v.disablePictureInPicture);
+              if (!videos.length) return "no-video";
+              const area = v => { const r = v.getBoundingClientRect(); return r.width * r.height; };
+              const playing = videos.filter(v => !v.paused && !v.ended);
+              const video = (playing.length ? playing : videos).sort((a, b) => area(b) - area(a))[0];
+              await video.requestPictureInPicture();
+              return "entered";
+            })()
+            """;
+
+        try
+        {
+            DevToolsMethodResponse response = await DevTools().ExecuteDevToolsMethodAsync(
+                "Runtime.evaluate",
+                new Dictionary<string, object>
+                {
+                    ["expression"] = script,
+                    ["awaitPromise"] = true,
+                    ["userGesture"] = true,
+                    ["returnByValue"] = true
+                }).WaitAsync(TimeSpan.FromSeconds(5));
+
+            if (!response.Success)
+                return "failed";
+
+            using JsonDocument result = JsonDocument.Parse(response.ResponseAsJsonString);
+            JsonElement root = result.RootElement;
+            if (root.TryGetProperty("exceptionDetails", out _))
+                return "failed";
+
+            return root.TryGetProperty("result", out JsonElement value) &&
+                   value.TryGetProperty("value", out JsonElement text) &&
+                   text.ValueKind == JsonValueKind.String
+                ? text.GetString() ?? "failed"
+                : "failed";
+        }
+        catch (Exception ex) when (ex is DevToolsClientException or ObjectDisposedException or InvalidOperationException or TimeoutException or JsonException)
+        {
+            Trace.TraceWarning($"Picture-in-picture failed: {ex.Message}");
+            return "failed";
+        }
+    }
 
     public void Print() => TryGetHost()?.Print();
 
@@ -595,6 +737,7 @@ internal sealed partial class WebPage : IDisposable
         Volatile.Write(ref _loadError, null);
         _audibleFrames.Clear();
         _editedFrames.Clear();
+        _pipFrames.Clear();
         UpdateAudibleState();
     }
 

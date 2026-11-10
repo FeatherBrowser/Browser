@@ -14,9 +14,10 @@ public partial class MainWindow
 {
     private bool IsProtectedTab(BrowserTab tab)
     {
-        if (tab.IsClosed || tab.IsPinned || tab.HasActiveDownload ||
+        if (tab.IsClosed || tab.IsPinned || tab.HasActiveDownload || tab.View.IsInPictureInPicture ||
             tab.LoadingTask is { IsCompleted: false } ||
             (tab == _activeTab && WindowState != WindowState.Minimized) ||
+            (IsShownInSplit(tab) && WindowState != WindowState.Minimized) ||
             (_store.Settings.KeepAudioTabsLoaded && tab.IsPlayingAudio))
             return true;
 

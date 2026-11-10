@@ -198,6 +198,41 @@
 
         <DockPanel LastChildFill="True">
             <Border
+                x:Name="SaveLoginBar"
+                DockPanel.Dock="Top"
+                Visibility="Collapsed"
+                Height="36"
+                Background="{DynamicResource ChromeBrush}"
+                BorderBrush="{DynamicResource DividerBrush}"
+                BorderThickness="0,0,0,1"
+                Padding="12,0,6,0"
+                AutomationProperties.LiveSetting="Assertive"
+                AutomationProperties.Name="Save password">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="&#xE8D7;" FontFamily="{StaticResource IconFont}" FontSize="13"
+                               Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock x:Name="SaveLoginText" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                        <TextBlock x:Name="SaveLoginDetail" Foreground="{DynamicResource TextMutedBrush}" FontSize="11" Margin="10,0,0,0"
+                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Style="{StaticResource SecondaryButton}" Content="Never for this site" Margin="0,0,6,0"
+                                Click="SaveLoginNeverButton_Click" AutomationProperties.Name="Never save passwords for this site" />
+                        <Button x:Name="SaveLoginButton" Style="{StaticResource PrimaryButton}" Content="Save" Margin="0,0,4,0"
+                                Click="SaveLoginButton_Click" AutomationProperties.Name="Save password" />
+                        <Button Style="{StaticResource IconButton}" Content="&#xE711;" FontSize="10" ToolTip="Not now"
+                                Click="SaveLoginDismissButton_Click" AutomationProperties.Name="Not now" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Border
                 x:Name="PermissionBar"
                 DockPanel.Dock="Top"
                 Visibility="Collapsed"
@@ -266,9 +301,27 @@
             </Border>
 
             <Grid x:Name="BrowserHost" Background="{DynamicResource ContentBrush}">
-                <Border x:Name="LoadingOverlay" Background="{DynamicResource ContentBrush}" Visibility="Visible" Panel.ZIndex="90" />
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition x:Name="SplitLeftColumn" Width="*" />
+                    <ColumnDefinition x:Name="SplitDividerColumn" Width="0" />
+                    <ColumnDefinition x:Name="SplitRightColumn" Width="0" />
+                </Grid.ColumnDefinitions>
+                <GridSplitter
+                    x:Name="SplitDivider"
+                    Grid.Column="1"
+                    Width="4"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Stretch"
+                    ResizeBehavior="PreviousAndNext"
+                    ResizeDirection="Columns"
+                    Background="{DynamicResource DividerBrush}"
+                    Visibility="Collapsed"
+                    Cursor="SizeWE"
+                    AutomationProperties.Name="Resize split view" />
+                <Border x:Name="LoadingOverlay" Grid.ColumnSpan="3" Background="{DynamicResource ContentBrush}" Visibility="Visible" Panel.ZIndex="90" />
                 <Grid
                     x:Name="CommandPaletteOverlay"
+                    Grid.ColumnSpan="3"
                     Visibility="Collapsed"
                     Background="{DynamicResource ScrimBrush}"
                     Panel.ZIndex="100"
