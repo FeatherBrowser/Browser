@@ -721,11 +721,8 @@ internal sealed class BrowserDataStore
 
             int added = 0;
 
-            foreach (HistoryEntry item in incoming)
+            foreach (HistoryEntry item in incoming.Where(item => !string.IsNullOrWhiteSpace(item.Url)))
             {
-                if (string.IsNullOrWhiteSpace(item.Url))
-                    continue;
-
                 if (historyByUrl.TryGetValue(item.Url, out HistoryEntry? existing))
                 {
                     MergeHistoryEntry(existing, item);

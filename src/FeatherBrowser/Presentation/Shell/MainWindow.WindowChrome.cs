@@ -168,10 +168,10 @@ public partial class MainWindow : Window
                 active.View.SetVisible(false, zIndex: 0);
             }
             HideSplitPartner();
-            foreach (BrowserTab tab in _tabs.Where(t => t.IsLoaded && !t.IsClosed).ToList())
+            foreach (BrowserTab tab in _tabs.Where(t => t.IsLoaded && !t.IsClosed).ToList()
+                         .Where(t => !_store.Settings.HibernateWhenMinimized || !HibernateTab(t)))
             {
-                if (!_store.Settings.HibernateWhenMinimized || !HibernateTab(tab))
-                    ScheduleBackgroundLifecycle(tab);
+                ScheduleBackgroundLifecycle(tab);
             }
         }
         else if (_activeTab is { IsClosed: false } active)

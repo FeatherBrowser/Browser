@@ -24,7 +24,8 @@ Feather 2.0.3 adds split view, reader view, password saving, picture-in-picture,
 - FeatherShield recognises negative redirect priorities such as `nooptext:-1`. (These two were listed under 2.0.2, but the 2.0.2 release still used the earlier FeatherShield commit.)
 - An exception rule naming an unknown redirect resource no longer cancels every redirect for that request.
 - Loading a site's icon no longer leaks request objects, and a slow icon download that finishes after its 8-second timeout can no longer write into memory that was already released.
-- Code-quality fixes from CodeQL analysis (no change in behaviour): simpler dictionary lookups in settings sync and the find bar, shared Feather Shield caches updated only from static helpers, and clearer permission-answer handling.
+- Code-quality fixes from CodeQL analysis (no change in behaviour): simpler dictionary lookups in settings sync and the find bar, shared Feather Shield caches updated only from static helpers, clearer permission-answer handling, and loops that filter their items explicitly.
+- Process sampling for the Performance Center now closes its Windows process and snapshot handles automatically (through .NET safe handles), so an error partway through can no longer leak a handle.
 
 ## 2.0.2
 

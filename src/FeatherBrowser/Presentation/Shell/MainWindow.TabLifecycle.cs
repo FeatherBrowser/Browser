@@ -210,11 +210,8 @@ public partial class MainWindow
         RemovePageControl(tab.View);
 
         _tabs.Remove(tab);
-        foreach (BrowserTab other in _tabs)
-        {
-            if (ReferenceEquals(other.Opener, tab))
-                other.Opener = null;
-        }
+        foreach (BrowserTab other in _tabs.Where(other => ReferenceEquals(other.Opener, tab)))
+            other.Opener = null;
 
         tab.View.Dispose();
 
@@ -245,20 +242,8 @@ public partial class MainWindow
 
     private int GetWorkspaceTabIndex(BrowserTab tab)
     {
-        int index = 0;
-
-        foreach (BrowserTab candidate in _tabs)
-        {
-            if (!IsTabInActiveWorkspace(candidate))
-                continue;
-
-            if (candidate == tab)
-                return index;
-
-            index++;
-        }
-
-        return 0;
+        int index = _tabs.Where(IsTabInActiveWorkspace).ToList().IndexOf(tab);
+        return index < 0 ? 0 : index;
     }
 }
 
