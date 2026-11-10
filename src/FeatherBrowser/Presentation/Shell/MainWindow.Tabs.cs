@@ -45,6 +45,7 @@ public partial class MainWindow
         HookPage(tab, page);
         ConfigureInitialTabState(tab, address, titleHint);
         AttachTabHeaderEvents(tab, header, closeButton);
+        AttachTabMemoryTooltip(tab);
 
         int insertAt = _tabs.Count;
         if (openerTab is not null && !openerTab.IsClosed && _tabs.IndexOf(openerTab) is >= 0 and int openerIndex)

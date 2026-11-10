@@ -40,6 +40,7 @@ public partial class MainWindow
         Find,
         FindNext,
         FindPrevious,
+        SearchTabs,
     }
 
     private static (ShellCommand Command, int Argument)? MapShortcut(Key key, ModifierKeys modifiers)
@@ -58,6 +59,7 @@ public partial class MainWindow
         return key switch
         {
             Key.K when ctrlOnly => (ShellCommand.CommandPalette, 0),
+            Key.A when ctrlShift => (ShellCommand.SearchTabs, 0),
             Key.B when ctrlOnly => (ShellCommand.ToggleSidebar, 0),
             Key.L when ctrlOnly => (ShellCommand.FocusAddress, 0),
             Key.D when altOnly => (ShellCommand.FocusAddress, 0),
@@ -124,6 +126,9 @@ public partial class MainWindow
         {
             case ShellCommand.CommandPalette:
                 OpenCommandPalette();
+                break;
+            case ShellCommand.SearchTabs:
+                OpenCommandPalette(tabsOnly: true);
                 break;
             case ShellCommand.ToggleSidebar:
                 _store.Settings.ShowWorkspaceSidebar = !_store.Settings.ShowWorkspaceSidebar;
@@ -323,6 +328,7 @@ public partial class MainWindow
         };
 
         tab.View.ZoomFactor = next;
+        RememberSiteZoom(tab, next);
         StatusText.Text = $"Zoom {Math.Round(next * 100)}%";
     }
 }

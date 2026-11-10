@@ -111,6 +111,7 @@ public partial class MainWindow
         }
         catch (OperationCanceledException)
         {
+            return;
         }
         catch (Exception ex) when (ex is IOException or NotSupportedException or InvalidOperationException or ArgumentException or FileFormatException)
         {

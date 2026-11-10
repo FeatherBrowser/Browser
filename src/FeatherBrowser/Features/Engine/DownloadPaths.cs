@@ -5,17 +5,17 @@ namespace FeatherBrowser.Features.Engine;
 internal static class DownloadPaths
 {
     public static string DefaultFolder() =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+        Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
 
     public static string Unique(string folder, string? suggestedName)
     {
         string name = Sanitize(suggestedName);
         string stem = Path.GetFileNameWithoutExtension(name);
         string extension = Path.GetExtension(name);
-        string candidate = Path.Combine(folder, name);
+        string candidate = Path.Join(folder, name);
 
         for (int copy = 2; File.Exists(candidate) || Directory.Exists(candidate); copy++)
-            candidate = Path.Combine(folder, $"{stem} ({copy}){extension}");
+            candidate = Path.Join(folder, $"{stem} ({copy}){extension}");
 
         return candidate;
     }

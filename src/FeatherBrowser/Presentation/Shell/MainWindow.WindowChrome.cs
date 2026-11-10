@@ -167,10 +167,11 @@ public partial class MainWindow : Window
                 active.HiddenSinceUtc = DateTime.UtcNow;
                 active.View.SetVisible(false, zIndex: 0);
             }
-            foreach (BrowserTab tab in _tabs.Where(t => t.IsLoaded && !t.IsClosed).ToList())
+            HideSplitPartner();
+            foreach (BrowserTab tab in _tabs.Where(t => t.IsLoaded && !t.IsClosed).ToList()
+                         .Where(t => !_store.Settings.HibernateWhenMinimized || !HibernateTab(t)))
             {
-                if (!_store.Settings.HibernateWhenMinimized || !HibernateTab(tab))
-                    ScheduleBackgroundLifecycle(tab);
+                ScheduleBackgroundLifecycle(tab);
             }
         }
         else if (_activeTab is { IsClosed: false } active)
@@ -180,6 +181,7 @@ public partial class MainWindow : Window
                 active.SleepCancellation?.Cancel();
                 active.View.Resume();
                 active.View.SetVisible(true, zIndex: 10);
+                ApplySplitLayout();
             }
             else _ = SelectTabAsync(active);
         }

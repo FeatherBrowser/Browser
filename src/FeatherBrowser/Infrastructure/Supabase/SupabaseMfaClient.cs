@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -413,6 +414,7 @@ internal sealed class SupabaseMfaClient : IDisposable
         }
         catch (JsonException)
         {
+            Trace.TraceWarning($"Supabase returned a non-JSON error body (HTTP {(int)response.StatusCode}).");
         }
 
         throw new HttpRequestException(

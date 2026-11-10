@@ -37,13 +37,13 @@ internal static class FeatherEngine
             var settings = new CefSettings
             {
                 RootCachePath = DataRoot,
-                CachePath = Path.Combine(DataRoot, "Default"),
+                CachePath = Path.Join(DataRoot, "Default"),
                 BrowserSubprocessPath = Environment.ProcessPath ?? Process.GetCurrentProcess().MainModule!.FileName,
                 Locale = CultureInfo.CurrentUICulture.Name is { Length: > 0 } locale ? locale : "en-US",
                 AcceptLanguageList = BuildAcceptLanguageList(),
                 PersistSessionCookies = options.PersistSessionCookies,
                 LogSeverity = LogSeverity.Warning,
-                LogFile = Path.Combine(DataRoot, "engine.log"),
+                LogFile = Path.Join(DataRoot, "engine.log"),
                 BackgroundColor = Cef.ColorSetARGB(255, options.BackgroundColor.R, options.BackgroundColor.G, options.BackgroundColor.B),
             };
 
@@ -97,7 +97,7 @@ internal static class FeatherEngine
             {
                 Cef.Shutdown();
             }
-            catch (Exception ex)
+            catch (Exception ex) when (FeatherBrowser.Infrastructure.ExceptionFilters.IsRecoverable(ex))
             {
                 Trace.TraceWarning($"Chromium shutdown failed: {ex.Message}");
             }

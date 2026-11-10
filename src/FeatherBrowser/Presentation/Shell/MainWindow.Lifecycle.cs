@@ -39,7 +39,7 @@ public partial class MainWindow : Window
     {
         try
         {
-            string root = Path.Combine(Path.GetTempPath(), "FeatherBrowser", "Private");
+            string root = Path.Join(Path.GetTempPath(), "FeatherBrowser", "Private");
             if (!Directory.Exists(root))
                 return;
 
@@ -51,10 +51,16 @@ public partial class MainWindow : Window
                     if (DateTime.UtcNow - lastWrite > TimeSpan.FromHours(24))
                         Directory.Delete(dir, true);
                 }
-                catch { }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    Trace.TraceWarning($"Could not remove old private profile {dir}: {ex.Message}");
+                }
             }
         }
-        catch { }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Trace.TraceWarning($"Could not scan old private profiles: {ex.Message}");
+        }
     }
 
     private void ApplyPrivateWindowChrome()
@@ -74,7 +80,7 @@ public partial class MainWindow : Window
         {
             await _rulesLoading;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (FeatherBrowser.Infrastructure.ExceptionFilters.IsRecoverable(ex))
         {
             Trace.TraceWarning($"Feather Shield rules failed to load: {ex.Message}");
             StatusText.Text = "Feather Shield filter lists could not be loaded";
@@ -165,7 +171,7 @@ public partial class MainWindow : Window
             _sessionTimer.Start();
             SaveSessionSnapshot();
         }
-        catch (Exception ex)
+        catch (Exception ex) when (FeatherBrowser.Infrastructure.ExceptionFilters.IsRecoverable(ex))
         {
             LoadingOverlay.Visibility = Visibility.Visible;
             StatusText.Text = "The browser engine failed to start";

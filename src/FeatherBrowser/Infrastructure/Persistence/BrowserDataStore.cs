@@ -113,9 +113,11 @@ internal sealed class BrowserDataStore
 
     private static int _downloadsReconciled;
 
+    private static bool DownloadsAlreadyReconciled() => Interlocked.Exchange(ref _downloadsReconciled, 1) != 0;
+
     private void ReconcileInterruptedDownloads()
     {
-        if (Interlocked.Exchange(ref _downloadsReconciled, 1) != 0)
+        if (DownloadsAlreadyReconciled())
             return;
 
         bool changed = false;
@@ -719,11 +721,8 @@ internal sealed class BrowserDataStore
 
             int added = 0;
 
-            foreach (HistoryEntry item in incoming)
+            foreach (HistoryEntry item in incoming.Where(item => !string.IsNullOrWhiteSpace(item.Url)))
             {
-                if (string.IsNullOrWhiteSpace(item.Url))
-                    continue;
-
                 if (historyByUrl.TryGetValue(item.Url, out HistoryEntry? existing))
                 {
                     MergeHistoryEntry(existing, item);
@@ -910,7 +909,6 @@ internal sealed class BrowserDataStore
 
     public event Action? SettingsSaved;
 
-    /// <summary>Returns false when settings.json could not be written; the change is then only in memory (#25).</summary>
     public bool SaveSettings()
     {
         bool saved;

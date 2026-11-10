@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO.Pipes;
 using System.IO;
 using System.Text.Json;
@@ -48,7 +49,7 @@ public partial class App : Application
         {
             FeatherEngine.Initialize(new EngineStartupOptions
             {
-                DataRoot = Path.Combine(
+                DataRoot = Path.Join(
                     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                     "FeatherBrowser",
                     "Chromium"),
@@ -57,7 +58,7 @@ public partial class App : Application
                 ForcedDarkMode = ThemeManager.ForcedDarkMode,
             });
         }
-        catch (Exception ex)
+        catch (Exception ex) when (FeatherBrowser.Infrastructure.ExceptionFilters.IsRecoverable(ex))
         {
             MessageBox.Show(
                 $"Feather's browser engine could not start.\n\n{ex.Message}",
@@ -71,9 +72,23 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         FeatherEngine.Shutdown();
-        try { _ipcCancellation?.Cancel(); } catch { }
+        try
+        {
+            _ipcCancellation?.Cancel();
+        }
+        catch (Exception ex) when (ex is ObjectDisposedException or AggregateException)
+        {
+            Trace.TraceWarning($"Stopping the single-instance listener failed: {ex.Message}");
+        }
         _ipcCancellation?.Dispose();
-        try { _instanceMutex?.ReleaseMutex(); } catch { }
+        try
+        {
+            _instanceMutex?.ReleaseMutex();
+        }
+        catch (ApplicationException ex)
+        {
+            Trace.TraceWarning($"Single-instance lock was not held at exit: {ex.Message}");
+        }
         _instanceMutex?.Dispose();
         base.OnExit(e);
     }
@@ -121,8 +136,9 @@ public partial class App : Application
                 writer.WriteLine(payload);
                 return;
             }
-            catch
+            catch (Exception ex) when (ex is TimeoutException or IOException or UnauthorizedAccessException)
             {
+                Trace.WriteLine($"Waiting for the running Feather window: {ex.Message}");
                 Thread.Sleep(100);
             }
         }
@@ -157,8 +173,10 @@ public partial class App : Application
             {
                 break;
             }
-            catch
+            catch (Exception ex) when (ex is IOException or JsonException or ObjectDisposedException or
+                                           InvalidOperationException or UnauthorizedAccessException)
             {
+                Trace.TraceWarning($"Ignored a request from another Feather launch: {ex.Message}");
                 if (!token.IsCancellationRequested)
                     await Task.Delay(150, token);
             }

@@ -287,6 +287,27 @@ internal sealed partial class WebPage
                 return true;
             }
 
+            if (message.StartsWith(PageScripts.LoginMarker, StringComparison.Ordinal))
+            {
+                if (!consoleMessageArgs.Browser.IsPopup)
+                    page.OnLoginSubmitted(message[PageScripts.LoginMarker.Length..]);
+                return true;
+            }
+
+            if (message.StartsWith(PageScripts.PipMarker, StringComparison.Ordinal))
+            {
+                string pip = message[PageScripts.PipMarker.Length..];
+                int at = pip.LastIndexOf(':');
+                if (at > 0 && at == pip.Length - 2)
+                {
+                    if (pip[^1] == '1')
+                        page._pipFrames[pip[..at]] = 0;
+                    else
+                        page._pipFrames.TryRemove(pip[..at], out _);
+                }
+                return true;
+            }
+
             if (message.StartsWith(PageScripts.EditMarker, StringComparison.Ordinal))
             {
                 string edit = message[PageScripts.EditMarker.Length..];
@@ -554,12 +575,9 @@ internal sealed partial class WebPage
                 page._pendingPermissions.TryRemove(request!, out _);
                 using (callback)
                 {
-                    callback.Continue(allow switch
-                    {
-                        true => PermissionRequestResult.Accept,
-                        false => PermissionRequestResult.Deny,
-                        _ => PermissionRequestResult.Dismiss
-                    });
+                    callback.Continue(allow is not bool allowed
+                        ? PermissionRequestResult.Dismiss
+                        : allowed ? PermissionRequestResult.Accept : PermissionRequestResult.Deny);
                 }
             });
 
@@ -624,8 +642,15 @@ internal sealed partial class WebPage
             string frameKey = frame.Identifier.ToString();
             string script = PageScripts.AudioMonitorScript
                 .Replace(PageScripts.AudioMarker, PageScripts.AudioMarker + frameKey + ":", StringComparison.Ordinal)
-                .Replace(PageScripts.EditMarker, PageScripts.EditMarker + frameKey + ":", StringComparison.Ordinal);
+                .Replace(PageScripts.EditMarker, PageScripts.EditMarker + frameKey + ":", StringComparison.Ordinal)
+                .Replace(PageScripts.PipMarker, PageScripts.PipMarker + frameKey + ":", StringComparison.Ordinal);
             frame.ExecuteJavaScriptAsync(script, "feather://audio-monitor", 1);
+
+            if (frame.IsMain && !InternalPages.IsInternalUrl(frameUrl) &&
+                frameUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                frame.ExecuteJavaScriptAsync(PageScripts.LoginCaptureScript, "feather://login-capture", 1);
+            }
 
             if (frame.IsMain)
             {
@@ -637,7 +662,10 @@ internal sealed partial class WebPage
         public void OnContextReleased(IWebBrowser chromiumWebBrowser, IBrowser browser, IFrame frame)
         {
             if (frame is not null)
+            {
                 page._editedFrames.TryRemove(frame.Identifier.ToString(), out _);
+                page._pipFrames.TryRemove(frame.Identifier.ToString(), out _);
+            }
 
             if (frame is not null && page._audibleFrames.TryRemove(frame.Identifier.ToString(), out _))
                 page.UpdateAudibleState();

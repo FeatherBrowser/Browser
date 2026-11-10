@@ -19,10 +19,18 @@ namespace FeatherBrowser.Presentation.Shell;
 
 public partial class MainWindow : Window
 {
-    private void OpenCommandPalette()
+    private bool _paletteTabsOnly;
+
+    private void OpenCommandPalette(bool tabsOnly = false)
     {
+        _paletteTabsOnly = tabsOnly;
+        System.Windows.Automation.AutomationProperties.SetName(
+            CommandPaletteBox,
+            tabsOnly ? "Search open tabs" : "Search tabs, history, favorites and commands");
+
         if (_activeTab is { IsLoaded: true } active)
             active.View.SetVisible(false, zIndex: 0);
+        HideSplitPartner();
 
         CommandPaletteOverlay.Visibility = Visibility.Visible;
         CommandPaletteBox.Text = string.Empty;
@@ -35,10 +43,13 @@ public partial class MainWindow : Window
     {
         bool wasOpen = CommandPaletteOverlay.Visibility == Visibility.Visible;
         CommandPaletteOverlay.Visibility = Visibility.Collapsed;
+        _paletteTabsOnly = false;
         CommandPaletteBox.Text = string.Empty;
 
         if (wasOpen && _activeTab is { IsLoaded: true } active && WindowState != WindowState.Minimized)
             active.View.SetVisible(true, zIndex: 10);
+        if (wasOpen)
+            ApplySplitLayout();
 
         AddressBox.Focus();
     }
@@ -49,6 +60,13 @@ public partial class MainWindow : Window
         string q = query.ToLowerInvariant();
         _paletteItems.Clear();
 
+        if (_paletteTabsOnly)
+        {
+            AddTabEntries(query, limit: 500, mostRecentFirst: true);
+            ShowPaletteItems();
+            return;
+        }
+
         void AddCommand(string label, string detail, string data)
         {
             if (q.Length == 0 || label.Contains(query, StringComparison.OrdinalIgnoreCase) || detail.Contains(query, StringComparison.OrdinalIgnoreCase))
@@ -57,6 +75,7 @@ public partial class MainWindow : Window
 
         AddCommand("New tab", "Ctrl+T", "new-tab");
         AddCommand("New private window", "Ctrl+Shift+N", "new-private");
+        AddCommand("Search open tabs", "Ctrl+Shift+A", "search-tabs");
         AddCommand("Toggle workspace sidebar", "Ctrl+B", "toggle-sidebar");
         foreach (string workspace in _store.Settings.Workspaces)
             AddCommand($"Switch workspace: {workspace}", workspace == _store.Settings.ActiveWorkspace ? "Current" : "Workspace", "workspace:" + workspace);
@@ -69,23 +88,15 @@ public partial class MainWindow : Window
         AddCommand("Downloads", "Ctrl+J", "downloads");
         AddCommand("Favorites", "Ctrl+Shift+O", "favorites");
         AddCommand("Reload current tab", "Ctrl+R", "reload");
+        AddCommand("Picture-in-picture video", "Video", "pip");
+        if (_activeTab is not null && SplitPartner(_activeTab) is not null)
+            AddCommand("Exit split view", "Split view", "exit-split");
+        AddCommand(_activeTab?.IsReaderView == true ? "Exit reader view" : "Reader view", "Page", "reader");
         AddCommand("Toggle fullscreen", "F11", "fullscreen");
         if (_closedTabs.Count > 0)
             AddCommand("Reopen closed tab", "Ctrl+Shift+T", "reopen");
 
-        IEnumerable<BrowserTab> tabs = _tabs.Where(t => !t.IsClosed);
-        if (q.Length > 0)
-            tabs = tabs.Where(t => t.Title.Text.Contains(query, StringComparison.OrdinalIgnoreCase) || DisplayAddress(t).Contains(query, StringComparison.OrdinalIgnoreCase));
-        foreach (BrowserTab tab in tabs.Take(12))
-        {
-            _paletteItems.Add(new CommandPaletteEntry
-            {
-                Label = tab.Title.Text,
-                Detail = $"{tab.Workspace} · {(tab == _activeTab ? "Current tab" : (tab.IsCold ? "Cold tab" : "Open tab"))}",
-                Kind = "tab",
-                TabId = tab.Id
-            });
-        }
+        AddTabEntries(query, limit: 12, mostRecentFirst: false);
 
         if (q.Length > 0)
         {
@@ -98,6 +109,33 @@ public partial class MainWindow : Window
             _paletteItems.Add(new CommandPaletteEntry { Label = $"Search for \"{query}\"", Detail = _store.Settings.SearchEngine, Kind = "search", Data = query });
         }
 
+        ShowPaletteItems();
+    }
+
+    private void AddTabEntries(string query, int limit, bool mostRecentFirst)
+    {
+        IEnumerable<BrowserTab> tabs = _tabs.Where(t => !t.IsClosed);
+        if (query.Length > 0)
+            tabs = tabs.Where(t => t.Title.Text.Contains(query, StringComparison.OrdinalIgnoreCase) || DisplayAddress(t).Contains(query, StringComparison.OrdinalIgnoreCase));
+        if (mostRecentFirst)
+            tabs = tabs.OrderByDescending(t => t == _activeTab).ThenByDescending(t => t.LastActivatedUtc);
+
+        foreach (BrowserTab tab in tabs.Take(limit))
+        {
+            string state = tab == _activeTab ? "Current tab" : tab.IsCold ? "Cold tab" : "Open tab";
+            string host = tab.IsInternalPage ? "Feather" : SafeHost(tab.LastAddress);
+            _paletteItems.Add(new CommandPaletteEntry
+            {
+                Label = tab.Title.Text,
+                Detail = $"{host} · {tab.Workspace} · {state}",
+                Kind = "tab",
+                TabId = tab.Id
+            });
+        }
+    }
+
+    private void ShowPaletteItems()
+    {
         CommandPaletteList.ItemsSource = null;
         CommandPaletteList.ItemsSource = _paletteItems;
         if (_paletteItems.Count > 0)
@@ -135,6 +173,10 @@ public partial class MainWindow : Window
         switch (entry.Data)
         {
             case "new-tab": await AddTabAsync(); break;
+            case "search-tabs": OpenCommandPalette(tabsOnly: true); break;
+            case "pip": await TogglePictureInPictureAsync(); break;
+            case "exit-split": CloseSplitView(); break;
+            case "reader": await ToggleReaderViewAsync(); break;
             case "new-private": OpenPrivateWindow(); break;
             case "toggle-sidebar":
                 _store.Settings.ShowWorkspaceSidebar = !_store.Settings.ShowWorkspaceSidebar;

@@ -98,6 +98,7 @@ public partial class MainWindow : Window
         settings.CustomBlockRules = SplitRules(GetString(element, "CustomBlockRules", string.Join("\n", settings.CustomBlockRules)));
         settings.BlockNotificationPrompts = GetBool(element, "BlockNotificationPrompts", settings.BlockNotificationPrompts);
         settings.SendDoNotTrack = GetBool(element, "SendDoNotTrack", settings.SendDoNotTrack);
+        settings.OfferToSavePasswords = GetBool(element, "OfferToSavePasswords", settings.OfferToSavePasswords);
         settings.DataBackupsEnabled = GetBool(element, "DataBackupsEnabled", settings.DataBackupsEnabled);
         settings.AutoSyncEnabled = GetBool(element, "AutoSyncEnabled", settings.AutoSyncEnabled);
         settings.AutoSyncMinutes = Math.Clamp(GetInt(element, "AutoSyncMinutes", settings.AutoSyncMinutes), 1, 60);
@@ -157,7 +158,7 @@ public partial class MainWindow : Window
             await Features.Blocking.BlockerEngine.ReloadAsync(_store.Settings.CustomBlockRules);
             StatusText.Text = $"Feather Shield rules updated ({_store.Settings.CustomBlockRules.Count} custom)";
         }
-        catch (Exception ex)
+        catch (Exception ex) when (FeatherBrowser.Infrastructure.ExceptionFilters.IsRecoverable(ex))
         {
             System.Diagnostics.Trace.TraceWarning($"Custom rules failed to load: {ex.Message}");
             StatusText.Text = "Custom Shield rules could not be loaded";
@@ -453,8 +454,9 @@ public partial class MainWindow : Window
                     break;
             }
         }
-        catch (JsonException)
+        catch (JsonException ex)
         {
+            Trace.TraceWarning($"Ignored a malformed settings page message: {ex.Message}");
         }
     }
 }

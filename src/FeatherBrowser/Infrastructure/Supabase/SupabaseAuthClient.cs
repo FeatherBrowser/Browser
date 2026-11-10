@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -271,6 +272,7 @@ internal sealed class SupabaseAuthClient : IDisposable
         }
         catch (JsonException)
         {
+            Trace.TraceWarning($"Supabase returned a non-JSON error body (HTTP {(int)response.StatusCode}).");
         }
 
         return new HttpRequestException(

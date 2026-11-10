@@ -229,11 +229,8 @@ internal sealed class SyncSnapshotService
     {
         var byUrl = new Dictionary<string, BrowserBookmark>(UrlIdentity.Comparer);
 
-        foreach (BrowserBookmark item in local.Concat(remote))
+        foreach (BrowserBookmark item in local.Concat(remote).Where(item => !string.IsNullOrWhiteSpace(item.Url)))
         {
-            if (string.IsNullOrWhiteSpace(item.Url))
-                continue;
-
             if (!byUrl.TryGetValue(item.Url, out BrowserBookmark? existing) || item.CreatedAt > existing.CreatedAt)
                 byUrl[item.Url] = CloneBookmark(item);
         }
@@ -253,11 +250,8 @@ internal sealed class SyncSnapshotService
 
         var byUrl = new Dictionary<string, HistoryEntry>(UrlIdentity.Comparer);
 
-        foreach (HistoryEntry item in (local ?? []).Concat(remote ?? []))
+        foreach (HistoryEntry item in (local ?? []).Concat(remote ?? []).Where(item => !string.IsNullOrWhiteSpace(item.Url)))
         {
-            if (string.IsNullOrWhiteSpace(item.Url))
-                continue;
-
             if (!byUrl.TryGetValue(item.Url, out HistoryEntry? existing))
             {
                 byUrl[item.Url] = CloneHistory(item);
@@ -373,8 +367,8 @@ internal sealed class SyncSnapshotService
 
         foreach ((string name, JsonNode? value) in mine)
         {
-            JsonNode? chosen = JsonNode.DeepEquals(value, before[name]) && theirs.ContainsKey(name)
-                ? theirs[name]
+            JsonNode? chosen = JsonNode.DeepEquals(value, before[name]) && theirs.TryGetPropertyValue(name, out JsonNode? other)
+                ? other
                 : value;
             merged[name] = chosen?.DeepClone();
         }
@@ -422,11 +416,8 @@ internal sealed class SyncSnapshotService
     internal static List<DeviceTabs> MergeDeviceTabs(List<DeviceTabs>? local, List<DeviceTabs>? remote)
     {
         var byDevice = new Dictionary<string, DeviceTabs>(StringComparer.Ordinal);
-        foreach (DeviceTabs device in (remote ?? []).Concat(local ?? []))
-        {
-            if (!string.IsNullOrWhiteSpace(device.DeviceId))
-                byDevice[device.DeviceId] = CloneDeviceTabs(device);
-        }
+        foreach (DeviceTabs device in (remote ?? []).Concat(local ?? []).Where(device => !string.IsNullOrWhiteSpace(device.DeviceId)))
+            byDevice[device.DeviceId] = CloneDeviceTabs(device);
 
         return byDevice.Values
             .Where(device => device.Tabs.Count > 0)

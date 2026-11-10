@@ -127,10 +127,14 @@ public partial class MainWindow
         RefreshPermissionBar(tab);
         RefreshFindBar(tab);
         tab.UpdateStateIndicator();
+        ApplySplitLayout();
     }
 
     private void MoveTabToBackground(BrowserTab tab)
     {
+        if (IsShownInSplit(tab))
+            return;
+
         tab.HiddenSinceUtc = DateTime.UtcNow;
         HideTab(tab);
         if (tab.IsStartPage && !tab.View.CanGoBack && ColdUnloadTab(tab))
@@ -162,6 +166,7 @@ public partial class MainWindow
         UpdateBookmarkButton();
         UpdateFeatureButtons();
         UpdateSiteIndicator();
+        RefreshSaveLoginBar();
     }
 
     private async Task CloseTabAsync(BrowserTab tab)
@@ -187,6 +192,8 @@ public partial class MainWindow
             _closedTabs.Push(reopenAddress);
 
         tab.IsClosed = true;
+        if (tab == _splitLeft || tab == _splitRight)
+            CloseSplitView();
         if (ReferenceEquals(_videoFullscreenTab, tab))
         {
             _videoFullscreenTab = null;
@@ -203,11 +210,8 @@ public partial class MainWindow
         RemovePageControl(tab.View);
 
         _tabs.Remove(tab);
-        foreach (BrowserTab other in _tabs)
-        {
-            if (ReferenceEquals(other.Opener, tab))
-                other.Opener = null;
-        }
+        foreach (BrowserTab other in _tabs.Where(other => ReferenceEquals(other.Opener, tab)))
+            other.Opener = null;
 
         tab.View.Dispose();
 
@@ -238,20 +242,8 @@ public partial class MainWindow
 
     private int GetWorkspaceTabIndex(BrowserTab tab)
     {
-        int index = 0;
-
-        foreach (BrowserTab candidate in _tabs)
-        {
-            if (!IsTabInActiveWorkspace(candidate))
-                continue;
-
-            if (candidate == tab)
-                return index;
-
-            index++;
-        }
-
-        return 0;
+        int index = _tabs.Where(IsTabInActiveWorkspace).ToList().IndexOf(tab);
+        return index < 0 ? 0 : index;
     }
 }
 

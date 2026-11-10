@@ -109,6 +109,7 @@ public partial class MainWindow : Window
             }
 
             EnforceLoadedTabBudget();
+            await SampleTabMemoryAsync();
         }
         catch (InvalidOperationException ex)
         {
@@ -319,7 +320,8 @@ public partial class MainWindow : Window
                 {
                     state = tab.View.IsSuspended ? "SLEEP" : "HOT";
                 }
-                string markers = (tab.IsPinned ? " · pinned" : "") + (tab.IsPlayingAudio ? " · audio" : "");
+                string markers = (tab.IsPinned ? " · pinned" : "") + (tab.IsPlayingAudio ? " · audio" : "") +
+                    (tab.IsLoaded && tab.PageMemoryBytes is long pageBytes ? $" · {FormatBytes(pageBytes)} page memory" : "");
                 tabList.Items.Add(new ListBoxItem
                 {
                     Content = $"{state,-6}  {TrimLabel(tab.Title.Text, 42)}\n          {tab.Workspace}{markers}",

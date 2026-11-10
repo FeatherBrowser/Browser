@@ -132,8 +132,9 @@ public partial class MainWindow : Window
         }
         catch (OperationCanceledException)
         {
+            return;
         }
-        catch (Exception exception)
+        catch (Exception exception) when (FeatherBrowser.Infrastructure.ExceptionFilters.IsRecoverable(exception))
         {
             Debug.WriteLine($"Deferred page message failed: {exception}");
             StatusText.Text = "The requested action could not be completed";
@@ -310,14 +311,17 @@ public partial class MainWindow : Window
                 }
 
                 _ = UpdateTabFaviconAsync(tab, []);
+                ApplySiteZoom(tab);
+                tab.IsReaderView = false;
             }
 
             if (_activeTab == tab)
             {
                 NavigationProgress.Visibility = Visibility.Collapsed;
-                StatusText.Text = e.IsSuccess
-                    ? e.HttpStatusCode >= 400 ? $"Loaded with HTTP {e.HttpStatusCode}" : "Done"
-                    : $"Could not load page: {e.ErrorText}";
+                if (!e.IsSuccess)
+                    StatusText.Text = $"Could not load page: {e.ErrorText}";
+                else if (e.HttpStatusCode >= 400)
+                    StatusText.Text = $"Loaded with HTTP {e.HttpStatusCode}";
                 if (!AddressBox.IsKeyboardFocusWithin)
                     AddressBox.Text = DisplayAddress(tab);
                 UpdateNavigationButtons();
@@ -435,6 +439,18 @@ public partial class MainWindow : Window
         {
             if (IsCurrent(tab, page))
                 await HandleShortcutAsync(e.Key, e.Modifiers);
+        };
+
+        page.FocusReceived += async (_, _) =>
+        {
+            if (IsCurrent(tab, page) && _activeTab is { } active && SplitPartner(active) == tab)
+                await SelectTabAsync(tab);
+        };
+
+        page.LoginSubmitted += (_, login) =>
+        {
+            if (IsCurrent(tab, page))
+                OfferToSaveLogin(tab, login);
         };
 
         page.StatusMessageChanged += (_, text) =>

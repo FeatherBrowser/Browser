@@ -1,3 +1,4 @@
+using FeatherBrowser.Infrastructure.Persistence;
 using System.IO;
 using System.Buffers.Binary;
 using System.Security.Cryptography;
@@ -16,13 +17,13 @@ internal sealed class SyncDeviceSecretStore
 
     public SyncDeviceSecretStore()
     {
-        string root = Path.Combine(
+        string root = Path.Join(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "FeatherBrowser",
             "Data");
 
         Directory.CreateDirectory(root);
-        _path = Path.Combine(root, "sync-device.bin");
+        _path = Path.Join(root, "sync-device.bin");
     }
 
     public void Save(
@@ -152,20 +153,7 @@ internal sealed class SyncDeviceSecretStore
         }
     }
 
-    public void Delete()
-    {
-        try
-        {
-            if (File.Exists(_path))
-                File.Delete(_path);
-        }
-        catch (IOException)
-        {
-        }
-        catch (UnauthorizedAccessException)
-        {
-        }
-    }
+    public void Delete() => SecureFileDelete.Delete(_path, "sync device secrets");
 
     private static void WriteAtomic(string path, byte[] data)
     {

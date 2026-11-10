@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Runtime.InteropServices;
+using Microsoft.Win32.SafeHandles;
 
 namespace FeatherBrowser.Features.Engine;
 
@@ -24,11 +25,8 @@ internal static class EngineProcesses
             }
         }
 
-        foreach (int pid in descendants)
-        {
-            if (pid != Environment.ProcessId)
-                result[pid] = Describe(ReadCommandLine(pid));
-        }
+        foreach (int pid in descendants.Where(pid => pid != Environment.ProcessId))
+            result[pid] = Describe(ReadCommandLine(pid));
 
         return result;
     }
@@ -73,67 +71,52 @@ internal static class EngineProcesses
     private static Dictionary<int, int> ReadParentMap()
     {
         var map = new Dictionary<int, int>();
-        IntPtr snapshot = CreateToolhelp32Snapshot(SnapProcess, 0);
-        if (snapshot == InvalidHandle)
+        using SafeFileHandle snapshot = CreateToolhelp32Snapshot(SnapProcess, 0);
+        if (snapshot.IsInvalid)
             throw new Win32Exception(Marshal.GetLastWin32Error());
 
-        try
-        {
-            var entry = new ProcessEntry32 { dwSize = (uint)Marshal.SizeOf<ProcessEntry32>() };
-            if (!Process32FirstW(snapshot, ref entry))
-                return map;
+        var entry = new ProcessEntry32 { dwSize = (uint)Marshal.SizeOf<ProcessEntry32>() };
+        if (!Process32FirstW(snapshot, ref entry))
+            return map;
 
-            do
-            {
-                map[(int)entry.th32ProcessID] = (int)entry.th32ParentProcessID;
-            }
-            while (Process32NextW(snapshot, ref entry));
-        }
-        finally
+        do
         {
-            CloseHandle(snapshot);
+            map[(int)entry.th32ProcessID] = (int)entry.th32ParentProcessID;
         }
+        while (Process32NextW(snapshot, ref entry));
 
         return map;
     }
 
     private static string? ReadCommandLine(int pid)
     {
-        IntPtr process = OpenProcess(ProcessQueryLimitedInformation, false, pid);
-        if (process == IntPtr.Zero)
+        using SafeProcessHandle process = OpenProcess(ProcessQueryLimitedInformation, false, pid);
+        if (process.IsInvalid)
             return null;
 
+        int size = 0;
+        NtQueryInformationProcess(process, ProcessCommandLineInformation, IntPtr.Zero, 0, ref size);
+        if (size <= 0 || size > 1 << 20)
+            return null;
+
+        IntPtr buffer = Marshal.AllocHGlobal(size);
         try
         {
-            int size = 0;
-            NtQueryInformationProcess(process, ProcessCommandLineInformation, IntPtr.Zero, 0, ref size);
-            if (size <= 0 || size > 1 << 20)
+            if (NtQueryInformationProcess(process, ProcessCommandLineInformation, buffer, size, ref size) != 0)
                 return null;
 
-            IntPtr buffer = Marshal.AllocHGlobal(size);
-            try
-            {
-                if (NtQueryInformationProcess(process, ProcessCommandLineInformation, buffer, size, ref size) != 0)
-                    return null;
-
-                var text = Marshal.PtrToStructure<UnicodeString>(buffer);
-                return text.Buffer == IntPtr.Zero ? null : Marshal.PtrToStringUni(text.Buffer, text.Length / 2);
-            }
-            finally
-            {
-                Marshal.FreeHGlobal(buffer);
-            }
+            var text = Marshal.PtrToStructure<UnicodeString>(buffer);
+            return text.Buffer == IntPtr.Zero ? null : Marshal.PtrToStringUni(text.Buffer, text.Length / 2);
         }
         finally
         {
-            CloseHandle(process);
+            Marshal.FreeHGlobal(buffer);
         }
     }
 
     private const uint SnapProcess = 0x00000002;
     private const uint ProcessQueryLimitedInformation = 0x1000;
     private const int ProcessCommandLineInformation = 60;
-    private static readonly IntPtr InvalidHandle = new(-1);
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     private struct ProcessEntry32
@@ -160,20 +143,17 @@ internal static class EngineProcesses
     }
 
     [DllImport("kernel32.dll", SetLastError = true)]
-    private static extern IntPtr CreateToolhelp32Snapshot(uint flags, uint processId);
+    private static extern SafeFileHandle CreateToolhelp32Snapshot(uint flags, uint processId);
 
     [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-    private static extern bool Process32FirstW(IntPtr snapshot, ref ProcessEntry32 entry);
+    private static extern bool Process32FirstW(SafeFileHandle snapshot, ref ProcessEntry32 entry);
 
     [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-    private static extern bool Process32NextW(IntPtr snapshot, ref ProcessEntry32 entry);
+    private static extern bool Process32NextW(SafeFileHandle snapshot, ref ProcessEntry32 entry);
 
     [DllImport("kernel32.dll", SetLastError = true)]
-    private static extern IntPtr OpenProcess(uint access, bool inherit, int processId);
-
-    [DllImport("kernel32.dll", SetLastError = true)]
-    private static extern bool CloseHandle(IntPtr handle);
+    private static extern SafeProcessHandle OpenProcess(uint access, bool inherit, int processId);
 
     [DllImport("ntdll.dll")]
-    private static extern int NtQueryInformationProcess(IntPtr process, int informationClass, IntPtr information, int length, ref int returnLength);
+    private static extern int NtQueryInformationProcess(SafeProcessHandle process, int informationClass, IntPtr information, int length, ref int returnLength);
 }
