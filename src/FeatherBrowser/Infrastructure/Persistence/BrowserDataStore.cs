@@ -7,7 +7,7 @@ using FeatherBrowser.Domain.Models;
 
 namespace FeatherBrowser.Infrastructure.Persistence;
 
-internal sealed class BrowserDataStore
+internal sealed class BrowserDataStore : IDisposable
 {
     private static readonly Lazy<BrowserDataStore> SharedInstance = new(() => new BrowserDataStore());
     public static BrowserDataStore Shared => SharedInstance.Value;
@@ -22,6 +22,7 @@ internal sealed class BrowserDataStore
     private const string DownloadInProgressState = "In progress";
     private const string DownloadInterruptedState = "Interrupted";
 
+    private const int MaxBookmarks = 5_000;
     private const int MaxFavicons = 256;
     private const int MaxFaviconBytes = 65_536;
     private const int MaxHistoryEntries = 3_000;
@@ -36,6 +37,8 @@ internal sealed class BrowserDataStore
     private const int SchemaVersion8 = 8;
 
     private const string FaviconDataPrefix = "data:image/png;base64,";
+    private static readonly byte[] PngSignature = [137, 80, 78, 71, 13, 10, 26, 10];
+    private const long MaxJsonFileBytes = 64L * 1024 * 1024;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -43,11 +46,13 @@ internal sealed class BrowserDataStore
     };
 
     private static readonly TimeSpan DeferredSaveDelay = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan FailedSaveRetryDelay = TimeSpan.FromSeconds(10);
 
     private readonly object _sync = new();
     private readonly Timer _deferredSaveTimer;
     private bool _historyDirty;
     private bool _faviconsDirty;
+    private bool _disposed;
 
     private readonly string _root;
     private readonly string _bookmarksPath;
@@ -69,22 +74,33 @@ internal sealed class BrowserDataStore
     {
         get
         {
-            if (string.IsNullOrWhiteSpace(Settings.InstallationId))
+            bool saved = false;
+            string installationId;
+
+            lock (_sync)
             {
-                Settings.InstallationId = Guid.NewGuid().ToString("N");
-                SaveSettings();
+                if (string.IsNullOrWhiteSpace(Settings.InstallationId))
+                {
+                    Settings.InstallationId = Guid.NewGuid().ToString("N");
+                    saved = Save(_settingsPath, Settings);
+                }
+
+                installationId = Settings.InstallationId;
             }
-            return Settings.InstallationId;
+
+            if (saved)
+                SettingsSaved?.Invoke();
+
+            return installationId;
         }
     }
 
     public BrowserDataStore()
     {
-        _deferredSaveTimer = new Timer(_ => FlushDeferredSaves());
         _root = Path.Join(
-    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-    ApplicationDirectoryName,
-    DataDirectoryName);
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            ApplicationDirectoryName,
+            DataDirectoryName);
 
         Directory.CreateDirectory(_root);
 
@@ -95,34 +111,39 @@ internal sealed class BrowserDataStore
         _downloadsPath = GetDataPath("downloads.json");
         _faviconsPath = GetDataPath("favicons.json");
 
-        _hadExistingSettings = File.Exists(_settingsPath);
+        _hadExistingSettings = File.Exists(_settingsPath) ||
+                               File.Exists(_settingsPath + BackupSuffix);
 
-        Task<List<BrowserBookmark>> bookmarks = Task.Run(() => Load(_bookmarksPath, new List<BrowserBookmark>()));
-        Task<List<HistoryEntry>> history = Task.Run(() => Load(_historyPath, new List<HistoryEntry>()));
-        Task<List<DownloadEntry>> downloads = Task.Run(() => Load(_downloadsPath, new List<DownloadEntry>()));
         Settings = Load(_settingsPath, new BrowserSettings());
+        Bookmarks = Load(_bookmarksPath, new List<BrowserBookmark>());
+        History = Load(_historyPath, new List<HistoryEntry>());
+        Downloads = Load(_downloadsPath, new List<DownloadEntry>());
         _favicons = LoadFavicons();
 
-        Bookmarks = bookmarks.GetAwaiter().GetResult();
-        History = history.GetAwaiter().GetResult();
-        Downloads = downloads.GetAwaiter().GetResult();
+        Bookmarks = Bookmarks
+            .Where(bookmark => !string.IsNullOrWhiteSpace(bookmark.Url))
+            .Take(MaxBookmarks)
+            .ToList();
+        TrimHistory();
+        TrimDownloads();
+
+        _deferredSaveTimer = new Timer(
+            static state => ((BrowserDataStore)state!).FlushDeferredSaves(),
+            this,
+            Timeout.InfiniteTimeSpan,
+            Timeout.InfiniteTimeSpan);
 
         MigrateSettings();
         ReconcileInterruptedDownloads();
     }
 
-    private static int _downloadsReconciled;
-
-    private static bool DownloadsAlreadyReconciled() => Interlocked.Exchange(ref _downloadsReconciled, 1) != 0;
-
     private void ReconcileInterruptedDownloads()
     {
-        if (DownloadsAlreadyReconciled())
-            return;
-
         bool changed = false;
+
         foreach (DownloadEntry entry in Downloads.Where(entry =>
-                     string.Equals(entry.State, DownloadInProgressState, StringComparison.OrdinalIgnoreCase)))
+                     string.Equals(entry.State, DownloadInProgressState,
+                         StringComparison.OrdinalIgnoreCase)))
         {
             entry.State = DownloadInterruptedState;
             entry.CompletedAt ??= DateTimeOffset.Now;
@@ -305,10 +326,13 @@ internal sealed class BrowserDataStore
 
     private T Load<T>(string path, T fallback)
     {
-        foreach (string candidate in GetLoadCandidates(path))
+        if (TryReadJson(path, out T? primary) && primary is not null)
+            return primary;
+
+        if (TryReadJson(path + BackupSuffix, out T? backup) && backup is not null)
         {
-            if (TryReadJson(candidate, out T? value) && value is not null)
-                return value;
+            TryRestoreBackup(path);
+            return backup;
         }
 
         return fallback;
@@ -324,33 +348,68 @@ internal sealed class BrowserDataStore
     {
         value = default;
 
-        if (!File.Exists(path))
-            return false;
-
         try
         {
-            string json = File.ReadAllText(path);
-            value = JsonSerializer.Deserialize<T>(json, JsonOptions);
+            using FileStream stream = new(
+                path, FileMode.Open, FileAccess.Read, FileShare.Read);
+
+            if (stream.Length > MaxJsonFileBytes)
+            {
+                Debug.WriteLine($"Skipping oversized browser data file: {path}");
+                return false;
+            }
+
+            value = JsonSerializer.Deserialize<T>(stream, JsonOptions);
             return value is not null;
         }
-        catch (JsonException)
+        catch (Exception ex) when (ex is JsonException or
+                                   NotSupportedException or
+                                   IOException or
+                                   UnauthorizedAccessException)
         {
-            return false;
-        }
-        catch (IOException)
-        {
-            return false;
-        }
-        catch (UnauthorizedAccessException)
-        {
+            Debug.WriteLine($"Cannot read browser data file '{path}': {ex.Message}");
             return false;
         }
     }
-    
+
+    private static void TryRestoreBackup(string destinationPath)
+    {
+        string backupPath = destinationPath + BackupSuffix;
+        string restorePath = destinationPath + TemporarySuffix + "." +
+                             Guid.NewGuid().ToString("N");
+
+        try
+        {
+            File.Copy(backupPath, restorePath);
+
+            if (File.Exists(destinationPath))
+            {
+                File.Replace(restorePath, destinationPath,
+                    destinationBackupFileName: null,
+                    ignoreMetadataErrors: true);
+            }
+            else
+            {
+                File.Move(restorePath, destinationPath);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or
+                                   UnauthorizedAccessException)
+        {
+            Debug.WriteLine($"Failed to restore '{destinationPath}': {ex.Message}");
+        }
+        finally
+        {
+            DeleteFileIfExists(restorePath);
+        }
+    }
+
     public bool LastSaveSucceeded { get; private set; } = true;
 
     private bool Save<T>(string path, T value)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
         bool saved = WriteJson(path, value);
         LastSaveSucceeded = saved;
         return saved;
@@ -358,44 +417,33 @@ internal sealed class BrowserDataStore
 
     private bool WriteJson<T>(string path, T value)
     {
-        string temporaryPath = path + TemporarySuffix;
+        string temporaryPath = path + TemporarySuffix + "." +
+                               Guid.NewGuid().ToString("N");
         string backupPath = path + BackupSuffix;
 
         try
         {
-            string json = JsonSerializer.Serialize(value, JsonOptions);
-
             using (FileStream stream = new(
                        temporaryPath,
-                       FileMode.Create,
+                       FileMode.CreateNew,
                        FileAccess.Write,
                        FileShare.None,
-                       bufferSize: 4096,
+                       bufferSize: 16_384,
                        FileOptions.WriteThrough))
-            using (StreamWriter writer = new(stream))
             {
-                writer.Write(json);
-                writer.Flush();
+                JsonSerializer.Serialize(stream, value, JsonOptions);
                 stream.Flush(flushToDisk: true);
             }
 
             ReplaceFile(temporaryPath, path, backupPath);
             return true;
         }
-        catch (JsonException)
+        catch (Exception ex) when (ex is JsonException or
+                                   NotSupportedException or
+                                   IOException or
+                                   UnauthorizedAccessException)
         {
-            return false;
-        }
-        catch (NotSupportedException)
-        {
-            return false;
-        }
-        catch (IOException)
-        {
-            return false;
-        }
-        catch (UnauthorizedAccessException)
-        {
+            Debug.WriteLine($"Failed to save browser data '{path}': {ex.Message}");
             return false;
         }
         finally
@@ -415,17 +463,14 @@ internal sealed class BrowserDataStore
             return;
         }
 
-        if (Settings.DataBackupsEnabled)
-        {
-            File.Replace(
-                temporaryPath,
-                destinationPath,
-                backupPath,
-                ignoreMetadataErrors: true);
-            return;
-        }
+        File.Replace(
+            temporaryPath,
+            destinationPath,
+            Settings.DataBackupsEnabled ? backupPath : null,
+            ignoreMetadataErrors: true);
 
-        File.Move(temporaryPath, destinationPath, overwrite: true);
+        if (!Settings.DataBackupsEnabled)
+            DeleteFileIfExists(backupPath);
     }
 
     private static bool DeleteFileIfExists(string path)
@@ -482,6 +527,8 @@ internal sealed class BrowserDataStore
 
         lock (_sync)
         {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+
             if (string.Equals(
                     _favicons.GetValueOrDefault(url),
                     image,
@@ -497,15 +544,37 @@ internal sealed class BrowserDataStore
                 _favicons.Remove(_favicons.Keys.First());
 
             _faviconsDirty = true;
+            ScheduleDeferredSave();
         }
-
-        ScheduleDeferredSave();
     }
 
-    private static bool IsValidFaviconImage([NotNullWhen(true)] string? image) =>
-        !string.IsNullOrEmpty(image) &&
-        image.Length <= MaxFaviconBytes &&
-        image.StartsWith(FaviconDataPrefix, StringComparison.Ordinal);
+    private static bool IsValidFaviconImage([NotNullWhen(true)] string? image)
+    {
+        if (string.IsNullOrEmpty(image) ||
+            !image.StartsWith(FaviconDataPrefix, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        int base64Length = image.Length - FaviconDataPrefix.Length;
+        int maxBase64Length = ((MaxFaviconBytes + 2) / 3) * 4;
+
+        if (base64Length < 32 || base64Length > maxBase64Length)
+            return false;
+
+        try
+        {
+            byte[] decoded = Convert.FromBase64String(image[FaviconDataPrefix.Length..]);
+            return decoded.Length <= MaxFaviconBytes &&
+                   decoded.Length >= 24 &&
+                   decoded.AsSpan().StartsWith(PngSignature) &&
+                   decoded.AsSpan(12, 4).SequenceEqual("IHDR"u8);
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+    }
 
     private static bool IsHttpUrl([NotNullWhen(true)] string? url)
     {
@@ -584,7 +653,7 @@ internal sealed class BrowserDataStore
                 .GroupBy(bookmark => bookmark.Url, UrlIdentity.Comparer)
                 .Select(group => group.OrderByDescending(bookmark => bookmark.CreatedAt).First())
                 .OrderByDescending(bookmark => bookmark.CreatedAt)
-                .Take(5000)
+                .Take(MaxBookmarks)
                 .ToList();
 
             return Save(_bookmarksPath, Bookmarks);
@@ -622,6 +691,7 @@ internal sealed class BrowserDataStore
 
             Bookmarks = Bookmarks
                 .OrderByDescending(bookmark => bookmark.CreatedAt)
+                .Take(MaxBookmarks)
                 .ToList();
 
             Save(_bookmarksPath, Bookmarks);
@@ -643,6 +713,8 @@ internal sealed class BrowserDataStore
 
         lock (_sync)
         {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+
             HistoryEntry? existing = History.FirstOrDefault(entry =>
                 UrlEquals(entry.Url, url));
 
@@ -662,14 +734,14 @@ internal sealed class BrowserDataStore
                     existing.Title = title;
 
                 existing.LastVisited = visitedAt;
-                existing.VisitCount = Math.Max(1, existing.VisitCount + increment);
+                existing.VisitCount = (int)Math.Min(
+                    int.MaxValue, (long)Math.Max(1, existing.VisitCount) + increment);
             }
 
             TrimHistory();
             _historyDirty = true;
+            ScheduleDeferredSave();
         }
-
-        ScheduleDeferredSave();
     }
 
     private void ScheduleDeferredSave() =>
@@ -679,12 +751,44 @@ internal sealed class BrowserDataStore
     {
         lock (_sync)
         {
-            if (_historyDirty && Save(_historyPath, History))
-                _historyDirty = false;
-
-            if (_faviconsDirty && Save(_faviconsPath, _favicons))
-                _faviconsDirty = false;
+            if (!_disposed)
+                FlushDeferredSavesCore(retryOnFailure: true);
         }
+    }
+
+    private void FlushDeferredSavesCore(bool retryOnFailure)
+    {
+        if (_historyDirty && Save(_historyPath, History))
+            _historyDirty = false;
+
+        if (_faviconsDirty && Save(_faviconsPath, _favicons))
+            _faviconsDirty = false;
+
+        if (retryOnFailure && (_historyDirty || _faviconsDirty))
+        {
+            _deferredSaveTimer.Change(
+                FailedSaveRetryDelay,
+                Timeout.InfiniteTimeSpan);
+        }
+    }
+
+    public void Dispose()
+    {
+        lock (_sync)
+        {
+            if (_disposed)
+                return;
+
+            _deferredSaveTimer.Change(
+                Timeout.InfiniteTimeSpan,
+                Timeout.InfiniteTimeSpan);
+
+            FlushDeferredSavesCore(retryOnFailure: false);
+            _disposed = true;
+        }
+
+        _deferredSaveTimer.Dispose();
+        GC.SuppressFinalize(this);
     }
 
     public bool ReplaceHistory(IEnumerable<HistoryEntry> incoming)
@@ -701,7 +805,11 @@ internal sealed class BrowserDataStore
                 .Take(MaxHistoryEntries)
                 .ToList();
 
-            return Save(_historyPath, History);
+            bool saved = Save(_historyPath, History);
+            _historyDirty = !saved;
+            if (!saved)
+                ScheduleDeferredSave();
+            return saved;
         }
     }
 
@@ -714,14 +822,14 @@ internal sealed class BrowserDataStore
             Dictionary<string, HistoryEntry> historyByUrl = new(
                 UrlIdentity.Comparer);
 
-            foreach (HistoryEntry entry in History.Where(static entry => !string.IsNullOrWhiteSpace(entry.Url)))
+            foreach (HistoryEntry entry in History.Where(entry => IsHttpUrl(entry.Url)))
             {
                 historyByUrl.TryAdd(entry.Url, entry);
-                }
+            }
 
             int added = 0;
 
-            foreach (HistoryEntry item in incoming.Where(item => !string.IsNullOrWhiteSpace(item.Url)))
+            foreach (HistoryEntry item in incoming.Where(item => IsHttpUrl(item.Url)))
             {
                 if (historyByUrl.TryGetValue(item.Url, out HistoryEntry? existing))
                 {
@@ -735,7 +843,9 @@ internal sealed class BrowserDataStore
             }
 
             TrimHistory();
-            Save(_historyPath, History);
+            _historyDirty = !Save(_historyPath, History);
+            if (_historyDirty)
+                ScheduleDeferredSave();
             return added;
         }
     }
@@ -753,8 +863,8 @@ internal sealed class BrowserDataStore
         }
 
         existing.VisitCount = Math.Max(
-            existing.VisitCount,
-            incoming.VisitCount);
+            1,
+            Math.Max(existing.VisitCount, incoming.VisitCount));
     }
 
     private void TrimHistory()
@@ -774,14 +884,24 @@ internal sealed class BrowserDataStore
         {
             bool historyChanged = History.RemoveAll(entry =>
                 UrlEquals(entry.Url, url)) > 0;
-
             bool faviconChanged = _favicons.Remove(url);
 
-            if (faviconChanged)
-                Save(_faviconsPath, _favicons);
-
             if (historyChanged)
-                Save(_historyPath, History);
+            {
+                _historyDirty = !Save(_historyPath, History);
+                if (!_historyDirty)
+                    DeleteFileIfExists(_historyPath + BackupSuffix);
+            }
+
+            if (faviconChanged)
+            {
+                _faviconsDirty = !Save(_faviconsPath, _favicons);
+                if (!_faviconsDirty)
+                    DeleteFileIfExists(_faviconsPath + BackupSuffix);
+            }
+
+            if (_historyDirty || _faviconsDirty)
+                ScheduleDeferredSave();
         }
     }
 
@@ -789,23 +909,30 @@ internal sealed class BrowserDataStore
     {
         lock (_sync)
         {
-            if (!Save(_historyPath, Array.Empty<HistoryEntry>()))
-                return false;
+            bool historySaved = Save(_historyPath, Array.Empty<HistoryEntry>());
+            bool faviconsSaved = Save(
+                _faviconsPath,
+                new Dictionary<string, string>(StringComparer.Ordinal));
 
-            History.Clear();
+            if (historySaved)
+            {
+                History.Clear();
+                _historyDirty = false;
+            }
 
-            bool historyBackupRemoved =
+            if (faviconsSaved)
+            {
+                _favicons.Clear();
+                _faviconsDirty = false;
+            }
+
+            bool historyBackupRemoved = historySaved &&
                 DeleteFileIfExists(_historyPath + BackupSuffix);
-
-            _favicons.Clear();
-
-            bool faviconsSaved = Save(_faviconsPath, _favicons);
-            bool faviconBackupRemoved =
+            bool faviconBackupRemoved = faviconsSaved &&
                 DeleteFileIfExists(_faviconsPath + BackupSuffix);
 
-            return historyBackupRemoved &&
-                   faviconsSaved &&
-                   faviconBackupRemoved;
+            return historySaved && faviconsSaved &&
+                   historyBackupRemoved && faviconBackupRemoved;
         }
     }
 
@@ -914,7 +1041,8 @@ internal sealed class BrowserDataStore
         bool saved;
         lock (_sync)
             saved = Save(_settingsPath, Settings);
-        SettingsSaved?.Invoke();
+        if (saved)
+            SettingsSaved?.Invoke();
         return saved;
     }
 
@@ -925,12 +1053,18 @@ internal sealed class BrowserDataStore
             if (TryReadJson(candidate, out SessionState? state) &&
                 state is not null)
             {
+                if (!string.Equals(candidate, _sessionPath, StringComparison.Ordinal))
+                    TryRestoreBackup(_sessionPath);
+
                 return NormalizeSessionState(state);
             }
 
             if (TryReadJson(candidate, out List<string>? legacy) &&
                 legacy is not null)
             {
+                if (!string.Equals(candidate, _sessionPath, StringComparison.Ordinal))
+                    TryRestoreBackup(_sessionPath);
+
                 return NormalizeSessionState(new SessionState
                 {
                     Tabs = legacy,

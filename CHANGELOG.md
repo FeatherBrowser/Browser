@@ -2,21 +2,25 @@
 
 ## 3.0.0
 
-Feather 3.0.0 improves password autofill and Reader Mode, and simplifies the code behind Settings, Library, New Tab, and Welcome.
+Feather 3.0.0 improves password autofill, Reader Mode, and process monitoring. It also simplifies the code behind Settings, Library, New Tab, and Welcome.
 
 ### Added
 
 - **Password autofill** now detects when multiple eligible password fields are present and skips autofill when the intended field is unclear. It also checks whether the password stays filled after the page reacts.
 - **Reader Mode** now supports common lazy-loaded images, preserves table captions and footers, and shows image alt text when an image URL is unsupported.
+- **Process monitoring** now reports whether the CPU total includes a reading for every requested process.
 
 ### Fixed
 
 - **Password autofill** now pairs usernames and passwords within the same form when one is present. It skips hidden, disabled, read-only, and new-password fields. It also stops if the page replaces the password field while processing the username.
 - **Reader Mode** now gives article-specific sections more weight, discounts link-heavy paragraphs, and skips hidden content and common sidebars. It checks that enough article text remains after cleanup before replacing the page.
 - **Reader Mode** now resolves relative links and image URLs against the original page, prefers the article’s own heading, and removes a duplicate title. Wide tables and code blocks can scroll horizontally.
+- **Windows process monitoring** now reads CPU and memory through the same process handle and resets the CPU baseline when Windows reuses a process ID. Overlapping samples can no longer overwrite each other’s CPU baselines.
+- **Windows process monitoring** keeps valid memory readings when CPU timing is unavailable. If Windows can’t provide private RAM figures for every sampled process, the memory total uses private commit across all sampled processes.
 
 ### Changed
 
+- Centralised the Balanced, Memory Saver, Gaming, and Responsive presets. Each preset retains its existing values.
 - Consolidated shared styles for panels, sidebars, and other common elements. Total CSS is about **6% smaller**.
 - Simplified the repeated markup for 25 Settings switches and 19 keyboard shortcuts. The Settings HTML is about **10% smaller**.
 
