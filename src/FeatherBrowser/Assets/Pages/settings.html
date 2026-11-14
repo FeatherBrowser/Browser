@@ -69,7 +69,7 @@ __PAGE_STYLES__
       <div class="cardhead"><div><h2>Browser defaults</h2><p>Search, startup, and crash recovery.</p></div></div>
       <div class="row"><div><div class="title">Search engine</div><div class="desc">Used by the address bar and new-tab search.</div></div><select id="search"><option>Google</option><option>Bing</option><option>DuckDuckGo</option></select></div>
       <div class="row"><div><div class="title">Startup mode</div><div class="desc">Restore your workspaces, start clean, or boot directly into Gaming Mode.</div></div><select id="startup"><option value="Restore">Restore workspaces</option><option value="NewTab">New tab</option><option value="Gaming">Gaming mode</option></select></div>
-      <div class="row"><div><div class="title">Crash-safe session autosave</div><div class="desc">Snapshots open tabs, workspace membership, pin state, and selected tab every few seconds.</div></div><label class="switch"><input id="crashSave" type="checkbox"><span class="slider"></span></label></div>
+      <div class="row" data-switch="crashSave"><div><div class="title">Crash-safe session autosave</div><div class="desc">Snapshots open tabs, workspace membership, pin state, and selected tab every few seconds.</div></div></div>
     </div>
   </section>
 
@@ -101,10 +101,10 @@ __PAGE_STYLES__
           <div class="cardhead"><div><h2>Encrypted Sync</h2><p>Bookmarks, settings, workspaces, and optional history/session data.</p></div><span id="syncStatusBadge" class="account-badge">Off</span></div>
           <div class="row"><div><div class="title">Sync status</div><div id="syncStatusText" class="desc">Sign in to use Feather Sync.</div></div><div id="syncActions" class="actions"></div></div>
           <div id="pairingPanel" class="textblock hidden"><div class="title">Device pairing code</div><div class="desc">Compare this complete code with the code shown on an already approved Feather device.</div><div id="pairingCode" class="pairing-code"></div></div>
-          <div class="row"><div><div class="title">Automatic sync</div><div class="desc">Periodically merge and upload encrypted changes while this device has an AAL2 session.</div></div><label class="switch"><input id="autoSync" type="checkbox"><span class="slider"></span></label></div>
+          <div class="row" data-switch="autoSync"><div><div class="title">Automatic sync</div><div class="desc">Periodically merge and upload encrypted changes while this device has an AAL2 session.</div></div></div>
           <div class="row"><div><div class="title">Automatic sync interval</div><div class="desc">Minutes between background sync attempts.</div></div><input id="autoSyncMinutes" type="number" min="1" max="60"></div>
-          <div class="row"><div><div class="title">Sync browsing history</div><div class="desc">Off by default. When enabled, history is included inside the encrypted sync snapshot.</div></div><label class="switch"><input id="syncHistory" type="checkbox"><span class="slider"></span></label></div>
-          <div class="row"><div><div class="title">Sync open tabs</div><div class="desc">Includes the normal-window session snapshot. Private-window tabs are never synced.</div></div><label class="switch"><input id="syncOpenTabs" type="checkbox"><span class="slider"></span></label></div>
+          <div class="row" data-switch="syncHistory"><div><div class="title">Sync browsing history</div><div class="desc">Off by default. When enabled, history is included inside the encrypted sync snapshot.</div></div></div>
+          <div class="row" data-switch="syncOpenTabs"><div><div class="title">Sync open tabs</div><div class="desc">Includes the normal-window session snapshot. Private-window tabs are never synced.</div></div></div>
         </div>
 
         <div class="card">
@@ -119,16 +119,16 @@ __PAGE_STYLES__
 
     <div class="card">
       <div class="cardhead"><div><h2>Gaming behaviour</h2><p>Controls used when Feather should stay out of your game's way.</p></div></div>
-      <div class="row"><div><div class="title">Gaming Mode <span class="badge gamebadge">Aggressive</span></div><div class="desc">Keeps the active tab alive and aggressively unloads background tabs.</div></div><label class="switch"><input id="game" type="checkbox"><span class="slider game"></span></label></div>
-      <div class="row"><div><div class="title">Mute background tabs</div><div class="desc">Stops hidden streams, videos, and ads from producing audio after switching away.</div></div><label class="switch"><input id="muteBg" type="checkbox"><span class="slider"></span></label></div>
-      <div class="row"><div><div class="title">Keep audio tabs loaded</div><div class="desc">Prevents a background music tab from being cold-unloaded while it is playing.</div></div><label class="switch"><input id="keepAudio" type="checkbox"><span class="slider"></span></label></div>
-      <div class="row"><div><div class="title">Hibernate when minimized <span class="badge gamebadge">Best for gaming</span></div><div class="desc">Dispose every safe tab while Feather is minimized. Restoring wakes only the selected tab.</div></div><label class="switch"><input id="hibernateMin" type="checkbox"><span class="slider game"></span></label></div>
+      <div class="row" data-switch="game" data-game-switch><div><div class="title">Gaming Mode <span class="badge positive-badge">Aggressive</span></div><div class="desc">Keeps the active tab alive and aggressively unloads background tabs.</div></div></div>
+      <div class="row" data-switch="muteBg"><div><div class="title">Mute background tabs</div><div class="desc">Stops hidden streams, videos, and ads from producing audio after switching away.</div></div></div>
+      <div class="row" data-switch="keepAudio"><div><div class="title">Keep audio tabs loaded</div><div class="desc">Prevents a background music tab from being cold-unloaded while it is playing.</div></div></div>
+      <div class="row" data-switch="hibernateMin" data-game-switch><div><div class="title">Hibernate when minimized <span class="badge positive-badge">Best for gaming</span></div><div class="desc">Dispose every safe tab while Feather is minimized. Restoring wakes only the selected tab.</div></div></div>
     </div>
   </section>
 
   <section id="performance" class="section active" data-title="Performance" data-subtitle="Control memory usage and keep Feather fast, even with many tabs open.">
 
-    <div class="card" style="margin-bottom:16px"><div class="cardhead"><div><h2>Apply a performance profile</h2><p>Applies immediately and replaces memory/timing settings below. Pin important tabs or add Keep Alive sites before using aggressive unloading.</p></div></div><div class="textblock actions"><button class="action" data-profile="balanced">Balanced</button><button class="action" data-profile="saver">Memory Saver</button><button class="action" data-profile="gaming">Gaming</button><button class="action" data-profile="responsive">Responsive</button></div></div>
+    <div class="card profile-card"><div class="cardhead"><div><h2>Apply a performance profile</h2><p>Applies immediately and replaces memory/timing settings below. Pin important tabs or add Keep Alive sites before using aggressive unloading.</p></div></div><div class="textblock actions"><button class="action" data-profile="balanced">Balanced</button><button class="action" data-profile="saver">Memory Saver</button><button class="action" data-profile="gaming">Gaming</button><button class="action" data-profile="responsive">Responsive</button></div></div>
     <div class="statgrid">
       <div class="stat"><div><small>Memory limit</small><strong id="statRam">700 MB</strong></div></div>
       <div class="stat"><div><small>Loaded tabs</small><strong id="statTabs">1</strong></div></div>
@@ -138,12 +138,12 @@ __PAGE_STYLES__
     <div class="grid2">
       <div class="card">
         <div class="cardhead"><div><h2>Memory and tabs</h2><p>Fine-tune how Feather handles background tabs and memory pressure.</p></div></div>
-        <div class="row"><div><div class="title">Low memory mode <span class="badge rambadge">Recommended</span></div><div class="desc">Fully unloads the oldest background tabs instead of keeping their renderer in memory. Frozen tabs already use no CPU.</div></div><label class="switch"><input id="lowMemory" type="checkbox"><span class="slider"></span></label></div>
-        <div class="row"><div><div class="title">Gaming Mode</div><div class="desc">Prioritises the active tab and reduces background activity.</div></div><label class="switch"><input id="gameMirror" type="checkbox"><span class="slider game"></span></label></div>
-        <div class="row"><div><div class="title">Eco suspension</div><div class="desc">Suspends hidden warm tabs before they are completely unloaded.</div></div><label class="switch"><input id="eco" type="checkbox"><span class="slider"></span></label></div>
-        <div class="row"><div><div class="title">Adaptive memory mode</div><div class="desc">Tightens the loaded-tab budget as Feather approaches your RAM Guard limit.</div></div><label class="switch"><input id="adaptiveMemory" type="checkbox"><span class="slider"></span></label></div>
-        <div class="row"><div><div class="title">Cold-unload other workspaces</div><div class="desc">Tabs in inactive workspaces can be disposed immediately to minimise their RAM cost.</div></div><label class="switch"><input id="coldWorkspaces" type="checkbox"><span class="slider"></span></label></div>
-        <div class="row"><div><div class="title">Automatic memory guard</div><div class="desc">Emergency-trims eligible background tabs once Feather and its Chromium processes cross the limit.</div></div><label class="switch"><input id="autoMemory" type="checkbox"><span class="slider"></span></label></div>
+        <div class="row" data-switch="lowMemory"><div><div class="title">Low memory mode <span class="badge rambadge">Recommended</span></div><div class="desc">Fully unloads the oldest background tabs instead of keeping their renderer in memory. Frozen tabs already use no CPU.</div></div></div>
+        <div class="row" data-switch="gameMirror" data-game-switch><div><div class="title">Gaming Mode</div><div class="desc">Prioritises the active tab and reduces background activity.</div></div></div>
+        <div class="row" data-switch="eco"><div><div class="title">Eco suspension</div><div class="desc">Suspends hidden warm tabs before they are completely unloaded.</div></div></div>
+        <div class="row" data-switch="adaptiveMemory"><div><div class="title">Adaptive memory mode</div><div class="desc">Tightens the loaded-tab budget as Feather approaches your RAM Guard limit.</div></div></div>
+        <div class="row" data-switch="coldWorkspaces"><div><div class="title">Cold-unload other workspaces</div><div class="desc">Tabs in inactive workspaces can be disposed immediately to minimise their RAM cost.</div></div></div>
+        <div class="row" data-switch="autoMemory"><div><div class="title">Automatic memory guard</div><div class="desc">Emergency-trims eligible background tabs once Feather and its Chromium processes cross the limit.</div></div></div>
       </div>
 
       <div class="stack">
@@ -177,14 +177,14 @@ __PAGE_STYLES__
     <div class="grid2">
       <div class="card">
         <div class="cardhead"><div><h2>Protection</h2><p>Network and permission controls.</p></div></div>
-        <div class="row"><div><div class="title">Feather Shield</div><div class="desc">Blocks known advertising, tracking, analytics, and telemetry endpoints before they load.</div></div><label class="switch"><input id="shield" type="checkbox"><span class="slider"></span></label></div>
-        <div class="row"><div><div class="title">Strict blocking</div><div class="desc">Adds URL/resource heuristics for suspicious third-party requests.</div></div><label class="switch"><input id="strict" type="checkbox"><span class="slider"></span></label></div>
-        <div class="row"><div><div class="title">Third-party tracker blocking</div><div class="desc">Blocks tracking-like requests from unrelated hosts.</div></div><label class="switch"><input id="thirdParty" type="checkbox"><span class="slider"></span></label></div>
-        <div class="row"><div><div class="title">Cosmetic ad cleanup</div><div class="desc">Removes leftover ad containers after network requests are blocked.</div></div><label class="switch"><input id="cosmetic" type="checkbox"><span class="slider"></span></label></div>
-        <div class="row"><div><div class="title">Strip tracking parameters</div><div class="desc">Removes common URL parameters such as utm_*, fbclid, gclid, and msclkid.</div></div><label class="switch"><input id="stripTracking" type="checkbox"><span class="slider"></span></label></div>
-        <div class="row"><div><div class="title">Block notification prompts</div><div class="desc">Silently denies notification permission unless explicitly allowed per site.</div></div><label class="switch"><input id="blockNotifications" type="checkbox"><span class="slider"></span></label></div>
-        <div class="row"><div><div class="title">Offer to save passwords</div><div class="desc">After you sign in on a secure (HTTPS) site, Feather asks whether to keep the password, encrypted for your Windows account. Never in Private windows.</div></div><label class="switch"><input id="offerPasswords" type="checkbox"><span class="slider"></span></label></div>
-        <div class="row"><div><div class="title">Send Do Not Track</div><div class="desc">Adds the DNT header to requests. Sites decide whether to respect it.</div></div><label class="switch"><input id="doNotTrack" type="checkbox"><span class="slider"></span></label></div>
+        <div class="row" data-switch="shield"><div><div class="title">Feather Shield</div><div class="desc">Blocks known advertising, tracking, analytics, and telemetry endpoints before they load.</div></div></div>
+        <div class="row" data-switch="strict"><div><div class="title">Strict blocking</div><div class="desc">Adds URL/resource heuristics for suspicious third-party requests.</div></div></div>
+        <div class="row" data-switch="thirdParty"><div><div class="title">Third-party tracker blocking</div><div class="desc">Blocks tracking-like requests from unrelated hosts.</div></div></div>
+        <div class="row" data-switch="cosmetic"><div><div class="title">Cosmetic ad cleanup</div><div class="desc">Removes leftover ad containers after network requests are blocked.</div></div></div>
+        <div class="row" data-switch="stripTracking"><div><div class="title">Strip tracking parameters</div><div class="desc">Removes common URL parameters such as utm_*, fbclid, gclid, and msclkid.</div></div></div>
+        <div class="row" data-switch="blockNotifications"><div><div class="title">Block notification prompts</div><div class="desc">Silently denies notification permission unless explicitly allowed per site.</div></div></div>
+        <div class="row" data-switch="offerPasswords"><div><div class="title">Offer to save passwords</div><div class="desc">After you sign in on a secure (HTTPS) site, Feather asks whether to keep the password, encrypted for your Windows account. Never in Private windows.</div></div></div>
+        <div class="row" data-switch="doNotTrack"><div><div class="title">Send Do Not Track</div><div class="desc">Adds the DNT header to requests. Sites decide whether to respect it.</div></div></div>
       </div>
 
       <div class="stack">
@@ -197,12 +197,32 @@ __PAGE_STYLES__
   <section id="appearance" class="section" data-title="Appearance" data-subtitle="Keep Feather compact, clear, and out of the way.">
     <div class="card">
       <div class="cardhead"><div><h2>Browser chrome</h2><p>Lightweight visual controls only.</p></div></div>
-      <div class="row"><div><div class="title">Compact browser UI</div><div class="desc">Reduces tab and toolbar height.</div></div><label class="switch"><input id="compact" type="checkbox"><span class="slider"></span></label></div>
-      <div class="row"><div><div class="title">Workspace sidebar</div><div class="desc">Shows native workspace controls plus browser shortcuts. Shortcut: Ctrl+B.</div></div><label class="switch"><input id="workspaceSidebar" type="checkbox"><span class="slider"></span></label></div>
+      <div class="row" data-switch="compact"><div><div class="title">Compact browser UI</div><div class="desc">Reduces tab and toolbar height.</div></div></div>
+      <div class="row" data-switch="workspaceSidebar"><div><div class="title">Workspace sidebar</div><div class="desc">Shows native workspace controls plus browser shortcuts. Shortcut: Ctrl+B.</div></div></div>
     </div>
     <div class="card">
       <div class="cardhead"><div><h2>Keyboard shortcuts</h2><p>They work everywhere, including while a page has focus.</p></div></div>
-      <div class="shortcut-grid"><div class="shortcut"><span class="keys"><kbd>Ctrl</kbd><kbd>K</kbd></span><span>Command palette</span></div><div class="shortcut"><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>A</kbd></span><span>Search open tabs</span></div><div class="shortcut"><span class="keys"><kbd>Ctrl</kbd><kbd>T</kbd></span><span>New tab</span></div><div class="shortcut"><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>T</kbd></span><span>Reopen closed tab</span></div><div class="shortcut"><span class="keys"><kbd>Ctrl</kbd><kbd>W</kbd></span><span>Close tab</span></div><div class="shortcut"><span class="keys"><kbd>Ctrl</kbd><kbd>1–9</kbd></span><span>Jump to tab</span></div><div class="shortcut"><span class="keys"><kbd>Ctrl</kbd><kbd>Tab</kbd></span><span>Next tab</span></div><div class="shortcut"><span class="keys"><kbd>Ctrl</kbd><kbd>L</kbd></span><span>Focus address bar</span></div><div class="shortcut"><span class="keys"><kbd>Ctrl</kbd><kbd>F</kbd></span><span>Find on page</span></div><div class="shortcut"><span class="keys"><kbd>Ctrl</kbd><kbd>D</kbd></span><span>Add to favorites</span></div><div class="shortcut"><span class="keys"><kbd>Ctrl</kbd><kbd>H</kbd></span><span>History</span></div><div class="shortcut"><span class="keys"><kbd>Ctrl</kbd><kbd>J</kbd></span><span>Downloads</span></div><div class="shortcut"><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>N</kbd></span><span>Private window</span></div><div class="shortcut"><span class="keys"><kbd>Ctrl</kbd><kbd>+ / −</kbd></span><span>Zoom in / out</span></div><div class="shortcut"><span class="keys"><kbd>Ctrl</kbd><kbd>P</kbd></span><span>Print</span></div><div class="shortcut"><span class="keys"><kbd>F12</kbd></span><span>Developer tools</span></div><div class="shortcut"><span class="keys"><kbd>Shift</kbd><kbd>Esc</kbd></span><span>Performance Center</span></div><div class="shortcut"><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>M</kbd></span><span>Trim memory</span></div><div class="shortcut"><span class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>G</kbd></span><span>Gaming Mode</span></div></div>
+      <div class="shortcut-grid">
+        <div class="shortcut" data-keys="Ctrl|K">Command palette</div>
+        <div class="shortcut" data-keys="Ctrl|Shift|A">Search open tabs</div>
+        <div class="shortcut" data-keys="Ctrl|T">New tab</div>
+        <div class="shortcut" data-keys="Ctrl|Shift|T">Reopen closed tab</div>
+        <div class="shortcut" data-keys="Ctrl|W">Close tab</div>
+        <div class="shortcut" data-keys="Ctrl|1–9">Jump to tab</div>
+        <div class="shortcut" data-keys="Ctrl|Tab">Next tab</div>
+        <div class="shortcut" data-keys="Ctrl|L">Focus address bar</div>
+        <div class="shortcut" data-keys="Ctrl|F">Find on page</div>
+        <div class="shortcut" data-keys="Ctrl|D">Add to favorites</div>
+        <div class="shortcut" data-keys="Ctrl|H">History</div>
+        <div class="shortcut" data-keys="Ctrl|J">Downloads</div>
+        <div class="shortcut" data-keys="Ctrl|Shift|N">Private window</div>
+        <div class="shortcut" data-keys="Ctrl|+ / −">Zoom in / out</div>
+        <div class="shortcut" data-keys="Ctrl|P">Print</div>
+        <div class="shortcut" data-keys="F12">Developer tools</div>
+        <div class="shortcut" data-keys="Shift|Esc">Performance Center</div>
+        <div class="shortcut" data-keys="Ctrl|Shift|M">Trim memory</div>
+        <div class="shortcut" data-keys="Ctrl|Shift|G">Gaming Mode</div>
+      </div>
     </div>
   </section>
 
@@ -220,7 +240,7 @@ __PAGE_STYLES__
       <div class="row"><div><div class="title">Default browser</div><div class="desc">Register Feather with Windows and open Default Apps.</div></div><button class="action primary" data-action="default-browser">Set default</button></div>
       <div class="row"><div><div class="title">Feather Library</div><div class="desc">Open the downloads, history, or favorites manager.</div></div><div class="actions"><button class="action" data-action="open-download-library">Downloads</button><button class="action" data-action="open-history-library">History</button><button class="action" data-action="open-favorites-library">Favorites</button></div></div>
       <div class="row"><div><div class="title">Downloads folder</div><div class="desc">Open your Windows Downloads folder.</div></div><button class="action" data-action="open-downloads">Open folder</button></div>
-      <div class="row"><div><div class="title">Protected local backups</div><div class="desc">Keeps recoverable copies of Feather settings/session/history/favorites/download metadata.</div></div><label class="switch"><input id="dataBackups" type="checkbox"><span class="slider"></span></label></div>
+      <div class="row" data-switch="dataBackups"><div><div class="title">Protected local backups</div><div class="desc">Keeps recoverable copies of Feather settings/session/history/favorites/download metadata.</div></div></div>
       <div class="row"><div><div class="title">Browsing history</div><div class="desc">Clears Feather's local history list. Website cookies are not removed.</div></div><button class="action danger" data-action="clear-history">Clear history</button></div>
       <div class="row"><div><div class="title">Site permission decisions</div><div class="desc">Forget saved camera, microphone, location, and notification choices.</div></div><button class="action danger" data-action="reset-site-permissions">Reset permissions</button></div>
     </div>

@@ -2,17 +2,7 @@ body {
   padding-bottom: 56px;
 }
 
-.content {
-  max-width: 1000px;
-  margin-left: 200px;
-  padding: 18px 28px 24px;
-}
-
 .topbar {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
   margin-bottom: 16px;
 }
 
@@ -46,14 +36,6 @@ body {
   padding-left: 28px;
 }
 
-.section {
-  display: none;
-}
-
-.section.active {
-  display: block;
-}
-
 .search-empty {
   display: none;
   padding: 40px 0;
@@ -67,25 +49,35 @@ body {
 
 .card {
   margin-bottom: 12px;
-  border: 1px solid var(--divider);
-  border-radius: 8px;
-  background: var(--surface);
 }
 
-.stack > .card {
+.profile-card {
+  margin-bottom: 16px;
+}
+
+.stack > .card,
+.grid2 > .card {
   margin-bottom: 0;
 }
 
-.cardhead {
+.cardhead,
+.device-item,
+.shortcut-grid .shortcut {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.cardhead {
   padding: 10px 14px;
   border-bottom: 1px solid var(--divider);
 }
 
-.cardhead p {
+.cardhead p,
+.desc,
+.account-secret span,
+.device-meta {
   color: var(--text-3);
   font-size: 12px;
 }
@@ -98,13 +90,9 @@ body {
 }
 
 .row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   gap: 20px;
   min-height: 44px;
   padding: 8px 14px;
-  border-top: 1px solid var(--divider);
 }
 
 .cardhead + .row,
@@ -112,18 +100,13 @@ body {
   border-top: 0;
 }
 
-.row > div:first-child {
-  min-width: 0;
-}
-
-.title {
+.title,
+.device-name {
   font-weight: 500;
 }
 
 .desc {
   max-width: 600px;
-  color: var(--text-3);
-  font-size: 12px;
 }
 
 .textblock {
@@ -158,10 +141,6 @@ input[type="number"] {
   align-items: start;
 }
 
-.grid2 > .card {
-  margin-bottom: 0;
-}
-
 .stack {
   display: flex;
   flex-direction: column;
@@ -177,9 +156,6 @@ input[type="number"] {
 
 .stat {
   padding: 10px 14px;
-  border: 1px solid var(--divider);
-  border-radius: 8px;
-  background: var(--surface);
 }
 
 .stat small {
@@ -198,14 +174,8 @@ input[type="number"] {
   color: var(--accent);
 }
 
-.gamebadge {
-  background: color-mix(in srgb, var(--success) 16%, transparent);
-  color: var(--success);
-}
-
-.switch input:checked + .slider.game {
-  border-color: var(--success);
-  background: var(--success);
+.slider.game {
+  --switch-on: var(--success);
 }
 
 .account-message {
@@ -249,11 +219,6 @@ input[type="number"] {
   min-width: 0;
 }
 
-.account-secret span {
-  color: var(--text-3);
-  font-size: 12px;
-}
-
 .account-secret code,
 .code-note,
 .pairing-code {
@@ -281,10 +246,6 @@ input[type="number"] {
 }
 
 .device-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
   padding: 8px 14px;
   border-top: 1px solid var(--divider);
 }
@@ -293,25 +254,12 @@ input[type="number"] {
   border-top: 0;
 }
 
-.device-name {
-  font-weight: 500;
-}
-
-.device-meta {
-  color: var(--text-3);
-  font-size: 12px;
-}
-
 .shortcut-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
 }
 
 .shortcut-grid .shortcut {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
   padding: 6px 14px;
   border-top: 1px solid var(--divider);
   color: var(--text-2);
@@ -327,7 +275,7 @@ input[type="number"] {
   position: fixed;
   right: 0;
   bottom: 0;
-  left: 200px;
+  left: var(--sidebar-width);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -389,30 +337,13 @@ input[type="number"] {
 }
 
 @media (max-width: 760px) {
-  .sidebar {
-    position: static;
-    width: auto;
-    border-right: 0;
-    border-bottom: 1px solid var(--divider);
-  }
-
   .sidebar nav {
-    flex-direction: row;
     flex-wrap: wrap;
-  }
-
-  .content {
-    margin-left: 0;
-    padding: 16px;
   }
 
   .footer {
     left: 0;
     padding: 0 16px;
-  }
-
-  .topbar {
-    flex-direction: column;
   }
 
   .statgrid {

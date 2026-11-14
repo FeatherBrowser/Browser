@@ -4,6 +4,36 @@ const initialSection=__SETTINGS_SECTION_JSON__;
 const $=id=>document.getElementById(id);
 const featherToken=__feather_token_json__;
 
+for (const row of document.querySelectorAll('[data-switch]')) {
+  const toggle = document.createElement('label');
+  toggle.className = 'switch';
+
+  const input = document.createElement('input');
+  input.id = row.dataset.switch;
+  input.type = 'checkbox';
+
+  const slider = document.createElement('span');
+  slider.className = row.hasAttribute('data-game-switch') ? 'slider game' : 'slider';
+
+  toggle.append(input, slider);
+  row.append(toggle);
+}
+
+for (const shortcut of document.querySelectorAll('.shortcut[data-keys]')) {
+  const keys = document.createElement('span');
+  keys.className = 'keys';
+
+  for (const key of shortcut.dataset.keys.split('|')) {
+    const cap = document.createElement('kbd');
+    cap.textContent = key;
+    keys.append(cap);
+  }
+
+  const label = document.createElement('span');
+  label.textContent = shortcut.textContent;
+  shortcut.replaceChildren(keys, label);
+}
+
 const fieldKeys={
   search:'SearchEngine',
   startup:'StartupMode',

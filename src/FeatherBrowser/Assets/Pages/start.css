@@ -118,8 +118,19 @@
   margin: 0 2px 6px;
 }
 
-.section-heading h2 {
+.section-heading h2,
+.recent-placeholder,
+.recent-host {
   color: var(--text-3);
+}
+
+.section-heading h2,
+.link-button,
+.recent-placeholder,
+.recent-host,
+.customize-button,
+#shortcut-form label,
+#shortcut-error {
   font-size: 12px;
 }
 
@@ -128,22 +139,14 @@
   border: 0;
   background: transparent;
   color: var(--accent);
-  font-size: 12px;
 }
 
 .link-button:hover {
   text-decoration: underline;
 }
 
-.recent-grid {
-  border: 1px solid var(--divider);
-  border-radius: 8px;
-}
-
 .recent-placeholder {
   padding: 12px;
-  color: var(--text-3);
-  font-size: 12px;
 }
 
 .recent-card {
@@ -210,8 +213,6 @@
 
 .recent-host {
   flex: none;
-  color: var(--text-3);
-  font-size: 12px;
 }
 
 .recent-more {
@@ -231,15 +232,19 @@
   color: var(--text);
 }
 
+.recent-menu,
+.customize-panel {
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
 .recent-menu {
   position: absolute;
   top: 32px;
   right: 6px;
   z-index: 5;
-  padding: 4px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
 }
 
 .recent-menu button,
@@ -285,7 +290,6 @@
   border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--text-2);
-  font-size: 12px;
 }
 
 .customize-button:hover {
@@ -303,10 +307,6 @@
 
 .customize-panel {
   width: 200px;
-  padding: 4px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
 }
 
 .customize-divider {
@@ -385,7 +385,6 @@
   gap: 4px;
   margin-bottom: 10px;
   color: var(--text-2);
-  font-size: 12px;
 }
 
 #shortcut-form input {
@@ -395,7 +394,6 @@
 #shortcut-error {
   min-height: 18px;
   color: var(--danger);
-  font-size: 12px;
 }
 
 .dialog-actions {

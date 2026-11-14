@@ -1,79 +1,224 @@
 (() => {
   const MIN_TEXT = 600;
-  const textLength = (el) => (el.innerText || el.textContent || "").trim().length;
+  const ARTICLE_TEXT_SHARE = 0.85;
 
-  const candidates = [
-    ...document.querySelectorAll("article, main, [role='main'], [itemprop='articleBody'], .post, .article, .entry-content, #content, .content")
-  ];
-  if (!candidates.length) candidates.push(document.body);
-  const score = (el) => [...el.querySelectorAll("p")].reduce((sum, p) => sum + textLength(p), 0);
-  let best = candidates
-    .filter((el) => el && textLength(el) > 0)
-    .sort((a, b) => score(b) - score(a))[0];
+  const ARTICLE_BODY = "[itemprop~='articleBody'], .entry-content, .post-content";
+  const ARTICLE = "article, .post, .article";
+  const MAIN = "main, [role='main'], #content, .content";
 
-  if (best === document.body || !best || score(best) < MIN_TEXT) {
-    const holders = new Map();
-    for (const p of document.querySelectorAll("p")) {
-      const parent = p.parentElement;
-      if (parent) holders.set(parent, (holders.get(parent) || 0) + textLength(p));
+  const EXCLUDED = [
+    "script", "style", "noscript", "template", "iframe", "object", "embed",
+    "form", "button", "input", "select", "textarea", "nav", "aside", "footer",
+    "dialog", "svg", "canvas", "video", "audio", "[hidden]", "[aria-hidden='true']",
+    "[role='navigation']", "[role='complementary']",
+    ".ad", ".ads", ".advert", ".share", ".social", ".related", ".comments"
+  ].join(", ");
+
+  const ALLOWED = new Set((
+    "p h1 h2 h3 h4 h5 h6 ul ol li blockquote pre code em strong b i a img " +
+    "figure figcaption table caption thead tbody tfoot tr th td br hr sup sub " +
+    "div section article span dl dt dd"
+  ).split(" "));
+
+  const body = document.body;
+  if (!body) return "no-article";
+
+  const normalize = text => (text ?? "").replace(/\s+/g, " ").trim();
+
+  const isVisible = element => {
+    const style = getComputedStyle(element);
+    return style.display !== "none" && style.visibility === "visible";
+  };
+
+  const scores = new Map();
+
+  for (const paragraph of body.querySelectorAll("p")) {
+    if (
+      paragraph.closest(EXCLUDED) ||
+      !paragraph.getClientRects().length ||
+      !isVisible(paragraph)
+    ) continue;
+
+    const textLength = normalize(paragraph.innerText).length;
+    const linkedLength = Array.from(paragraph.querySelectorAll("a"))
+      .reduce((sum, link) => sum + normalize(link.innerText).length, 0);
+    const score = Math.max(0, textLength - linkedLength);
+    if (!score) continue;
+
+    for (let element = paragraph.parentElement; element; element = element.parentElement) {
+      scores.set(element, (scores.get(element) ?? 0) + score);
+      if (element === body) break;
     }
-    let top = null;
-    let topScore = 0;
-    for (const [el, value] of holders) if (value > topScore) { top = el; topScore = value; }
-    if (top && topScore >= MIN_TEXT) best = top;
   }
 
-  if (!best || score(best) < MIN_TEXT) return "no-article";
+  const priority = element => {
+    if (element.matches(ARTICLE_BODY)) return 3;
+    if (element.matches(ARTICLE)) return 2;
+    if (element.matches(MAIN)) return 1;
+    return 0;
+  };
 
-  const article = best.cloneNode(true);
-  article.querySelectorAll(
-    "script, style, noscript, iframe, object, embed, form, button, input, select, textarea, nav, aside, footer, " +
-    "svg, canvas, video, audio, [aria-hidden='true'], [hidden], .ad, .ads, .advert, .share, .social, .related, .comments"
-  ).forEach((el) => el.remove());
+  const ranked = Array.from(scores, ([element, score]) => ({
+    element,
+    score,
+    priority: priority(element)
+  })).sort((a, b) => b.score - a.score);
 
-  const allowed = new Set(["P", "H1", "H2", "H3", "H4", "H5", "H6", "UL", "OL", "LI", "BLOCKQUOTE", "PRE", "CODE",
-    "EM", "STRONG", "B", "I", "A", "IMG", "FIGURE", "FIGCAPTION", "TABLE", "THEAD", "TBODY", "TR", "TH", "TD",
-    "BR", "HR", "SUP", "SUB", "DIV", "SECTION", "ARTICLE", "SPAN", "PICTURE", "DL", "DT", "DD"]);
-  const safeUrl = (value) => /^(https?:|data:image\/)/i.test(value || "");
+  let best = ranked[0];
+  if (!best || best.score < MIN_TEXT) return "no-article";
 
-  for (const el of [...article.querySelectorAll("*")]) {
-    if (!allowed.has(el.tagName)) {
-      el.replaceWith(...el.childNodes);
-      continue;
-    }
-    for (const attribute of [...el.attributes]) {
-      const keep =
-        (el.tagName === "A" && attribute.name === "href" && safeUrl(el.href)) ||
-        (el.tagName === "IMG" && (attribute.name === "alt" || (attribute.name === "src" && safeUrl(el.src)))) ||
-        ((el.tagName === "TD" || el.tagName === "TH") && (attribute.name === "colspan" || attribute.name === "rowspan"));
-      if (!keep) el.removeAttribute(attribute.name);
-    }
-    if (el.tagName === "A") { el.setAttribute("target", "_blank"); el.setAttribute("rel", "noopener noreferrer"); }
-    if (el.tagName === "IMG" && !el.getAttribute("src")) el.remove();
+  const threshold = Math.max(MIN_TEXT, best.score * ARTICLE_TEXT_SHARE);
+
+  for (const candidate of ranked) {
+    if (candidate.score < threshold) break;
+
+    const higherPriority = candidate.priority > best.priority;
+    const narrowerMatch =
+      candidate.priority === best.priority &&
+      best.element.contains(candidate.element);
+
+    if (higherPriority || narrowerMatch) best = candidate;
   }
 
-  const heading = document.querySelector("h1")?.innerText?.trim() || document.title;
-  const site = location.hostname.replace(/^www\./, "");
+  const reader = document.implementation.createHTMLDocument();
+  const baseUrl = document.baseURI;
+
+  const safeUrl = value => {
+    if (!value?.trim()) return null;
+
+    try {
+      const url = new URL(value, baseUrl);
+      return url.protocol === "https:" || url.protocol === "http:" ? url.href : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const copyContent = (source, destination) => {
+    for (const node of source.childNodes) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        destination.append(reader.createTextNode(node.data));
+        continue;
+      }
+
+      if (
+        node.nodeType !== Node.ELEMENT_NODE ||
+        node.namespaceURI !== "http://www.w3.org/1999/xhtml" ||
+        node.matches(EXCLUDED) ||
+        !isVisible(node)
+      ) continue;
+
+      const tag = node.localName;
+      if (!ALLOWED.has(tag)) {
+        copyContent(node, destination);
+        continue;
+      }
+
+      const element = reader.createElement(tag);
+
+      if (tag === "a") {
+        const href = safeUrl(node.getAttribute("href"));
+        if (href) {
+          element.href = href;
+          element.target = "_blank";
+          element.rel = "noopener noreferrer";
+        }
+      }
+
+      if (tag === "img") {
+        const src = [
+          node.getAttribute("data-src"),
+          node.getAttribute("data-original"),
+          node.currentSrc,
+          node.getAttribute("src")
+        ].map(safeUrl).find(Boolean);
+
+        if (!src) {
+          destination.append(reader.createTextNode(node.alt));
+          continue;
+        }
+
+        element.alt = node.alt;
+        element.loading = "lazy";
+        element.referrerPolicy = "no-referrer";
+        element.src = src;
+      }
+
+      if (tag === "td" || tag === "th") {
+        for (const name of ["colspan", "rowspan"]) {
+          const value = node.getAttribute(name);
+          if (value !== null && /^\d+$/.test(value)) {
+            element.setAttribute(name, value);
+          }
+        }
+      }
+
+      copyContent(node, element);
+      destination.append(element);
+    }
+  };
+
+  const content = reader.createElement("article");
+  copyContent(best.element, content);
+
+  const retainedText = Array.from(content.querySelectorAll("p"))
+    .reduce((sum, paragraph) => sum + normalize(paragraph.textContent).length, 0);
+
+  if (retainedText < MIN_TEXT) return "no-article";
+
+  const articleHeading = content.querySelector("h1");
+  const enclosingArticle = best.element.closest(ARTICLE);
+  const heading =
+    normalize(articleHeading?.textContent) ||
+    normalize(enclosingArticle?.querySelector("h1")?.innerText) ||
+    normalize(document.title) ||
+    location.hostname;
+
+  if (articleHeading && normalize(articleHeading.textContent) === heading) {
+    articleHeading.remove();
+  }
+
+  reader.title = heading;
+
+  const viewport = reader.createElement("meta");
+  viewport.name = "viewport";
+  viewport.content = "width=device-width, initial-scale=1";
+
+  const style = reader.createElement("style");
+  style.textContent = `
+    :root { color-scheme: light dark; }
+    body {
+      margin: 0;
+      background: Canvas;
+      color: CanvasText;
+      font: 19px/1.65 Georgia, "Times New Roman", serif;
+    }
+    main { max-width: 680px; margin: auto; padding: 48px 24px 96px; overflow-wrap: anywhere; }
+    .site { font: 14px/1.4 system-ui, sans-serif; opacity: .7; }
+    h1, h2, h3, h4 { font-family: system-ui, sans-serif; line-height: 1.25; }
+    img { display: block; max-width: 100%; height: auto; margin: 1.2em auto; }
+    figcaption { font-size: 14px; text-align: center; }
+    a { color: LinkText; }
+    pre, table { max-width: 100%; overflow: auto; }
+    pre { padding: 12px; border: 1px solid GrayText; }
+    blockquote { margin: 1em 0; padding-inline-start: 16px; border-inline-start: 3px solid GrayText; }
+    table { display: block; border-collapse: collapse; font-size: 15px; }
+    td, th { border: 1px solid GrayText; padding: 4px 8px; }
+  `;
+  reader.head.append(viewport, style);
+
+  const main = reader.createElement("main");
+  const site = reader.createElement("div");
+  site.className = "site";
+  site.textContent = location.hostname.replace(/^www\./i, "");
+
+  const title = reader.createElement("h1");
+  title.textContent = heading;
+  main.append(site, title, content);
+  reader.body.append(main);
 
   window.stop();
-  document.documentElement.innerHTML =
-    "<head><meta charset='utf-8'><meta name='viewport' content='width=device-width'><title></title><style>" +
-    ":root{color-scheme:light dark}body{margin:0;background:Canvas;color:CanvasText;font:19px/1.65 Georgia,'Times New Roman',serif}" +
-    "main{max-width:680px;margin:0 auto;padding:48px 24px 96px}" +
-    ".site{font:13px/1.4 'Segoe UI',system-ui,sans-serif;opacity:.65;margin-bottom:8px}" +
-    "h1{font:700 32px/1.25 'Segoe UI',system-ui,sans-serif;margin:0 0 28px}" +
-    "h2,h3,h4{font-family:'Segoe UI',system-ui,sans-serif;line-height:1.3;margin:1.6em 0 .6em}" +
-    "img{max-width:100%;height:auto;display:block;margin:1.2em auto}figcaption{font-size:14px;opacity:.7;text-align:center}" +
-    "a{color:LinkText}pre{overflow:auto;font-size:14px;padding:12px;border:1px solid GrayText}" +
-    "blockquote{margin:1em 0;padding-left:16px;border-left:3px solid GrayText;opacity:.85}" +
-    "table{border-collapse:collapse;font-size:15px}td,th{border:1px solid GrayText;padding:4px 8px}" +
-    "</style></head><body><main><div class='site'></div><h1></h1></main></body>";
-  document.title = heading;
-  document.querySelector(".site").textContent = site;
-  document.querySelector("h1").textContent = heading;
-  const first = article.querySelector("h1");
-  if (first && first.textContent.trim() === heading) first.remove();
-  document.querySelector("main").appendChild(article);
+  document.documentElement.replaceChildren(reader.head, reader.body);
   window.scrollTo(0, 0);
   return "ok";
 })();

@@ -1,5 +1,25 @@
 # Changelog
 
+## 3.0.0
+
+Feather 3.0.0 improves password autofill and Reader Mode, and simplifies the code behind Settings, Library, New Tab, and Welcome.
+
+### Added
+
+- **Password autofill** now detects when multiple eligible password fields are present and skips autofill when the intended field is unclear. It also checks whether the password stays filled after the page reacts.
+- **Reader Mode** now supports common lazy-loaded images, preserves table captions and footers, and shows image alt text when an image URL is unsupported.
+
+### Fixed
+
+- **Password autofill** now pairs usernames and passwords within the same form when one is present. It skips hidden, disabled, read-only, and new-password fields. It also stops if the page replaces the password field while processing the username.
+- **Reader Mode** now gives article-specific sections more weight, discounts link-heavy paragraphs, and skips hidden content and common sidebars. It checks that enough article text remains after cleanup before replacing the page.
+- **Reader Mode** now resolves relative links and image URLs against the original page, prefers the article’s own heading, and removes a duplicate title. Wide tables and code blocks can scroll horizontally.
+
+### Changed
+
+- Consolidated shared styles for panels, sidebars, and other common elements. Total CSS is about **6% smaller**.
+- Simplified the repeated markup for 25 Settings switches and 19 keyboard shortcuts. The Settings HTML is about **10% smaller**.
+
 ## 2.1.1
 
 Feather 2.1.1 gets more video players working and explains the ones it can't play.
